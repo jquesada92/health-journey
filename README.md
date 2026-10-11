@@ -1,3 +1,12 @@
+---
+title: Health Journey
+emoji: 💪
+colorFrom: blue
+colorTo: green
+sdk: gradio
+app_file: app.py
+---
+
 # Health Journey
 
 Proyecto modular para reunir composición corporal, entrenamiento, nutrición y, en una etapa futura, exámenes médicos en un historial personal que alimente un asistente de fitness y salud.
