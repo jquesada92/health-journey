@@ -1,0 +1,63 @@
+name: Sync app to Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - app.py
+      - README.md
+      - requirements.txt
+      - .github/workflows/deploy-huggingface.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: huggingface-deploy
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install upload client
+        run: python -m pip install 'huggingface_hub>=1.0,<2.0'
+      - name: Upload app files
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ vars.HF_SPACE_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          import tempfile
+          from pathlib import Path
+          from huggingface_hub import HfApi
+
+          token = os.environ.get('HF_TOKEN')
+          space_id = os.environ.get('HF_SPACE_ID')
+          if not token or not space_id:
+              raise SystemExit('Configure HF_TOKEN secret and HF_SPACE_ID variable.')
+
+          files = ['app.py', 'requirements.txt', 'README.md']
+          for name in files:
+              if not Path(name).is_file():
+                  raise SystemExit(f'Missing required file: {name}')
+
+          with tempfile.TemporaryDirectory() as staging:
+              for name in files:
+                  shutil.copy2(name, Path(staging) / name)
+              HfApi(token=token).upload_folder(
+                  repo_id=space_id,
+                  repo_type='space',
+                  folder_path=staging,
+                  commit_message=f"Sync GitHub {os.environ['GITHUB_SHA'][:12]}",
+              )
+          PY
