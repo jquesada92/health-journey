@@ -108,7 +108,9 @@ QA no se conecta a servicios de producción y usa datos ficticios o anonimizados
 
 ## Estado actual
 
-El proyecto cuenta con instrucciones de arquitectura en `AGENTS.md`, un `app.py` mínimo que muestra «Hola mundo» y un archivo `requirements.txt` con las dependencias Python.
+El proyecto cuenta con instrucciones de arquitectura en `AGENTS.md`, un `app.py` con Gradio que renderiza este README y un archivo `requirements.txt` con las dependencias Python.
+
+La vista actual en Gradio muestra documentación; el QA completo con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
 
 El flujo InBody, la interfaz React, la base de datos, el contenedor QA, CDC y archivado todavía no están implementados. Los entornos descritos son objetivos de diseño, no despliegues verificados.
 
@@ -119,4 +121,4 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Abrir http://localhost:7860. Este ejemplo únicamente sirve la página «Hola mundo»; no inicia PostgreSQL ni el flujo de carga de reportes.
+Abrir http://localhost:7860. Mantener `README.md` junto a `app.py`: se lee en cada solicitud, por lo que los cambios aparecen al recargar la página. Este ejemplo no inicia PostgreSQL ni el flujo de carga de reportes.
