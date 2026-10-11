@@ -119,7 +119,9 @@ QA no se conecta a servicios de producción y usa datos ficticios o anonimizados
 
 El proyecto cuenta con instrucciones de arquitectura en `AGENTS.md`, un `app.py` con Gradio que renderiza este README y un archivo `requirements.txt` con las dependencias Python.
 
-La vista actual en Gradio muestra documentación; el QA completo con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
+La vista actual en Gradio muestra documentación y permite extraer texto de imágenes con EasyOCR mediante `@spaces.GPU` en ZeroGPU. El texto requiere revisión; la precisión con reportes InBody y la ejecución GPU aún no están verificadas. PDF y tabulación estructurada siguen pendientes. En local, se usa CPU cuando CUDA no está disponible; los modelos OCR se descargan en el primer arranque.
+
+La interfaz el QA completo con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
 
 El flujo InBody, la interfaz React, la base de datos, el contenedor QA, CDC y archivado todavía no están implementados. Los entornos descritos son objetivos de diseño, no despliegues verificados.
 
