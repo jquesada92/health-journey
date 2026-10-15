@@ -145,14 +145,14 @@ QA no se conecta a servicios de producción y usa datos ficticios o anonimizados
 - Validación de fechas, unidades, relaciones y consistencia de datos.
 - Aislamiento de personas y sesiones, con protección de datos de salud.
 - Paginación y consultas acotadas para mantener ágil la aplicación.
-- Extracción determinista y OCR local antes de recurrir a modelos de IA.
+- Extracción de texto con modelos OCR preentrenados (EasyOCR actual y TrOCR Small de Hugging Face previsto), más reglas deterministas y revisión humana para normalizar las mediciones.
 - Uso de IA con contexto mínimo, límites de costo y medición de precisión.
 
 ## Contexto del reto OBS · Semana 2
 
 La ficha para Blackboard y el alcance verificable de la versión 0 se documentan en [docs/hito-semana-2.md](docs/hito-semana-2.md). La [especificación](especificacion.md) limita el MVP a tres funcionalidades y define entradas, salidas, restricciones y criterios de aceptación; [AGENTS.md](AGENTS.md) guía a los asistentes de programación.
 
-**Pieza de IA propuesta:** API de Gemini (visión multimodal para reportes heterogéneos). **Pieza que ya existe en la versión 0:** EasyOCR para extraer texto de imágenes. La integración de Gemini está prevista, pero no está implementada. Cualquier futura clave debe guardarse en secretos, nunca en el repositorio.
+**Pieza de IA elegida para el reto:** un modelo de Hugging Face ejecutado localmente, [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), combinado con EasyOCR para detectar regiones de texto. TrOCR reconoce texto impreso de líneas individuales; **no comprende por sí solo un reporte completo ni lo convierte en mediciones estructuradas**. Las reglas de Python/Pydantic identifican y validan las mediciones, que el usuario revisa antes de confirmar. No requiere una API comercial ni tiene cobros por solicitud, pero sí recursos de cómputo y descargas de modelo. En Hugging Face ZeroGPU el alojamiento gratuito está sujeto a elegibilidad, cuotas y disponibilidad. **Estado actual:** EasyOCR funciona como primera aproximación; TrOCR, PDF y tabulación todavía no están integrados. No se utilizarán documentos de salud reales en el Space público del reto.
 
 ## Estado actual
 
@@ -160,7 +160,7 @@ El proyecto cuenta con instrucciones de arquitectura en `AGENTS.md`, un `app.py`
 
 La vista actual en Gradio muestra documentación y permite extraer texto de imágenes con EasyOCR mediante `@spaces.GPU` en ZeroGPU. El texto requiere revisión; la precisión con reportes InBody y la ejecución GPU aún no están verificadas. PDF y tabulación estructurada siguen pendientes. En local, se usa CPU cuando CUDA no está disponible; los modelos OCR se descargan en el primer arranque.
 
-La interfaz el QA completo con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
+La interfaz QA completa con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
 
 El flujo InBody, la interfaz React, la base de datos, el contenedor QA, CDC y archivado todavía no están implementados. Los entornos descritos son objetivos de diseño, no despliegues verificados.
 
