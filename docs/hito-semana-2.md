@@ -9,12 +9,12 @@ Health Journey es un proyecto modular orientado a un asistente virtual que ayude
 1. **Problema:** Los datos de salud y progreso físico están dispersos entre aplicaciones que no se comunican y documentos en múltiples formatos; por ejemplo, cinco pruebas InBody en una tienda y seis en otra quedan en historiales separados, dificultando seguir una tendencia continua.
 2. **Usuario:** Personas que entrenan y desean comprender su evolución física sin transcribir manualmente reportes obtenidos en distintos centros y aplicaciones.
 3. **Qué hará la app:** (1) recibir reportes InBody en PDF, PNG y JPG, (2) extraer y validar mediciones y datos del examen y (3) consolidar un historial por persona y fuente para consultar la evolución.
-4. **Pieza de IA:** Se propone la **API de Gemini** por sus capacidades multimodales para interpretar reportes con texto, imágenes y diseños variables y transformarlos en datos estructurados; la versión 0 usa OCR local.
+4. **Pieza de IA:** Usaremos un **modelo de Hugging Face (TrOCR Small Printed)**, combinado con EasyOCR y validaciones Python, para reconocer texto de reportes InBody sin llamadas a APIs de pago; el usuario revisará las mediciones extraídas.
 5. **Enlace a la versión 0:** https://jaqo-health-journey.hf.space/ (**pendiente de comprobar en ventana de incógnito antes de publicar**).
 
 ## Aclaración para las semanas 2 y 3
 
-La versión 0 **solo permite cargar imágenes y obtener texto con EasyOCR**. No admite PDF, no extrae mediciones estructuradas, no consolida historiales y no integra Gemini todavía. La ficha anterior describe la intención de la fase 1 y no debe confundirse con capacidades ya implementadas. La semana 3 incorporará la pieza de IA y registrará una prueba y una mejora a partir del feedback.
+La versión 0 **solo permite cargar imágenes y obtener texto con EasyOCR**. No admite PDF, no extrae mediciones estructuradas, no consolida historiales y todavía **no integra TrOCR**. La ficha anterior describe la intención de la fase 1 y no debe confundirse con capacidades ya implementadas. La semana 3 incorporará la pieza de IA y registrará una prueba y una mejora a partir del feedback.
 
 ## Prueba de compañero (semana 3)
 
