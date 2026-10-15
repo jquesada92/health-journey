@@ -44,21 +44,14 @@ No sustituir datos faltantes por cero. Las medidas obtenidas con modelos distint
 
 ## 4. La pieza de IA
 
-- **Opción elegida para la evolución del MVP:** API de Gemini multimodal, porque los reportes pueden venir como texto, imagen o documento escaneado con maquetaciones distintas.
-- **Disponible en versión 0:** EasyOCR local, sin integración a Gemini y sin estructura semántica de salida.
-- **Salida objetivo del modelo:** JSON con metadatos y lista de mediciones presentes; cada valor debe poder verificarse contra el documento fuente. Validar este JSON con Pydantic y reglas del dominio.
-- **Instrucciones propuestas para el modelo (system prompt):**
-
-```text
-Eres un extractor de datos de reportes de composición corporal InBody.
-Devuelve únicamente los campos presentes y legibles del documento en una estructura JSON definida.
-No inventes valores, unidades, fechas, modelos ni identificadores.
-Conserva el texto original relevante para verificación.
-Si un campo es ilegible, ambiguo o no aparece, usa null e informa la incertidumbre.
-No emitas diagnósticos, recomendaciones médicas ni interpretaciones clínicas.
-```
-
-- **Errores:** si no hay clave, conexión, cuota o respuesta válida, mostrar un mensaje entendible, no persistir datos parciales y permitir corregir/reintentar. Las claves solo en secretos.
+- **Opción elegida:** un modelo de Hugging Face descargado y ejecutado dentro de la aplicación, [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), junto con EasyOCR.
+- **Por qué:** evita facturación por llamadas a una API y conserva la opción de procesar documentos localmente. TrOCR Small es un modelo neuronal para reconocer texto impreso en imágenes de una sola línea; EasyOCR detecta regiones de texto y puede actuar como OCR alternativo.
+- **Estado actual:** `app.py` usa EasyOCR; TrOCR todavía no está integrado ni probado con reportes InBody. El soporte PDF y la estructuración de mediciones siguen pendientes.
+- **Cómo se aplicará:** (1) extraer texto nativo de PDF cuando exista o renderizar páginas escaneadas a imagen; (2) detectar líneas/regiones; (3) aplicar TrOCR Small a recortes apropiados y contrastar con EasyOCR cuando aporte valor; (4) asociar etiquetas y valores con reglas de Python, validar mediante Pydantic y exigir revisión de ambigüedades.
+- **Limitaciones:** el modelo no entiende por sí solo la estructura completa de tablas InBody; podría leer números o etiquetas de forma incorrecta y requerirá pruebas con variantes de plantilla. No debe inventar mediciones ni inferir valores ausentes.
+- **Coste:** cero por peticiones de inferencia al ejecutar los pesos descargados por cuenta propia. El Space ZeroGPU gratuito está sujeto a requisitos de elegibilidad, cuotas de minutos y disponibilidad; si estas se agotan, mostrar aviso y ofrecer reintento posterior o ejecución local, sin migrar automáticamente a servicios facturables.
+- **Seguridad:** procesar solo documentos sintéticos o anonimizados en el Space público. No enviar información de salud a APIs externas; validar archivos, limitar tamaño y evitar imprimir datos personales en logs.
+- **Reglas para el agente de programación:** documentar identificador exacto del modelo y versión, descargar los pesos de fuente confiable, cachear el modelo, limitar cargas y tiempo de inferencia, no cambiar a un servicio de pago sin autorización y registrar resultados de pruebas antes de declarar soporte para un formato.
 
 ## 5. Flujo del usuario
 
@@ -76,7 +69,7 @@ No emitas diagnósticos, recomendaciones médicas ni interpretaciones clínicas.
 ## 6. Restricciones
 
 - Coste cero para el reto; usar opciones gratuitas en QA y datos ficticios o debidamente anonimizados.
-- No subir claves al código, README, chat o repositorio. Usar secretos de Hugging Face para la API.
+- No subir secretos, credenciales ni datos personales al código, README, chat o repositorio. La pieza OCR elegida no necesita clave de API.
 - No permitir documentos clínicos reales en un Space público del reto; los datos de salud requieren privacidad, aislamiento por usuario, consentimiento y política de retención antes de una operación real.
 - Máximo tres funcionalidades centrales durante el reto.
 - Interfaz en español y mensajes comprensibles para usuarios no técnicos.
@@ -97,7 +90,7 @@ No emitas diagnósticos, recomendaciones médicas ni interpretaciones clínicas.
 | 5 pruebas tienda A + 6 tienda B (objetivo) | Un historial con 11 pruebas únicas ordenadas cronológicamente y con sus respectivas fuentes |
 | Reimportación del mismo examen (objetivo) | Se informa posible duplicado y no se inserta silenciosamente |
 | Cambio de modelo InBody (objetivo) | Se conserva el modelo por prueba y aparece advertencia de comparabilidad |
-| Cuota de Gemini agotada / falta de API key (objetivo) | Aviso claro, sin pérdida ni persistencia de resultados incompletos |
+| Cuota ZeroGPU agotada, modelo no disponible o error de descarga (objetivo) | Aviso claro y opción de reintento o ejecución local, sin activar servicios de pago |
 
 Los casos de objetivo deben verificarse al implementarse; no están declarados como pruebas superadas.
 
@@ -115,4 +108,4 @@ Los casos de objetivo deben verificarse al implementarse; no están declarados c
 - **Repositorio:** `jquesada92/health-journey`.
 - **Archivo de entrada actual:** `app.py` (Gradio + EasyOCR); `README.md` conserva la cabecera YAML del Space.
 - **Enlace público:** verificar desde navegador en modo incógnito antes de publicar en Blackboard; que el repositorio exista no confirma que el Space esté funcionando.
-- **Próximos pasos:** documentar pruebas con datos sintéticos; cerrar el formulario de revisión y la tabulación; integrar IA multimodal mediante secretos y comprobar errores de cuota.
+- **Próximos pasos:** documentar pruebas con datos sintéticos, experimentar con TrOCR Small para reconocimiento de líneas, completar el soporte de PDF, revisión humana y tabulación. Medir precisión y tiempos antes de asumir que el modelo mejora a EasyOCR.
