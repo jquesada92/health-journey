@@ -20,7 +20,7 @@ Health Journey es una plataforma modular para consolidar información personal d
 - **Documentación visible en la app:** la pestaña Proyecto lee `README.md` y omite la cabecera YAML del Space.
 - **Dependencias:** `requirements.txt`.
 - **Arquitectura prevista, todavía no desplegada:** React/TypeScript, FastAPI/Pydantic, PostgreSQL (SQLAlchemy/Alembic); desarrollo local, QA aislado y producción separada.
-- **IA prevista:** API multimodal de Gemini para interpretar documentos de formatos variables. **No está conectada al MVP actual**. No presentarla como funcionalidad existente.
+- **Modelo de IA elegido para la evolución del reto:** [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), ejecutado con pesos descargados de Hugging Face, y EasyOCR para localizar texto o servir de comparación. TrOCR reconoce texto impreso **línea a línea**, no extrae automáticamente la semántica de tablas InBody. **TrOCR todavía no está integrado**; no presentarlo como disponible.
 
 Documentos de referencia: `README.md` (visión, fases, estado), `especificacion.md` (contrato funcional y pruebas), `docs/hito-semana-2.md` (ficha académica).
 
@@ -31,13 +31,13 @@ Documentos de referencia: `README.md` (visión, fases, estado), `especificacion.
 - **No cambiar arquitectura ni modelo de IA sin autorización.** No desplegar, hacer merge ni push a producción o a `main` sin revisión del usuario.
 - Preservar el frontmatter YAML inicial de `README.md`: Hugging Face lo requiere para arrancar la app.
 - No introducir datos personales de salud reales, credenciales, PDFs identificables ni nombres de pacientes en ejemplos, logs o pruebas. Usar datos sintéticos/anonimizados.
-- Guardar cualquier `GEMINI_API_KEY` u otras credenciales solo en secretos/variables de entorno. Nunca en GitHub ni en un chat.
+- La solución elegida no requiere API de pago ni clave de Gemini. Si se añaden credenciales en el futuro, guardarlas únicamente como secretos/variables de entorno, nunca en GitHub o chats.
 - Para documentos: distinguir PDF de texto de PDF escaneado; un OCR de imagen no demuestra que PDF ya funciona.
 - Para mediciones: jamás inventar valores, fechas o unidades. Los campos ilegibles se dejan vacíos y requieren revisión humana. No reemplazar ausentes por cero.
 - Mantener el identificador de persona separado del de examen, almacenar procedencia y modelo del equipo por examen y verificar duplicados. No mezclar series de personas diferentes.
 - Marcar cambios de equipo, unidad, definición o método cuando afecten comparaciones entre pruebas; no asumir equivalencia sin validación.
 - Validar entradas, controlar tamaños de archivo y devolver errores en español sin exponer secretos ni trazas internas.
-- Para futuras funciones de IA, manejar errores de red, cuotas y formato de respuesta con `try/except` y mensajes claros; validar esquemas antes de persistir.
+- En la futura integración de TrOCR, manejar errores de carga del modelo, red, límites de ZeroGPU e inferencia con mensajes claros en español. Validar esquemas antes de persistir; no activar endpoints o servicios de pago automáticamente.
 - En la fase clínica, no crear diagnósticos, recetas, cambios de medicación ni afirmaciones de certeza clínica. Asegurar privacidad, acceso autorizado y revisión de la información.
 - Si añades una biblioteca, actualizar `requirements.txt` y documentar por qué es necesaria.
 
@@ -56,7 +56,7 @@ Estas son expectativas verificables desde el código, **no una declaración de p
 
 ### Fase 1 posterior
 
-- Validar PDF con texto y PDF escaneado, PNG/JPG, campos ilegibles, duplicados, 5+6 exámenes de dos fuentes, cambios de modelo y errores de cuota.
+- Validar PDF con texto y PDF escaneado, PNG/JPG, campos ilegibles, duplicados, 5+6 exámenes de dos fuentes, cambios de modelo y límites de ZeroGPU. Comparar EasyOCR y TrOCR con casos sintéticos y medir errores de reconocimiento de números/unidades.
 - Separar pruebas unitarias de extracción, normalización, reglas de negocio, persistencia y UI.
 - No almacenar datos dudosos sin confirmación. Verificar los casos de `especificacion.md`.
 
