@@ -26,7 +26,8 @@ from inbody_mvp.extractor import (
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
 from inbody_mvp.public_dashboard import (
-    PUBLIC_METRICS, public_dashboard_enabled, load_public_monthly_summary,
+    PUBLIC_METRICS, public_mode_requested, public_dashboard_enabled,
+    load_public_monthly_summary,
 )
 from inbody_mvp.storage import (
     database_enabled, require_report_access, require_database_access, load_measurement_history,
@@ -165,7 +166,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             session_info = gr.Markdown("Comprueba la sesión si aparece un error de autorización.")
         session_check.click(fn=check_session, inputs=[], outputs=[session_info])
     with gr.Tab("InBody Upload"):
-        if public_dashboard_enabled():
+        if public_mode_requested():
             gr.Markdown(
                 "**Modo público:** no se aceptan cargas, OCR, CSV privados ni "
                 "consultas individuales. Utiliza un Space privado separado."
@@ -177,11 +178,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         upload = gr.File(
             label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
-            type="filepath", interactive=not public_dashboard_enabled(),
+            type="filepath", interactive=not public_mode_requested(),
         )
         extract_button = gr.Button(
             "Extraer mediciones", variant="primary",
-            interactive=not public_dashboard_enabled(),
+            interactive=not public_mode_requested(),
         )
         status = gr.Markdown("Sube un archivo y pulsa «Extraer mediciones».")
         with gr.Row():
@@ -210,7 +211,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             raw = gr.Textbox(label="Texto OCR / PDF", lines=12, interactive=False)
         export_button = gr.Button(
             "Exportar borrador CSV (no guarda en una base de datos)",
-            interactive=not public_dashboard_enabled(),
+            interactive=not public_mode_requested(),
         )
         csv_file = gr.File(label="CSV borrador", interactive=False)
         extract_button.click(
@@ -242,7 +243,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         save_button = gr.Button(
             "Guardar examen confirmado en Neon",
             variant="primary",
-            interactive=database_enabled() and not public_dashboard_enabled(),
+            interactive=database_enabled() and not public_mode_requested(),
         )
         saved_status = gr.Markdown()
 
@@ -387,7 +388,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 value="", label="Región corporal",
             )
         load_button = gr.Button(
-            "Consultar Neon", interactive=not public_dashboard_enabled()
+            "Consultar Neon", interactive=not public_mode_requested()
         )
         db_status = gr.Markdown("Sin consulta.")
         db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
