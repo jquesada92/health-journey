@@ -20,6 +20,10 @@ from inbody_mvp.extractor import (
     DocumentError, MAX_UPLOAD_BYTES, extract_document,
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
+from inbody_mvp.storage import (
+    database_enabled, prepare_confirmed_exam, save_confirmed_exam,
+    DuplicateExam,
+)
 
 README_PATH = Path(__file__).resolve().with_name("README.md")
 
@@ -75,9 +79,11 @@ def process_report(file_path: str | None):
         result.timestamp or "",
         result.edad,
         f"Origen de la edad: {result.origen_edad or 'desconocido'}",
+        result.idioma_reporte,
         review_table(result),
         "\n\n--- Página siguiente ---\n\n".join(result.texto_por_pagina),
         "\n".join(f"• {item}" for item in result.advertencias) or "Sin advertencias adicionales.",
+        result.model_dump(mode="json"),
     )
 
 
@@ -111,6 +117,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             timestamp = gr.Textbox(label="Timestamp del examen (ISO 8601 si se conoce)")
             age = gr.Number(label="Edad al realizarse el examen", precision=0)
         age_source = gr.Markdown("Origen de la edad: desconocido")
+        report_language = gr.Dropdown(
+            choices=["ES", "EN", "UNKNOWN"], value="UNKNOWN",
+            label="Idioma del reporte (confirmar)",
+            info="ES = español; EN = inglés; UNKNOWN = no reconocido",
+        )
+        extraction_state = gr.State(value=None)
         gr.Markdown("### Mediciones candidatas (editar antes de exportar)")
         table = gr.Dataframe(
             headers=REVIEW_COLUMNS,
@@ -126,7 +138,8 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         csv_file = gr.File(label="CSV borrador", interactive=False)
         extract_button.click(
             fn=process_report, inputs=[upload],
-            outputs=[status, person, model, timestamp, age, age_source, table, raw, warnings],
+            outputs=[status, person, model, timestamp, age, age_source, report_language,
+                     table, raw, warnings, extraction_state],
             concurrency_limit=1,
         )
         export_button.click(
@@ -134,7 +147,40 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             inputs=[table, person, model, timestamp, age],
             outputs=[csv_file],
         )
-        gr.ClearButton([upload, status, person, model, timestamp, age, age_source, table, raw, warnings, csv_file], value="Limpiar")
+        if database_enabled():
+            gr.Markdown(
+                "### Guardar examen confirmado en Neon (solo sesión local privada)\n"
+                "Verifica identificación, idioma, valores, unidades y fecha antes de continuar."
+            )
+            save_button = gr.Button("Confirmar y guardar en PostgreSQL", variant="primary")
+            saved_status = gr.Markdown()
+            def save_reviewed(state, edited, person_id, device, when, years, lang):
+                if state is None:
+                    raise gr.Error("Primero procesa un reporte.")
+                try:
+                    payload = prepare_confirmed_exam(
+                        state, edited, person_id, device, when, years, lang
+                    )
+                    exam_id = save_confirmed_exam(payload)
+                except (ValueError, TypeError, RuntimeError) as exc:
+                    raise gr.Error(str(exc)) from exc
+                return f"Examen confirmado y guardado. ID interno: `{exam_id}`."
+            save_button.click(
+                fn=save_reviewed,
+                inputs=[extraction_state, table, person, model, timestamp, age, report_language],
+                outputs=[saved_status],
+                concurrency_limit=1,
+            )
+        else:
+            gr.Markdown(
+                "**Persistencia Neon deshabilitada en este entorno.** "
+                "El Space público solo permite revisar y exportar borradores. "
+                "Para guardar, configura DATABASE_URL y ENABLE_PERSISTENCE=1 "
+                "en una ejecución local privada."
+            )
+        gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
+                        report_language, table, raw, warnings, csv_file, extraction_state],
+                       value="Limpiar")
     with gr.Tab("Dashboard (siguiente fase)"):
         gr.Markdown(
             "El dashboard se construirá en **Gradio + Plotly** después de verificar "
