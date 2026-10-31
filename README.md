@@ -222,3 +222,9 @@ La aplicación tiene una ruta experimental de lectura agregada desde Neon, **des
 **Importante:** para datos reales hacen falta **dos Spaces**, uno privado de ingesta y otro público de visualización. No publicar la instancia que recibe documentos. El flujo de consentimiento y publicación individual todavía es un requisito pendiente, por lo que **no hay mediciones reales que se hagan públicas automáticamente**.
 
 [Diseño, migración y guía de seguridad del dashboard público](docs/dashboard-publico.md).
+
+## Autenticación simplificada
+
+**Extraer un reporte o exportar CSV ya no requiere un login adicional de Hugging Face.** Se eliminó la comprobación manual de sesión de la cabecera. Guardar y consultar historias privadas en Neon mantienen OAuth del servidor; el acceso se encuentra en «Acceso privado a Neon», dentro de la sección de guardado.
+
+Si el Space es público, **anonimiza el archivo antes de subirlo**: elimina cédulas, nombres, fechas de nacimiento y otros identificadores. Procesar un JPG no significa que su contenido deje de estar presente en el servidor.
