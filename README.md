@@ -206,6 +206,11 @@ Pruebas: `python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py test
 
 Los reportes InBody pueden venir en español o inglés. El extractor detecta de forma conservadora `idioma_reporte` con valores `ES`, `EN` o `UNKNOWN` y permite corregirlo desde Gradio. La etiqueta original se conserva y las variables se normalizan de manera independiente del idioma.
 
-Se creó el proyecto PostgreSQL **health-journey** en Neon, base `health_journey`. Su esquema separa personas, exámenes, mediciones y catálogo; la vista `hj_measurements_long` expone las siete columnas del formato vertical definido. El guardado, con validación y detección de duplicados por SHA-256, está disponible **solo en sesión local privada** cuando `DATABASE_URL` y `ENABLE_PERSISTENCE=1` estén configurados. El Space público **no guarda resultados**.
+Se creó el proyecto PostgreSQL **health-journey** en Neon, base `health_journey`. Su esquema separa personas, exámenes, mediciones y catálogo; la vista `hj_measurements_long` expone las siete columnas del formato vertical definido. El código de guardado, con validación y detección de duplicados por SHA-256, exige `DATABASE_URL` y `ENABLE_PERSISTENCE=1`. En Hugging Face exige además `HF_ALLOWED_USERS` y autenticación OAuth por operación; **no se debe habilitar para datos reales en un Space público** sin controles de privacidad verificados. La conexión real y la seguridad del despliegue deben comprobarse mediante pruebas de extremo a extremo.
 
 [Guía de Neon, esquema y seguridad](docs/neon-postgres.md) · [DDL versionado](db/schema.sql).
+
+
+## Harness de reconstrucción y criterios de aceptación
+
+La documentación normativa para reconstruir Health Journey desde cero está en [**harness/README.md**](harness/README.md). Incluye arquitectura, contratos, motor OCR ES/EN, Neon PostgreSQL, CSV portable, dashboard Gradio + Plotly con fuentes Neon/múltiples CSV, seguridad, despliegues, recuperación y **46 criterios verificables** (36 funcionales y 10 de seguridad). Se incluye un [prompt para agentes](harness/PROMPT_AGENTE.md) y un verificador offline `python harness/validar_reconstruccion.py`. Los requisitos pendientes aparecen identificados como objetivos, no como funcionalidades ya desplegadas.
