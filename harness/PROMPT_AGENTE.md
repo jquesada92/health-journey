@@ -53,3 +53,12 @@ Nunca inventes valores o metadatos. Mantén separados modelo, idioma, unidad, se
 ---
 
 Este prompt es un punto de partida operativo. Los documentos del harness definen el detalle; cualquier conflicto se resuelve contrastando estado real del código y requisitos vigentes, sin inventar implementación.
+
+## Reglas incorporadas tras los PR #8 y #9
+
+- Revisa `harness/10_publicacion_anonima_y_autenticacion.md` y `docs/dashboard-publico.md` antes de cambiar la interfaz o Neon.
+- Considera implementado en código el orden «comprobar archivo, comprobar OAuth, OCR» y su regresión sintética; **no** consideres verificado el OCR real del Space.
+- Conserva `OAuthProfile.username` para `HF_ALLOWED_USERS`, nunca uses el nombre visible.
+- Diferencia dashboard **privado** de historial individual (Neon y CSV de múltiples archivos, este último todavía pendiente) del **público**, que recibe únicamente estadísticos de cohortes mensuales con aprobación explícita y mínimo cinco personas distintas.
+- Antes de publicar para usuarios reales, construye una aplicación pública separada **sin endpoints privados**; usa `PUBLIC_DATABASE_URL` con rol de solo lectura, no `DATABASE_URL`.
+- El flujo de consentimiento, revocación y evaluación de reidentificación son bloqueantes; no publicar datos individuales seudonimizados ni activar publicaciones mediante operaciones SQL ad hoc.
