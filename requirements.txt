@@ -1,19 +1,13 @@
-fastapi>=0.115,<1.0
 pydantic>=2.10,<3.0
 pydantic-settings>=2.6,<3.0
-uvicorn[standard]>=0.32,<1.0
 psycopg[binary]>=3.2,<4.0
 SQLAlchemy>=2.0,<3.0
 alembic>=1.14,<2.0
-python-multipart>=0.0.18,<1.0
 gradio>=6.0,<7.0
 spaces
 easyocr>=1.7.2,<2.0
 
-# Flask + Dash: InBody upload/review and dashboards
-Flask>=3.1,<4.0
-dash>=4.4,<5.0
-dash-ag-grid>=35.3,<36.0
+# Gradio + Plotly: InBody upload/review and historical charts
 plotly>=6.0,<7.0
 pandas>=2.2,<4.0
 
