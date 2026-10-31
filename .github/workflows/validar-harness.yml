@@ -1,0 +1,30 @@
+name: Validar harness de reconstrucción
+on:
+  pull_request:
+    paths:
+      - 'harness/**'
+      - 'app.py'
+      - 'inbody_mvp/**'
+      - 'db/schema.sql'
+      - 'README.md'
+      - '.github/workflows/deploy-huggingface.yml'
+      - '.github/workflows/validar-harness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperar repositorio
+        uses: actions/checkout@v4
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compilar verificador
+        run: python -m py_compile harness/validar_reconstruccion.py
+      - name: Comprobar estructura, contratos y criterios
+        run: python harness/validar_reconstruccion.py
