@@ -89,3 +89,52 @@ def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -
         return result
     finally:
         engine.dispose()
+
+
+
+# Public personal history is opt-in per exam. The random alias is generated
+# inside PostgreSQL and is NOT a hash of the real InBody identifier.
+PUBLIC_SERIES_COLUMNS = (
+    "anonymous_id", "exam_date", "device_group", "variable_medida",
+    "unidad_medida", "segmento", "frecuencia_khz", "valor_medida",
+)
+
+
+def load_public_person_series(
+    variable: str = "weight", max_rows: int = 500,
+) -> list[dict]:
+    """Fetch only approved, pseudonymous individual measurements.
+
+    A UUID alias and date-only granularity reduce direct identification,
+    but personal measurement patterns can still be re-identifiable.
+    """
+    if not public_dashboard_enabled():
+        return []
+    if variable not in PUBLIC_METRICS:
+        raise ValueError("La variable solicitada no está aprobada para publicación.")
+    limit = min(max(int(max_rows), 1), 1500)
+    engine = _public_database_engine()
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT anonymous_id, exam_date, device_group, variable_medida,
+                       unidad_medida, segmento, frecuencia_khz, valor_medida
+                FROM hj_public_person_series
+                WHERE variable_medida = :metric
+                ORDER BY exam_date, anonymous_id
+                LIMIT :row_limit
+            """), {"metric": variable, "row_limit": limit}).mappings().all()
+        answer = []
+        for row in rows:
+            record = {key: row[key] for key in PUBLIC_SERIES_COLUMNS}
+            if record["exam_date"] is None or record["valor_medida"] is None:
+                continue
+            record["anonymous_id"] = str(record["anonymous_id"])
+            record["exam_date"] = record["exam_date"].isoformat()
+            record["valor_medida"] = float(record["valor_medida"])
+            if record["frecuencia_khz"] is not None:
+                record["frecuencia_khz"] = float(record["frecuencia_khz"])
+            answer.append(record)
+        return answer
+    finally:
+        engine.dispose()
