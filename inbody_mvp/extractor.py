@@ -19,6 +19,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 from .layouts import extract_inbody580, normalize_detections, tokens_to_text
+from .layouts_es import extract_spanish_silhouette
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_PAGES = 8
@@ -356,7 +357,17 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
     for page_number, detections, width, height in positional_pages:
         rows, metadata = extract_inbody580(detections, width, height)
         if not metadata:
+            rows, metadata = extract_spanish_silhouette(detections, width, height)
+        if not metadata:
             continue
+        if metadata.get("layout") == "spanish_silhouette":
+            # Positional header matching owns identity and exam date; do not
+            # inherit invented identifiers/model numbers from joined OCR text.
+            result.id_persona = None
+            result.modelo_inbody = None
+            result.timestamp = None
+            result.edad, result.origen_edad = None, None
+            result.medidas = []
         if rows:
             # Positional, multi-column layout: don't interpret chart-axis values
             # as a simple "label value unit" text line.
@@ -364,12 +375,15 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
                                   if not w.startswith("Variable no reconocida")]
             result.medidas = [Measurement.model_validate({**row, "pagina": page_number})
                              for row in rows]
-            notices.extend([
-                "Plantilla InBody 580: revisar todas las mediciones candidatas "
-                "contra el reporte original antes de exportar.",
-                "El historial gráfico impreso no se incorpora como nuevos "
-                "exámenes; requiere un extractor histórico específico.",
-            ])
+            if metadata.get("layout") == "spanish_silhouette":
+                notices.extend(metadata.get("warnings", []))
+            else:
+                notices.extend([
+                    "Plantilla InBody 580: revisar todas las mediciones candidatas "
+                    "contra el reporte original antes de exportar.",
+                    "El historial gráfico impreso no se incorpora como nuevos "
+                    "exámenes; requiere un extractor histórico específico.",
+                ])
         result.modelo_inbody = metadata.get("modelo_inbody") or result.modelo_inbody
         result.id_persona = metadata.get("id_persona") or result.id_persona
         exam = _parse_date(metadata["exam_date_raw"]) if metadata.get("exam_date_raw") else None
