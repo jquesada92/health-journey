@@ -214,3 +214,11 @@ Se creó el proyecto PostgreSQL **health-journey** en Neon, base `health_journey
 ## Harness de reconstrucción y criterios de aceptación
 
 La documentación normativa para reconstruir Health Journey desde cero está en [**harness/README.md**](harness/README.md). Incluye arquitectura, contratos, motor OCR ES/EN, Neon PostgreSQL, CSV portable, dashboard Gradio + Plotly con fuentes Neon/múltiples CSV, seguridad, despliegues, recuperación y **46 criterios verificables** (36 funcionales y 10 de seguridad). Se incluye un [prompt para agentes](harness/PROMPT_AGENTE.md) y un verificador offline `python harness/validar_reconstruccion.py`. Los requisitos pendientes aparecen identificados como objetivos, no como funcionalidades ya desplegadas.
+
+## Dashboard público sin identificadores
+
+La aplicación tiene una ruta experimental de lectura agregada desde Neon, **desactivada por defecto**. La información individual (ID, fecha exacta, edad, OCR y documento original) se mantiene privada; el dashboard público solo acepta promedios por mes de grupos de **cinco personas distintas como mínimo**, con autorización expresa previa de publicación y una credencial PostgreSQL de **solo lectura** separada. En modo público se bloquea el procesamiento de informes individuales.
+
+**Importante:** para datos reales hacen falta **dos Spaces**, uno privado de ingesta y otro público de visualización. No publicar la instancia que recibe documentos. El flujo de consentimiento y publicación individual todavía es un requisito pendiente, por lo que **no hay mediciones reales que se hagan públicas automáticamente**.
+
+[Diseño, migración y guía de seguridad del dashboard público](docs/dashboard-publico.md).
