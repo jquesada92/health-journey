@@ -23,8 +23,10 @@ jobs:
       - name: Install testing dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install 'pytest>=8,<10' 'pydantic>=2.10,<3' 'pandas>=2.2,<4' 'PyMuPDF>=1.26,<2' 'Pillow>=11,<13' 'SQLAlchemy>=2,<3' 'psycopg[binary]>=3.2,<4' 'python-dotenv>=1,<2'
+          python -m pip install 'pytest>=8,<10' 'pydantic>=2.10,<3' 'pandas>=2.2,<4' 'PyMuPDF>=1.26,<2' 'Pillow>=11,<13' 'SQLAlchemy>=2,<3' 'psycopg[binary]>=3.2,<4' 'python-dotenv>=1,<2' 'ruff>=0.9,<1.0'
+      - name: Detect undefined Python names (including UI callback references)
+        run: ruff check --select F821 app.py inbody_mvp
       - name: Compile Python modules
         run: python -m compileall -q inbody_mvp app.py
       - name: Run synthetic-only tests
-        run: python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py tests/test_inbody_layouts.py tests/test_layout_spanish.py tests/test_language_storage.py tests/test_ocr_runtime.py tests/test_public_dashboard.py tests/test_public_person_series.py
+        run: python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py tests/test_inbody_layouts.py tests/test_layout_spanish.py tests/test_language_storage.py tests/test_ocr_runtime.py tests/test_public_dashboard.py tests/test_public_person_series.py tests/test_app_ui_contract.py
