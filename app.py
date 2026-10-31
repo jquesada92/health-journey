@@ -29,6 +29,7 @@ from inbody_mvp.public_dashboard import (
     PUBLIC_METRICS, public_dashboard_enabled,
     load_public_monthly_summary, load_public_person_series,
 )
+from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.storage import (
     database_enabled, require_report_access, require_database_access, load_measurement_history,
     prepare_confirmed_exam, save_confirmed_exam,
@@ -129,8 +130,20 @@ def download_draft(
         return file.name
 
 
+OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
+
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
+    if os.getenv("SPACE_ID") and OAUTH_URLS:
+        gr.HTML(
+            '<div style="padding:0.4rem 0">'
+            '¿Necesitas guardar en Neon? Evita la pantalla blanca del login incrustado: '
+            f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
+            'rel="noopener noreferrer">Iniciar sesión en pestaña nueva</a>. '
+            f'<a href="{OAUTH_URLS["app"]}" target="_blank" '
+            'rel="noopener noreferrer">Abrir aplicación independiente</a>.'
+            '</div>'
+        )
     with gr.Tab("InBody Upload"):
         gr.Markdown(
             "**Carga y dashboard en el mismo Space.** Puedes extraer PDF/JPG/PNG "
@@ -204,11 +217,27 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         if os.getenv("SPACE_ID") and database_enabled():
             with gr.Accordion("Acceso privado a Neon (solo para guardar y consultar)", open=False):
                 gr.Markdown(
-                    "El OCR y la exportación CSV no requieren login. "
-                    "Para guardar o consultar exámenes personales, "
-                    "inicia sesión con una cuenta autorizada."
+                    "OCR, CSV y dashboard público funcionan sin login. "
+                    "Guardar o consultar datos privados requiere iniciar sesión "
+                    "en Hugging Face con un usuario autorizado. "
+                    "La vista incrustada puede fallar por las cookies OAuth."
                 )
-                gr.LoginButton()
+                if OAUTH_URLS:
+                    gr.HTML(
+                        f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
+                        'rel="noopener noreferrer">'
+                        'Iniciar sesión de forma segura en una pestaña nueva'
+                        '</a>'
+                    )
+                    gr.Markdown(
+                        "Tras iniciar sesión, utiliza la aplicación en esa "
+                        "misma pestaña nueva para guardar o consultar Neon. "
+                        "El inicio de sesión no cambia los permisos del dashboard."
+                    )
+                # Keep native OAuth routing registered even when a first-party
+                # login link is available. Show the old embedded button only
+                # when HF does not expose a validated standalone host.
+                gr.LoginButton(visible=OAUTH_URLS is None)
         gr.Markdown(
             "Después de revisar las mediciones, confirma el examen para guardarlo "
             "en el historial. Esta operación requiere una cuenta Hugging Face "
