@@ -67,3 +67,13 @@ El MVP solo se considera recuperado cuando: (a) carga documentos compatibles, (b
 ## Actualización de publicación individual (migración 003)
 
 Se añade al modelo objetivo la **publicación voluntaria de un historial individual seudonimizado**: conservar ID en tablas privadas, utilizar alias aleatorio `hj_persons.public_alias`, y consultar `hj_public_person_series` desde un lector público de solo lectura. No exigir una cohorte de cinco para un examen que el propietario aprueba explícitamente. La autorización inicial se efectúa mediante una casilla al guardar el examen en Neon, **desmarcada por defecto**; queda pendiente un mecanismo de revocación auditado y el Space público sin endpoints de carga. Las mediciones y fechas pueden permitir reidentificación. Más detalles: [`docs/public-person-series.md`](../docs/public-person-series.md).
+
+## Decisión posterior: un solo Space para OCR y dashboard público
+
+Por solicitud expresa del propietario, **el mismo Space de Gradio debe permitir carga y extracción PDF/JPG/PNG, exportar CSV y mostrar las series públicas**. Se elimina el bloqueo de controles cuando `ENABLE_PUBLIC_DASHBOARD=1`. El flag activa solo la lectura pública, no el modo de «solo visualización».
+
+El servicio puede recibir **dos credenciales distintas**: `DATABASE_URL` para guardar/consultar Neon privado con OAuth verificado en servidor, y `PUBLIC_DATABASE_URL` para consultar exclusivamente vistas públicas con rol SQL de solo lectura. Las medidas publicadas usan alias UUID aleatorio y consentimiento por examen (desmarcado por defecto). No exponer el identificador del reporte, edad ni OCR en el dashboard público.
+
+**Limitación aceptada:** en un Space públicamente accesible, cualquier upload envía sus bytes al servidor antes de que Python pueda anonimizarlo. Por tanto, solo cargar informes anonimizados **antes del upload** o utilizar un Space privado para datos de identidad. Este cambio no convierte series individuales seudonimizadas en anónimas irreversibles.
+
+Los apartados históricos que prescriben dos Spaces ya no describen la configuración requerida actual; este contrato los sustituye. Las pruebas deben demostrar coexistencia de OCR/dashboard y bloqueo de operaciones SQL privadas sin OAuth.

@@ -31,18 +31,23 @@ La interfaz transforma `anonymous_id` en «Serie XXXXXXXX» y muestra líneas Pl
 
 Esto es **seudonimización**, no anonimización irreversible: las fechas y valores publicados pueden identificar indirectamente a alguien que ya conozca su historial. El usuario toma la decisión de publicar cada examen expresamente.
 
-## Arquitectura
+## Arquitectura integrada en un solo Space
 
-- **Instancia privada:** OCR y CSV (después de retirar login obligatorio del flujo OCR en su PR correspondiente), guardado Neon con OAuth autorizado y `DATABASE_URL`; `ENABLE_PUBLIC_DASHBOARD=0`.
-- **Instancia pública, solo visualización:** `ENABLE_PUBLIC_DASHBOARD=1` y **únicamente** `PUBLIC_DATABASE_URL` (secreto) con el rol `health_journey_public` de SELECT sobre la vista, sin credenciales privadas. Para datos reales, desplegar un frontend que no registre rutas de upload o consulta privada.
+El mismo Space de Hugging Face puede procesar documentos, exportar CSV y visualizar el dashboard público:
+
+- **OCR/CSV:** sin login; acepta únicamente reportes previamente anonimizados si el Space es público.
+- **Guardar/historial privado:** usa `DATABASE_URL` del rol restringido; exige OAuth con usuario listado en `HF_ALLOWED_USERS`.
+- **Dashboard público:** usa exclusivamente `PUBLIC_DATABASE_URL` de solo lectura y `ENABLE_PUBLIC_DASHBOARD=1`. Esta configuración **no bloquea** la selección de JPG/PDF ni OCR.
+- Las dos cadenas de conexión se almacenan como Secrets diferentes. El frontend público nunca obtiene sus valores.
+- **Privacidad:** los archivos se reciben íntegros antes del OCR; si contienen ID, nombre o DOB, su carga a un Space público sin login no es confidencial. Anonimizarlos **antes de subirlos**.
 
 La migración `db/migrations/003_public_pseudonymous_series.sql` incorpora `hj_persons.public_alias` con `gen_random_uuid()` y la vista de tendencia individual, sin modificar las publicaciones existentes. `public_release_approved_at` se crea en migración 002.
 
 ## Activar y verificar
 
 1. Ejecuta las migraciones 002 y 003 en Neon por un usuario autorizado (la 003 ya se aplicó a la base existente `health_journey` el 31/10/2026).
-2. En la instancia privada, comprueba que `DATABASE_URL`, `ENABLE_PERSISTENCE=1` y `HF_ALLOWED_USERS` estén configuradas. Guarda un reporte de prueba con la casilla «Publicar» marcada **solo si deseas que sea visible públicamente**.
-3. Asegura que la instancia pública tenga `PUBLIC_DATABASE_URL` como Secret con el usuario `health_journey_public` y `ENABLE_PUBLIC_DASHBOARD=1`. Nunca reutilices el rol con permisos de escritura.
+2. En el Space unificado, configura `DATABASE_URL` y `PUBLIC_DATABASE_URL` como **Secrets independientes**, y `ENABLE_PERSISTENCE=1`, `HF_ALLOWED_USERS` y `ENABLE_PUBLIC_DASHBOARD=1` como Variables.
+3. Comprueba que `health_journey_public` solo tenga SELECT sobre vistas públicas. Guarda un reporte **sintético** con la casilla «Publicar» marcada únicamente cuando aceptes la visibilidad pública de sus valores y fechas.
 4. Visita la pestaña «Dashboard público», elige variable y pulsa «Ver progreso público».
 5. Si el resultado está vacío, comprueba si existe un examen guardado con publicación autorizada. La base actual no contiene todavía exámenes.
 6. Para retirar una publicación hay que borrar la autorización `public_release_approved_at` del examen de manera autenticada y auditable; **todavía no existe botón de revocación en Gradio**, por lo que se requiere añadirlo antes de considerar el producto completo.

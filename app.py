@@ -26,7 +26,7 @@ from inbody_mvp.extractor import (
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
 from inbody_mvp.public_dashboard import (
-    PUBLIC_METRICS, public_mode_requested, public_dashboard_enabled,
+    PUBLIC_METRICS, public_dashboard_enabled,
     load_public_monthly_summary, load_public_person_series,
 )
 from inbody_mvp.storage import (
@@ -70,8 +70,8 @@ def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None
     # No document was supplied: do not require OAuth or an OCR/GPU allocation.
     if not file_path:
         raise gr.Error("Primero carga un PDF, JPG, JPEG o PNG.")
-    # Processing a real document still requires an authorized HF account.
-    # Neon configuration is unrelated to this OCR permission.
+    # OCR and CSV remain independent from Neon and public dashboard.
+    # Only Neon private reads/writes need an HF OAuth session.
     try:
         require_report_access(profile)
     except PermissionError as exc:
@@ -91,7 +91,7 @@ def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None
         # Do not expose document contents, traceback or identifying data to a public UI.
         raise gr.Error(f"Falló la extracción ({type(exc).__name__}).") from exc
     status = (
-        f"**Archivo:** {path.name} · **Mediciones candidatas:** {len(result.medidas)} · "
+        f"**Archivo recibido** · **Mediciones candidatas:** {len(result.medidas)} · "
         f"**Páginas:** {len(result.texto_por_pagina)} · **Estado:** pendiente de revisión."
     )
     return (
@@ -112,8 +112,8 @@ def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None
 def download_draft(
     table, person, model, timestamp, age, profile: gr.OAuthProfile | None = None
 ):
-    # OCR/review access is independent of whether Neon is configured.
-    # If HF_ALLOWED_USERS is set on a Space, the user must log in.
+    # Anonymous OCR/CSV is available even when the public dashboard is enabled.
+    # Users must anonymize sensitive files before uploading to a public Space.
     try:
         require_report_access(profile)
     except PermissionError as exc:
@@ -132,25 +132,22 @@ def download_draft(
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
     with gr.Tab("InBody Upload"):
-        if public_mode_requested():
-            gr.Markdown(
-                "**Modo público:** no se aceptan cargas, OCR, CSV privados ni "
-                "consultas individuales. Utiliza un Space privado separado."
-            )
         gr.Markdown(
-            "**Extracción sin login:** admite PDF, JPG, JPEG y PNG (máximo 15 MB). "
-            "Si estás en un Space público, carga únicamente documentos "
-            "**previamente anonimizados**: oculta nombres, cédulas, fecha de "
-            "nacimiento y otros identificadores ANTES de subirlos. "
-            "La conexión y los datos privados de Neon siguen requiriendo autorización."
+            "**Carga y dashboard en el mismo Space.** Puedes extraer PDF/JPG/PNG "
+            "y consultar las medidas públicas sin iniciar sesión. "
+            "**Si este Space es público, anonimiza el documento antes de subirlo**: "
+            "oculta nombres, cédulas y fechas de nacimiento. El archivo original "
+            "llega al servidor; ocultar el ID en la gráfica no lo anonimiza. "
+            "Guardar y consultar datos individuales en Neon sigue requiriendo "
+            "una cuenta Hugging Face autorizada."
         )
         upload = gr.File(
             label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
-            type="filepath", interactive=not public_mode_requested(),
+            type="filepath", interactive=True,
         )
         extract_button = gr.Button(
             "Extraer mediciones", variant="primary",
-            interactive=not public_mode_requested(),
+            interactive=True,
         )
         status = gr.Markdown("Sube un archivo y pulsa «Extraer mediciones».")
         with gr.Row():
@@ -179,7 +176,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             raw = gr.Textbox(label="Texto OCR / PDF", lines=12, interactive=False)
         export_button = gr.Button(
             "Exportar borrador CSV (no guarda en una base de datos)",
-            interactive=not public_mode_requested(),
+            interactive=True,
         )
         csv_file = gr.File(label="CSV borrador", interactive=False)
         extract_button.click(
@@ -202,9 +199,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 "con un alias aleatorio. El patrón de mediciones podría "
                 "permitir identificarte. La casilla empieza desmarcada."
             ),
-            interactive=not public_mode_requested(),
+            interactive=True,
         )
-        if os.getenv("SPACE_ID") and database_enabled() and not public_mode_requested():
+        if os.getenv("SPACE_ID") and database_enabled():
             with gr.Accordion("Acceso privado a Neon (solo para guardar y consultar)", open=False):
                 gr.Markdown(
                     "El OCR y la exportación CSV no requieren login. "
@@ -229,7 +226,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         save_button = gr.Button(
             "Guardar examen confirmado en Neon",
             variant="primary",
-            interactive=database_enabled() and not public_mode_requested(),
+            interactive=database_enabled(),
         )
         saved_status = gr.Markdown()
 
@@ -288,8 +285,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         if not public_dashboard_enabled():
             gr.Markdown(
-                "Dashboard público sin conexión. Configura PUBLIC_DATABASE_URL "
-                "y ENABLE_PUBLIC_DASHBOARD=1 en un Space de visualización separado."
+                "Dashboard público sin conexión. En este mismo Space configura "
+                "PUBLIC_DATABASE_URL (Secret de solo lectura) y "
+                "ENABLE_PUBLIC_DASHBOARD=1 (Variable). La carga de archivos "
+                "continuará habilitada."
             )
         public_status = gr.Markdown("Sin consulta.")
         public_plot = gr.Plot(label="Tendencias de mediciones publicadas")
@@ -395,7 +394,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 value="", label="Región corporal",
             )
         load_button = gr.Button(
-            "Consultar Neon", interactive=not public_mode_requested()
+            "Consultar Neon", interactive=True
         )
         db_status = gr.Markdown("Sin consulta.")
         db_chart = gr.Plot(label="Tendencia de medidas confirmadas")

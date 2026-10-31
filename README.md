@@ -217,9 +217,9 @@ La documentación normativa para reconstruir Health Journey desde cero está en 
 
 ## Dashboard público sin identificadores
 
-La aplicación tiene una ruta experimental de lectura agregada desde Neon, **desactivada por defecto**. La información individual (ID, fecha exacta, edad, OCR y documento original) se mantiene privada; el dashboard público solo acepta promedios por mes de grupos de **cinco personas distintas como mínimo**, con autorización expresa previa de publicación y una credencial PostgreSQL de **solo lectura** separada. En modo público se bloquea el procesamiento de informes individuales.
+La aplicación incluye la vista agregada `hj_public_monthly_summary` y la vista de tendencias individuales **seudonimizadas** `hj_public_person_series`. Esta última expone fechas (sin hora) y valores solo de exámenes autorizados expresamente; utiliza un UUID aleatorio independiente del ID real. El lector público usa únicamente `PUBLIC_DATABASE_URL` de solo lectura. **No se garantiza anonimato irreversible**, pues los patrones de fechas y medidas pueden permitir reidentificación.
 
-**Importante:** para datos reales hacen falta **dos Spaces**, uno privado de ingesta y otro público de visualización. No publicar la instancia que recibe documentos. El flujo de consentimiento y publicación individual todavía es un requisito pendiente, por lo que **no hay mediciones reales que se hagan públicas automáticamente**.
+**Diseño actualizado: un único Space** puede mantener habilitados el selector PDF/JPG/PNG, OCR, exportación CSV, dashboard público e historial privado de Neon. `ENABLE_PUBLIC_DASHBOARD=1` **ya no deshabilita la carga**. Guardar y consultar historiales privados requiere sesión OAuth autorizada; los datos públicos usan un rol PostgreSQL diferente y solo exámenes con publicación marcada. Si el Space es público, **anonimiza el archivo original antes de subirlo**. La revocación de publicación y la validación E2E todavía están pendientes.
 
 [Diseño, migración y guía de seguridad del dashboard público](docs/dashboard-publico.md).
 
