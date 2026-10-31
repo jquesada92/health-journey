@@ -31,6 +31,7 @@ def callback_environment(demo=True, ready=True):
         "uuid4": uuid4,
         "anonymous_demo_requested": lambda: demo,
         "anonymous_demo_enabled": lambda: ready,
+        "source_exam_timestamp": lambda state: state["timestamp"],
         "prepare_confirmed_exam": lambda *args: (
             calls.append(("prepared", args)),
             SimpleNamespace(id_persona=args[2]),
@@ -51,8 +52,9 @@ def callback_environment(demo=True, ready=True):
 
 def args(consent=True, publish=True):
     return (
-        {"synthetic": True}, [], "REAL-ID-MUST-NOT-SAVE", "InBody 580",
-        "2026-10-31T10:00:00", 35, "ES", publish, consent, str(uuid4()),
+        {"synthetic": True, "timestamp": "2026-10-31T10:00:00"}, [],
+        "REAL-ID-MUST-NOT-SAVE", "InBody 580",
+        35, "ES", publish, consent, str(uuid4()),
     )
 
 
@@ -70,6 +72,7 @@ def test_demo_uses_anonymous_id_no_auth_and_separate_publish_choice():
     assert [kind for kind, _ in calls] == ["prepared", "demo"]
     assert calls[0][1][2].startswith("ANON-")
     assert calls[0][1][2] != "REAL-ID-MUST-NOT-SAVE"
+    assert calls[0][1][4] == "2026-10-31T10:00:00"
     assert calls[0][1][5] is None
     assert calls[1][1]["storage_consent"] is True
     assert calls[1][1]["publish_consent"] is False
