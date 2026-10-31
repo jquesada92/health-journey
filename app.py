@@ -120,6 +120,8 @@ def download_draft(
 ):
     # Anonymous OCR/CSV is available even when the public dashboard is enabled.
     # Users must anonymize sensitive files before uploading to a public Space.
+    if extracted_state is None:
+        raise gr.Error("Primero carga y extrae un reporte InBody.")
     try:
         require_report_access(profile)
     except PermissionError as exc:
