@@ -6,7 +6,6 @@ Nunca contiene tokens, secretos, IDs personales ni URLs no verificadas.
 from __future__ import annotations
 
 import re
-from urllib.parse import urlsplit
 
 _HOST_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,250}[a-z0-9])?\.hf\.space$", re.IGNORECASE)
 
