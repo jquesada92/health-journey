@@ -1,57 +1,57 @@
-# Dashboard público de estadísticas InBody — privacidad por diseño
+# Health Journey — dashboard público y OCR en un mismo Space
 
-Este documento describe el prototipo para visualizar métricas en Hugging Face **sin publicar datos personales, historias individuales o el ID de InBody**.
+**Estado:** decisión de interfaz consolidada el 31 de octubre de 2026.
 
-## Arquitectura obligatoria
+## Diseño vigente
 
-Dos instancias independientes del mismo código:
+Un mismo `app.py` en Gradio ofrece estas pestañas y operaciones:
 
-1. **Space privado (ingestión):** autenticación OAuth de Hugging Face, `HF_ALLOWED_USERS`, `DATABASE_URL` con el rol restringido de escritura, `ENABLE_PERSISTENCE=1`, `ENABLE_PUBLIC_DASHBOARD=0`. Aquí se cargan PDF/JPG, revisan OCR, exportan CSV y confirman los exámenes.
-2. **Space público (visualización):** `ENABLE_PUBLIC_DASHBOARD=1`, `PUBLIC_DATABASE_URL` como **Secret** con el rol PostgreSQL `health_journey_public`, sin `DATABASE_URL`. Aquí se muestra únicamente el agregado mensual aprobado. El backend rechaza cargas, CSV privados y consultas individuales; la UI deja esas acciones deshabilitadas.
+- **InBody Upload**: seleccionar JPG, PNG o PDF, ejecutar OCR, revisar candidatos y exportar CSV sin inicio de sesión.
+- **Guardar en Neon e Historial en Neon**: requiere autenticación OAuth de Hugging Face **por operación**, con `HF_ALLOWED_USERS` y credenciales privadas.
+- **Dashboard público**: consultar medidas previamente autorizadas mediante el rol PostgreSQL **solo lectura** `health_journey_public`. No se exige iniciar sesión.
 
-**No convertir el Space de ingesta en público para probar el dashboard.** El upload de Gradio recibe archivos antes de invocar la función Python y, por tanto, no debe exponer un endpoint de subida de informes personales en una instancia pública. Para una separación total de superficies, al desplegar el Space público se recomienda una entrada `public_app.py` mínima que ni siquiera importe los componentes de ingesta (trabajo futuro).
+La configuración `ENABLE_PUBLIC_DASHBOARD=1` habilita el dashboard público y **no deshabilita el selector de archivos, OCR, CSV ni los botones privados**. Si la conexión pública falta, el dashboard mostrará un estado no disponible; el OCR seguirá funcionando.
 
-## Anonimización y límites
+## Variables de un único Space
 
-La vista `hj_public_monthly_summary` se crea mediante `db/migrations/002_public_aggregate_dashboard.sql`.
+| Configuración | Tipo HF | Propósito |
+| --- | --- | --- |
+| `ENABLE_PUBLIC_DASHBOARD=1` | Variable | Activar las gráficas públicas |
+| `PUBLIC_DATABASE_URL` | **Secret** | Conexión PostgreSQL con el rol `health_journey_public`: `SELECT` solo en vistas públicas |
+| `ENABLE_PERSISTENCE=1` | Variable | Habilitar acciones privadas de Neon |
+| `DATABASE_URL` | **Secret** | Conexión PostgreSQL con rol restringido `health_journey_runtime` para guardar y consultar |
+| `HF_ALLOWED_USERS=jaqo` | Variable | Lista exacta de nombres de usuario HF autorizados para operaciones privadas |
 
-- Solo incluye exámenes con `public_release_approved_at IS NOT NULL`. **Nada se publica automáticamente**, ni porque se haya guardado correctamente en Neon.
-- Solo se publican ocho tipos de variables permitidas: peso, músculo esquelético, grasa kg, grasa %, agua total, masa magra segmental, grasa segmental y ángulo de fase.
-- Publica **mes de la evaluación**, no el timestamp exacto; modelo sanitizado, variable, unidad, segmento, frecuencia si corresponde, número de contribuyentes y promedio.
-- Cada combinación de mes/modelo/variable/unidad/segmento/frecuencia exige **al menos cinco personas diferentes**. Se promedia primero dentro de cada persona/mes para evitar que alguien con muchas evaluaciones tenga peso desproporcionado.
-- **No incluye** nombre, ID del reporte, cédula, UUID, número de archivo, hash de origen, edad, fecha de nacimiento, texto OCR, observación individual o documento.
-- La anonimización absoluta no está garantizada; publicar múltiples cohortes en distintos períodos puede producir riesgo de reidentificación o inferencia. Antes de permitir publicaciones reales, completar evaluación de riesgo, consentimiento informado, política de retiro y reducción de información según contexto.
-- El historial individual seguirá disponible **solo en el Space privado**; en la vista pública no hay series por paciente.
+**Nunca confundir las conexiones.** El lector público debe usar únicamente `PUBLIC_DATABASE_URL`. Los callbacks privados requieren autorización en servidor y usan únicamente `DATABASE_URL`. El dashboard jamás consulta ni devuelve `hj_persons` o la vista privada `hj_measurements_long`.
 
-## Rol público mínimo
+## Datos publicados
 
-En Neon existe el rol `health_journey_public`, creado con `NOLOGIN` para evitar uso accidental hasta configurar una contraseña segura. Se verificaron permisos:
-- `SELECT` sobre `hj_public_monthly_summary`: sí.
-- `SELECT`/ `INSERT`/ `DELETE` sobre `hj_measurements`: no.
-- `SUPERUSER`/ `CREATEROLE`: no.
+Hay dos vistas de PostgreSQL con propósito distinto:
 
-Antes de conectar el Space público, configura el login y una contraseña única directamente en la consola privada de Neon:
+- `hj_public_monthly_summary`: promedios por mes y cohorte, mínimo 5 personas distintas por grupo.
+- `hj_public_person_series`: valores individuales **seudonimizados** para exámenes publicados voluntariamente. Usa un alias aleatorio y fecha de examen sin hora; no expone nombre, cédula/ID InBody, edad, DOB, nombre del archivo ni OCR.
 
-```sql
-ALTER ROLE health_journey_public
-  WITH LOGIN PASSWORD 'REEMPLAZAR_POR_SECRETO_GENERADO_FUERA_DE_GITHUB';
-```
+La casilla **«Publicar las mediciones de este examen en mi dashboard público»** empieza desmarcada. Solo un guardado autorizado puede aprobar la publicación del examen. No se publica el historial completo automáticamente.
 
-**No publiques esa contraseña ni esta URL en GitHub, mensajes o logs.** Construye un connection string con TLS obligatorio, usando este usuario y la base `health_journey`, y guárdalo como `PUBLIC_DATABASE_URL` (Secret) en el **Space público**, nunca la URL de escritura.
+**Esto no garantiza anonimato irreversible:** fechas, valores y tendencias podrían permitir que alguien reconozca al propietario. La revocación auditable desde la interfaz está pendiente.
 
-Configura también `ENABLE_PUBLIC_DASHBOARD=1` (Variable). En el Space privado mantenlo en `0`.
+## Límite de privacidad del flujo sin login
 
-## Autorizar publicación
+El Space unificado permite **subir archivos sin OAuth**. En un Space público, Gradio recibe el JPG/PDF antes de que se ejecute el OCR. Eliminar el identificador del dataset público **no anonimiza el archivo que se acaba de subir**.
 
-**Pendiente el flujo de consentimiento verificable en la interfaz.** Hasta que exista, no debes ejecutar `UPDATE hj_exams SET public_release_approved_at=...` para exámenes reales por comodidad. Se requiere autorización del titular de cada examen y un procedimiento de revocación y auditoría. El campo SQL es nulo por defecto y la vista pública no tiene datos.
+Por eso, antes de cargar un documento en una instancia pública:
+1. Eliminar en la imagen/PDF original nombre, cédula, fecha de nacimiento y otros datos de identidad.
+2. Revisar que no queden datos ocultos en metadatos o páginas adicionales.
+3. Cargar únicamente archivos ya anonimizados o sintéticos.
 
-No introducir un botón «publicar todo». El consentimiento es explícito, por examen o por serie de la misma persona, con prueba de autoridad y derecho de revocación.
+Para archivos personales **sin anonimizar**, sigue siendo necesario un entorno privado o un control de acceso previo al upload. No existe garantía de confidencialidad de informes identificables en una interfaz pública anónima. Evitar exponer trazas del OCR o rutas originales en logs.
 
-## Pruebas y despliegue
+## Validaciones
 
-1. Ejecuta `python -m pytest -q tests/test_public_dashboard.py` y la suite general en un PR.
-2. Verifica la migración SQL y permisos con una cuenta administrativa sin exponer credenciales.
-3. No active `ENABLE_PUBLIC_DASHBOARD` hasta tener dos entornos separados, roles distintos y consentimiento.
-4. Comprueba que el Space público puede consultar la vista, pero no leer `hj_persons` ni `hj_measurements`.
-5. Prueba solicitudes manuales a callbacks de carga, exportación o Neon: todas deben bloquearse en modo público.
-6. Si la vista responde vacío, mostrar el mensaje correcto: no existen suficientes exámenes publicados para formar cohortes de cinco personas. No presentar resultados ficticios como reales.
+1. Con `ENABLE_PUBLIC_DASHBOARD=1`, verificar que el selector JPG/PDF y el botón de extracción sigan activos.
+2. Extraer un archivo sintético; confirmar que la extracción y descarga CSV funcionen sin OAuth/Neon.
+3. Con `PUBLIC_DATABASE_URL` configurada, consultar un examen de prueba publicado y verificar el alias, los valores y la fecha sin hora.
+4. Intentar consultar o guardar en Neon privado sin sesión OAuth: debe fallar.
+5. Iniciar sesión con usuario autorizado y verificar que las operaciones privadas sí funcionen.
+6. Auditar la cuenta pública PostgreSQL: permiso de `SELECT` únicamente sobre las vistas públicas.
+7. Realizar prueba de extremo a extremo en Hugging Face, no confiar solo en CI.
