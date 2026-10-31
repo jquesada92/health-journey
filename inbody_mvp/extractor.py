@@ -95,8 +95,19 @@ MEASURE_RE = re.compile(
     re.I,
 )
 DOB_RE = re.compile(r"(?:fecha\s+(?:de\s+)?nacimiento|birth\s*date|dob)\s*[:#]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})", re.I)
-DATE_RE = re.compile(r"(?:fecha(?:\s+de\s+(?:prueba|examen|medicion))?|date|test\s*date)\s*[:#]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})(?:\s+(\d{1,2}:\d{2}(?::\d{2})?))?", re.I)
-TIME_RE = re.compile(r"(?:hora|time)\s*[:#]?\s*(\d{1,2}:\d{2}(?::\d{2})?)\b", re.I)
+DATE_RE = re.compile(
+    r"^[ \\t]*(?:fecha(?:\\s+de\\s+(?:la\\s+)?(?:prueba|examen|medici[oó]n))?|"
+    r"fecha\\s*/\\s*hora|test\\s+date|measurement\\s+date|"
+    r"date(?:\\s+of\\s+(?:the\\s+)?(?:test|measurement))?|date\\s*/\\s*time)"
+    r"\\s*[:#-]?\\s*(\\d{1,4}[/.-]\\d{1,2}[/.-]\\d{1,4})"
+    r"(?:[ \\t]+(\\d{1,2}:\\d{2}(?::\\d{2})?))?",
+    re.I | re.M,
+)
+TIME_RE = re.compile(
+    r"^[ \\t]*(?:hora(?:\\s+(?:de\\s+)?(?:prueba|examen|medici[oó]n))?|time)"
+    r"\\s*[:#-]?\\s*(\\d{1,2}:\\d{2}(?::\\d{2})?)\\b",
+    re.I | re.M,
+)
 ID_RE = re.compile(r"(?:c[eé]dula|identificaci[oó]n|documento|patient\s*id|person\s*id|\bID\b)\s*[:#]\s*([\w.-]{4,35})", re.I)
 MODEL_RE = re.compile(r"\bInBody\s*[-:]?\s*(\d{2,4})\b", re.I)
 AGE_RE = re.compile(r"(?:\bedad\b|\bage\b)\s*[:#]?\s*(\d{1,3})\b", re.I)
