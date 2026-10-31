@@ -30,6 +30,9 @@ ARCHIVOS_OBLIGATORIOS = (
     "inbody_mvp/language.py",
     "inbody_mvp/review.py",
     "inbody_mvp/storage.py",
+    "inbody_mvp/public_dashboard.py",
+    "db/migrations/002_public_aggregate_dashboard.sql",
+    "docs/dashboard-publico.md",
     "db/schema.sql",
     ".github/workflows/deploy-huggingface.yml",
     ".github/workflows/test-inbody.yml",
@@ -47,6 +50,7 @@ ARCHIVOS_OBLIGATORIOS = (
             "09_estado_y_decisiones",
         )
     ),
+    "harness/10_publicacion_anonima_y_autenticacion.md",
     "harness/PROMPT_AGENTE.md",
 )
 
@@ -91,7 +95,7 @@ def contrato_exportacion(texto: str) -> list[str] | None:
 def comprobar_documentacion() -> list[str]:
     errores = []
     texto = contenido("harness/08_pruebas_y_criterios.md")
-    for nombre, maximo in (("CA", 36), ("CS", 10)):
+    for nombre, maximo in (("CA", 41), ("CS", 15)):
         encontrados = {
             int(x) for x in re.findall(rf"\|\s*{nombre}-(\d+)\s*\|", texto)
         }
@@ -140,10 +144,18 @@ def main() -> int:
         if rel not in workflow:
             errores.append(f"El workflow no incluye el módulo de ejecución: {rel}")
 
+    migracion = contenido("db/migrations/002_public_aggregate_dashboard.sql")
+    if "hj_public_monthly_summary" not in migracion or "public_release_approved_at" not in migracion:
+        errores.append("Falta vista pública con consentimiento en la migración.")
+    publico = contenido("inbody_mvp/public_dashboard.py")
+    if "PUBLIC_DATABASE_URL" not in publico or "hj_public_monthly_summary" not in publico:
+        errores.append("El adaptador público debe leer la vista con credenciales separadas.")
+    if "DATABASE_URL" in publico.replace("PUBLIC_DATABASE_URL", ""):
+        errores.append("El adaptador público no puede usar DATABASE_URL privada.")
     errores.extend(comprobar_documentacion())
 
     print("Estado de servicios: no consultados por este verificador.")
-    for key in ("DATABASE_URL", "ENABLE_PERSISTENCE", "HF_ALLOWED_USERS"):
+    for key in ("DATABASE_URL", "ENABLE_PERSISTENCE", "HF_ALLOWED_USERS", "PUBLIC_DATABASE_URL", "ENABLE_PUBLIC_DASHBOARD"):
         print(f"Entorno {key}: {'definida' if key in os.environ else 'no definida'}")
     print("Nunca se muestran valores de secretos.")
 
