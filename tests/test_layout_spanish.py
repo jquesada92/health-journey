@@ -70,3 +70,10 @@ def test_full_flow_jpeg_uses_reviewable_candidates():
     assert any(x.variable_medida=='impedance' and x.frecuencia_khz==100 for x in result.medidas)
     assert all(x.valor_medida!=170 for x in result.medidas)
     assert any('historial' in x.lower() for x in result.advertencias)
+
+def test_rejects_incomplete_bmi_and_score_ocr_fragments():
+    data=fixture()+boxes(('7',.778,.170),('7.0',.385,.488))
+    rows,_=extract_spanish_silhouette(data,1000,1400)
+    vals={r['variable_medida']:r['valor_medida'] for r in rows if not r['segmento']}
+    assert vals.get('inbody_score')==87.0
+    assert vals.get('bmi')==27.6
