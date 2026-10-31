@@ -62,9 +62,14 @@ COMMENT ON VIEW hj_public_monthly_summary IS
 -- where that role exists. Never grant access to private base tables here.
 DO $grant$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_journey_runtime') THEN
-        GRANT SELECT ON hj_public_monthly_summary TO health_journey_runtime;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_journey_public') THEN
+        CREATE ROLE health_journey_public
+            NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
     END IF;
+    -- The public role can read ONLY this aggregate view (not the raw tables).
+    GRANT CONNECT ON DATABASE health_journey TO health_journey_public;
+    GRANT USAGE ON SCHEMA public TO health_journey_public;
+    GRANT SELECT ON hj_public_monthly_summary TO health_journey_public;
 END
 $grant$;
 
