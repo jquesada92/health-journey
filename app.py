@@ -194,6 +194,16 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[csv_file],
         )
         gr.Markdown("### Guardar en Neon PostgreSQL")
+        publication_choice = gr.Checkbox(
+            label="Publicar las mediciones de este examen en mi dashboard público (sin mi ID)",
+            value=False,
+            info=(
+                "Opcional: se publicarán fecha (sin hora), modelo y valores "
+                "con un alias aleatorio. El patrón de mediciones podría "
+                "permitir identificarte. La casilla empieza desmarcada."
+            ),
+            interactive=not public_mode_requested(),
+        )
         if os.getenv("SPACE_ID") and database_enabled() and not public_mode_requested():
             with gr.Accordion("Acceso privado a Neon (solo para guardar y consultar)", open=False):
                 gr.Markdown(
@@ -256,7 +266,8 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             concurrency_limit=1,
         )
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
-                        report_language, table, raw, warnings, csv_file, extraction_state],
+                        report_language, table, raw, warnings, csv_file, extraction_state,
+                        publication_choice],
                        value="Limpiar")
     with gr.Tab("Dashboard público"):
         gr.Markdown(
