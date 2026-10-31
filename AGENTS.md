@@ -84,3 +84,9 @@ La documentación del reto OBS de semana 2 describe estados históricos y no deb
 El directorio [`harness/`](harness/README.md) reúne en **español** la especificación canónica del producto, arquitectura, modelo SQL/CSV, diseño de OCR y dashboard, política de seguridad, runbook de reconstrucción, decisiones, 36 criterios funcionales y 10 de seguridad. Antes de introducir cambios, consultar el harness y mantenerlo actualizado; distinguir estado verificado de requisitos aún pendientes. Ejecutar `python harness/validar_reconstruccion.py` en cada PR que afecte contratos o estructura.
 
 **Requisitos nuevos aún por completar según el estado de `main` al 31/10/2026:** nombre de exportación CSV con hash de contenido + timestamp UTC, y dashboard con elección entre Neon y carga múltiple de CSV sin persistencia automática. No reintroducir Dash.
+
+## Restricciones del dashboard público
+
+La modalidad pública es **solo estadísticas agregadas**, nunca registros por persona: la vista `hj_public_monthly_summary` usa únicamente exámenes explícitamente aprobados, agrupa por mes/modelo/métrica/unidad/segmento/frecuencia y suprime grupos de menos de cinco participantes. No expone ID, fechas exactas ni edad.
+
+Se requiere un Space separado para ingesta **privada**, y otro para lectura **pública**. `PUBLIC_DATABASE_URL` usa únicamente el rol `health_journey_public` sin acceso a tablas privadas; el Space público **no puede usar** `DATABASE_URL`. En modo `ENABLE_PUBLIC_DASHBOARD=1` denegar del lado servidor uploads, OCR, exportación privada y consultas/escrituras individuales de Neon. No publicar exámenes reales antes de implementar consentimiento auditable y revocación. Ver `docs/dashboard-publico.md` y migración `db/migrations/002_public_aggregate_dashboard.sql`.
