@@ -141,19 +141,14 @@ def database_enabled() -> bool:
 
 
 def require_report_access(oauth_profile=None) -> None:
-    """Permit OCR and CSV without OAuth, but never on a public-only dashboard.
+    """Allow OCR and CSV on the same Space as the public dashboard.
 
-    WARNING: The source document can contain personal data. Anonymous
-    uploads should be synthetic or redacted before reaching a public Space.
-    The *private database* has its own, stricter access control.
+    Public dashboards expose only approved views through PUBLIC_DATABASE_URL.
+    OCR upload is a separate unauthenticated endpoint: real reports MUST be
+    anonymized before upload if the Space itself is publicly accessible.
+    This check never grants database read/write permissions.
     """
-    if os.getenv("SPACE_ID") and os.getenv(
-        "ENABLE_PUBLIC_DASHBOARD", ""
-    ).strip().lower() in ("1", "true", "yes"):
-        raise PermissionError(
-            "Este Space solo publica estadísticas agregadas. "
-            "Procesa reportes en una instalación privada de Health Journey."
-        )
+    return None
 
 
 def require_database_access(oauth_profile=None) -> None:
