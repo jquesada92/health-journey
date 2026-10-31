@@ -53,6 +53,11 @@ No agregar al repositorio informes reales; fixtures deben contener exclusivament
 | CA-34 | Un cambio de plantilla no rompe fixtures anteriores. | Regresión completa |
 | CA-35 | La aplicación informa explícitamente si Guardar está deshabilitado; no desaparece silenciosamente. | Prueba UI |
 | CA-36 | Ningún botón declara «guardado» antes de una respuesta positiva de la transacción. | Test error SQL |
+| CA-37 | Al pulsar «Extraer» sin archivo, se muestra el error de carga faltante **antes** de la comprobación OAuth. | Test callback de Gradio y prueba UI |
+| CA-38 | Con archivo presente y sesión permitida, OCR/CSV no exige conexión Neon; guardar/consultar sí. | Tests de separación de permisos y E2E |
+| CA-39 | `hj_public_monthly_summary` expone únicamente mes, modelo sanitizado, variable, unidad, segmento, frecuencia, participantes y promedio. | Inspección SQL y prueba API |
+| CA-40 | Una cohorte sintética con 4 personas no se publica; una con 5 solo puede aparecer tras autorización expresa. | Test BD con fixture sintético |
+| CA-41 | El dashboard público muestra estado vacío sin grupos aprobados y nunca inventa historiales individuales. | Test Gradio+SQL y E2E |
 
 ## 3. Criterios de seguridad obligatorios
 
@@ -68,6 +73,11 @@ No agregar al repositorio informes reales; fixtures deben contener exclusivament
 | CS-08 | Los uploads y CSV no se comparten entre sesiones y cumplen retención/limpieza. | Test aislamiento y limpieza |
 | CS-09 | Importar CSV nunca escribe a Neon, aun si `ENABLE_PERSISTENCE=1`. | Prueba con spy SQL |
 | CS-10 | Rechazar fórmulas CSV, valores infinitos, columnas extra y desbordes sin ejecución de código. | Suite maliciosos |
+| CS-11 | En el Space se compara `HF_ALLOWED_USERS` con `OAuthProfile.username`, nunca con el nombre visible del perfil. | Test OAuth |
+| CS-12 | El entorno público usa solo `PUBLIC_DATABASE_URL` con permiso exclusivo sobre la vista agregada; no posee la URL privada. | Permisos PostgreSQL y Secrets |
+| CS-13 | La instancia pública no registra rutas/callbacks de upload, OCR ni lectura individual, incluso mediante solicitudes manuales. | Auditoría de endpoints; **bloqueante** |
+| CS-14 | La publicación de cada examen exige consentimiento auditable y revocable; no se publica ningún registro por defecto. | Tests de consentimiento; **bloqueante** |
+| CS-15 | El riesgo de reidentificación por cohortes/fechas/combinaciones fue evaluado y se documentaron límites; el umbral de cinco no se declara anonimización garantizada. | Evaluación de privacidad; **bloqueante** |
 
 ## 4. Casos de rendimiento / límites
 
