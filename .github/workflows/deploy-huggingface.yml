@@ -53,6 +53,7 @@ jobs:
               'README.md',
               'inbody_mvp/__init__.py',
               'inbody_mvp/extractor.py',
+              'inbody_mvp/layouts.py',
               'inbody_mvp/review.py',
           ]
           for name in files:
