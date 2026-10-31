@@ -236,3 +236,9 @@ Hugging Face OAuth puede fallar al iniciar sesión desde una aplicación Gradio 
 Después del login, usa **esa misma pestaña independiente** para guardar o consultar Neon; la sesión OAuth pertenece a ese origen. Si la pestaña aparece en blanco, revisa las cookies, extensiones de privacidad o la consola y logs de Hugging Face. Las llamadas privadas conservan la validación de `OAuthProfile.username` contra `HF_ALLOWED_USERS`. El OCR/CSV y el dashboard público no requieren autenticación.
 
 No introducir manualmente `OAUTH_CLIENT_ID` o `OAUTH_CLIENT_SECRET`: Hugging Face los proporciona cuando está activado OAuth con `hf_oauth: true` en el README del Space. No publicar capturas con tokens, URLs de callback que contengan códigos ni secretos.
+
+## Demostración docente sin inicio de sesión
+
+Para que un profesor valide extracción JPG/PDF, corrección de valores, guardado en Neon y dashboard público **sin login**, existe el modo optativo `ENABLE_ANONYMOUS_DEMO=1`. Requiere `DEMO_DATABASE_URL` como Secret independiente del `DATABASE_URL` privado, con un rol SQL restringido a una función segura de inserción. El usuario debe marcar **consentimiento de almacenamiento** y, de manera independiente, **autorización de publicación**, desmarcadas por defecto.
+
+Se almacenan solo medidas numéricas aprobadas, fecha sin hora, modelo sanitizado y alias UUID aleatorio. **No** se guarda la cédula/ID, edad, texto OCR ni el documento original en las tablas demo. La vista pública de los datos autorizados deja de mostrarlos tras 7 días; una limpieza física posterior es necesaria. En modo demo no hay acceso anónimo a consultas o escrituras de tablas privadas. No es anonimización irreversible. [Guía de la demostración sin login](docs/demo-anonima-consentimiento.md).
