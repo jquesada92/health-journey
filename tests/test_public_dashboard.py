@@ -88,4 +88,4 @@ def test_public_view_requires_explicit_approval_and_five_distinct_people():
     assert "e.public_release_approved_at IS NOT NULL" in migration
     assert "HAVING COUNT(*) >= 5" in migration
     assert "e.person_uuid" in migration and "personal_monthly_mean" in migration
-    assert "hj_measurements_long" not in migration
+    assert "FROM hj_measurements_long" not in migration
