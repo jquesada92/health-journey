@@ -316,13 +316,33 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
     positional_pages: list[tuple[int, list, int, int]] = []
 
     def read_ocr(image: Image.Image, page_number: int) -> str:
-        answer = ocr_engine(image)
+        try:
+            answer = ocr_engine(image)
+        except DocumentError:
+            raise
+        except Exception as exc:
+            # The original error may include document-derived text or private
+            # filesystem paths. Surface only its class, never its arguments.
+            raise DocumentError(
+                f"Falló el motor OCR en la página {page_number} "
+                f"({type(exc).__name__}); verifica el runtime y sus logs privados."
+            ) from exc
         if isinstance(answer, str):
-            return answer
-        if isinstance(answer, list):
+            text_value = answer.strip()
+        elif isinstance(answer, list):
+            tokens = normalize_detections(answer, image.width, image.height)
             positional_pages.append((page_number, answer, image.width, image.height))
-            return tokens_to_text(normalize_detections(answer, image.width, image.height))
-        raise DocumentError("Respuesta OCR no reconocida.")
+            text_value = tokens_to_text(tokens).strip()
+        else:
+            raise DocumentError(
+                f"El motor OCR devolvió un tipo no soportado en la página {page_number}."
+            )
+        if not text_value:
+            raise DocumentError(
+                f"El OCR no reconoció texto en la página {page_number}. "
+                "Revisa la calidad, orientación y resolución del documento."
+            )
+        return text_value
     if kind == "pdf":
         try:
             with fitz.open(stream=data, filetype="pdf") as pdf:
@@ -341,9 +361,16 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
                     picture = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
                     try:
                         scanned = read_ocr(picture, n + 1)
-                    except Exception as ex:
+                    except DocumentError as exc:
+                        # A scanned page has no text fallback. Never silently
+                        # claim a successful extraction when OCR failed.
+                        if not native:
+                            raise
                         scanned = ""
-                        notices.append(f"Página {n+1}: OCR no disponible ({type(ex).__name__}).")
+                        notices.append(
+                            f"Página {n+1}: no se pudo completar el OCR; "
+                            "solo se conserva texto nativo parcial."
+                        )
                     texts.append(("\n".join(filter(None, [native, scanned])), "ocr" if scanned else "pdf_text"))
         except DocumentError:
             raise
@@ -351,11 +378,9 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
             raise DocumentError("El PDF está corrupto o no se puede leer.") from ex
     else:
         picture = _load_image(data)
-        try:
-            text = read_ocr(picture, 1)
-        except Exception as ex:
-            text = ""
-            notices.append(f"OCR no disponible ({type(ex).__name__}); revisa instalación y modelos locales.")
+        # An image has no native-text fallback. Raise an actionable error
+        # instead of returning zero candidates after OCR has failed.
+        text = read_ocr(picture, 1)
         texts.append((text, "ocr"))
     result = parse_text(texts, filename=filename, digest=digest)
     for page_number, detections, width, height in positional_pages:
