@@ -15,6 +15,9 @@ import easyocr
 import gradio as gr
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv(override=False)  # Local-only .env; do not commit credentials.
 
 from inbody_mvp.extractor import (
     DocumentError, MAX_UPLOAD_BYTES, extract_document,
