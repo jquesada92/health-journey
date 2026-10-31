@@ -55,3 +55,18 @@ Los exámenes publicados son **seudónimos**, no anónimos irreversibles: patron
 - No hay ID, nombre, edad ni OCR en tablas/vistas de demostración.
 
 **Estado de despliegue:** el CI valida el contrato sintéticamente. Hay que ejecutar la migración, configurar el rol de demo y las dos cadenas de conexión privadas como Secrets, desplegar el commit y comprobar el flujo en el Space. No inferir éxito de ejecución real solo del merge de GitHub.
+
+## Estado de Neon y paso de credenciales
+
+La migración 004 está **aplicada** en la base `health_journey`. Se verificó que el rol `health_journey_demo_writer` **no** pertenece a ningún grupo privilegiado, no puede leer ni escribir las tablas privadas, no tiene permisos directos de escritura sobre las tablas de demostración y **únicamente puede ejecutar** `hj_submit_demo_report`. La vista y tablas existen, sin registros de demostración inicialmente.
+
+Por seguridad, el rol se ha dejado en `NOLOGIN` y sin contraseña. Para terminar la configuración, abre el **SQL Editor de Neon** y, desde una cuenta administradora autorizada, ejecuta con una contraseña generada en privado:
+
+```sql
+ALTER ROLE health_journey_demo_writer
+WITH LOGIN PASSWORD 'CONTRASENA_GENERADA_EN_PRIVADO';
+```
+
+Después crea en Hugging Face el Secret `DEMO_DATABASE_URL` con el connection string de ese rol, la base `health_journey` y `sslmode=require`. No escribas la contraseña en GitHub ni la compartas en el chat. Para el dashboard también debes configurar el Secret `PUBLIC_DATABASE_URL` del lector `health_journey_public`.
+
+La casilla de consentimiento **no equivale a autenticación de identidad**: este modo está limitado a pruebas con reportes sintéticos o anonimizados. Los datos que no se aprobaron para publicación no aparecen en el dashboard, pero siguen almacenados temporalmente en las tablas demo.
