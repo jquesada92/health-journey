@@ -73,7 +73,14 @@ La documentación del reto OBS de semana 2 describe estados históricos y no deb
 - El proyecto Neon `health-journey` y la base `health_journey` existen con tablas `hj_persons`, `hj_exams`, `hj_measurements`, `hj_measurement_catalog` y vista `hj_measurements_long`. El DDL está en `db/schema.sql`; no ejecutarlo de manera destructiva.
 - Clasificar `idioma_reporte` en `ES`, `EN`, `UNKNOWN` desde encabezados mediante `inbody_mvp/language.py`. Pedir revisión humana si no hay suficiente evidencia; el idioma se almacena por examen.
 - La capa `inbody_mvp/storage.py` escribe las mediciones revisadas transaccionalmente; necesita `DATABASE_URL` TLS y `ENABLE_PERSISTENCE=1`. No leer ni imprimir credenciales, ni almacenar PDFs o imágenes reales en Git.
-- **Prohibido activar guardar en un Space público** sin autenticación/autorización y controles específicos de información médica. El código fuerza `SPACE_ID` a deshabilitar la escritura, además de requerir configuración explícita.
+- **Prohibido activar guardar en un Space público** sin autenticación/autorización y controles específicos de información médica. En un Space, el código requiere configuración explícita, allowlist de usuarios y perfil OAuth verificado para cada acceso; esto no convierte automáticamente en seguro un Space público. No guardar información personal real sin controles de privacidad y acceso revisados.
 - `hj_measurements_long` conserva siete columnas y no contiene `idioma_reporte`; el idioma y la etiqueta original se consultan en las tablas base. Nuevas métricas agregan filas y entradas al catálogo, no nuevas columnas.
 - Los tests `tests/test_language_storage.py` no requieren conexión a Neon ni usan datos personales reales.
 - Guía de operación: `docs/neon-postgres.md`.
+
+
+## Harness de reconstrucción (normativo)
+
+El directorio [`harness/`](harness/README.md) reúne en **español** la especificación canónica del producto, arquitectura, modelo SQL/CSV, diseño de OCR y dashboard, política de seguridad, runbook de reconstrucción, decisiones, 36 criterios funcionales y 10 de seguridad. Antes de introducir cambios, consultar el harness y mantenerlo actualizado; distinguir estado verificado de requisitos aún pendientes. Ejecutar `python harness/validar_reconstruccion.py` en cada PR que afecte contratos o estructura.
+
+**Requisitos nuevos aún por completar según el estado de `main` al 31/10/2026:** nombre de exportación CSV con hash de contenido + timestamp UTC, y dashboard con elección entre Neon y carga múltiple de CSV sin persistencia automática. No reintroducir Dash.
