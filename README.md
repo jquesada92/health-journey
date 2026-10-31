@@ -242,3 +242,9 @@ No introducir manualmente `OAUTH_CLIENT_ID` o `OAUTH_CLIENT_SECRET`: Hugging Fac
 Para que un profesor valide extracción JPG/PDF, corrección de valores, guardado en Neon y dashboard público **sin login**, existe el modo optativo `ENABLE_ANONYMOUS_DEMO=1`. Requiere `DEMO_DATABASE_URL` como Secret independiente del `DATABASE_URL` privado, con un rol SQL restringido a una función segura de inserción. El usuario debe marcar **consentimiento de almacenamiento** y, de manera independiente, **autorización de publicación**, desmarcadas por defecto.
 
 Se almacenan solo medidas numéricas aprobadas, fecha sin hora, modelo sanitizado y alias UUID aleatorio. **No** se guarda la cédula/ID, edad, texto OCR ni el documento original en las tablas demo. La vista pública de los datos autorizados deja de mostrarlos tras 7 días; una limpieza física posterior es necesaria. En modo demo no hay acceso anónimo a consultas o escrituras de tablas privadas. No es anonimización irreversible. [Guía de la demostración sin login](docs/demo-anonima-consentimiento.md).
+
+## Fecha y hora del examen: siempre desde el reporte
+
+La fecha/hora del examen **se extrae automáticamente** del encabezado de su PDF/JPG/PNG mediante texto nativo u OCR (incluidos encabezados españoles «Fecha de medición», «Fecha de examen» y los equivalentes ingleses). Se muestra en una caja **de solo lectura**. El usuario no debe rellenarla ni sustituirla por la fecha actual.
+
+Al exportar CSV o guardar en Neon (incluyendo modo demostración sin login), el servidor utiliza el timestamp del `ExtractionResult`, **no** un campo editable de Gradio. `prepare_confirmed_exam` rechaza una fecha que difiere de la detectada en el reporte. Si faltan fecha u hora, se bloquean guardado y exportación del CSV y se solicita verificar la legibilidad del encabezado/volver a extraer, **sin inventar un valor**. El dashboard público muestra solo fecha (no hora).
