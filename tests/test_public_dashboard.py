@@ -89,3 +89,17 @@ def test_public_view_requires_explicit_approval_and_five_distinct_people():
     assert "HAVING COUNT(*) >= 5" in migration
     assert "e.person_uuid" in migration and "personal_monthly_mean" in migration
     assert "FROM hj_measurements_long" not in migration
+
+def test_public_mode_denies_all_private_report_actions(monkeypatch):
+    from inbody_mvp.storage import require_report_access, require_database_access
+    monkeypatch.setenv("SPACE_ID", "jaqo/health-journey-public")
+    monkeypatch.setenv("ENABLE_PUBLIC_DASHBOARD", "1")
+    monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
+    monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
+    allowed_user = SimpleNamespace(username="jaqo", name="Some Name")
+    for action in (require_report_access, require_database_access):
+        with pytest.raises(PermissionError, match="solo publica estadísticas agregadas"):
+            action(allowed_user)
+        with pytest.raises(PermissionError, match="solo publica estadísticas agregadas"):
+            action(None)
