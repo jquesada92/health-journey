@@ -4,7 +4,7 @@ python-dotenv>=1.0,<2.0
 psycopg[binary]>=3.2,<4.0
 SQLAlchemy>=2.0,<3.0
 alembic>=1.14,<2.0
-gradio>=6.0,<7.0
+gradio[oauth]>=6.0,<7.0
 spaces
 easyocr>=1.7.2,<2.0
 
