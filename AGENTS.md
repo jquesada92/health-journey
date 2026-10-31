@@ -21,6 +21,7 @@ Este repositorio implementa progresivamente **InBody Hub**, primera fase de Heal
 
 - `app.py`: componentes y eventos Gradio; mantener la lógica de extracción separada.
 - `inbody_mvp/extractor.py`: lectura PDF/imágenes, OCR de respaldo, Pydantic y clasificación inicial.
+- `inbody_mvp/layouts.py`: interpretación conservadora de celdas por coordenadas para el formato InBody 580; no confundir ejes y porcentajes de referencia con mediciones.
 - `inbody_mvp/review.py`: tabla de revisión, validación de ediciones, exportación CSV.
 - `tests/test_inbody_mvp.py` y `tests/test_review.py`: pruebas unitarias.
 - `requirements.txt`: dependencias de ejecución.
@@ -47,7 +48,7 @@ Este repositorio implementa progresivamente **InBody Hub**, primera fase de Heal
 - No desplegar, hacer merge ni push a `main` sin autorización del usuario.
 - Preservar el encabezado YAML de `README.md`: `sdk: gradio`, `app_file: app.py`.
 - Mantener separado el motor Python de la UI para poder extender el dashboard Gradio + Plotly sin reescribir la extracción.
-- Antes de finalizar, ejecutar `python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py` y revisar la compilación sintáctica.
+- Antes de finalizar, ejecutar `python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py tests/test_inbody_layouts.py` y revisar la compilación sintáctica.
 - No afirmar que se ha validado el Space ni el OCR real con reportes auténticos si no hay pruebas de ello.
 
 ## Hoja de ruta
@@ -58,3 +59,11 @@ Este repositorio implementa progresivamente **InBody Hub**, primera fase de Heal
 4. Expandir posteriormente a módulos Training y Nutrition; Medical Hub requiere controles clínicos adicionales.
 
 La documentación del reto OBS de semana 2 describe estados históricos y no debe confundirse con las capacidades actuales.
+
+## Validación de formatos densos
+
+- EasyOCR debe devolver `detail=1` para preservar coordenadas y texto; el resumen de texto sin posiciones no basta para tablas InBody.
+- Para InBody 580 se usan celdas específicas en `inbody_mvp/layouts.py`; no aplicar esas coordenadas a equipos diferentes.
+- No agregar reportes reales ni capturas con cédulas o datos médicos a los tests o al repositorio.
+- Los resultados espaciales son candidatos no confirmados: validar visualmente números, signos, unidades, segmentos y porcentajes contra sus referencias originales.
+- El historial impreso dentro de una hoja InBody no debe mezclarse automáticamente con el examen actual.
