@@ -34,7 +34,8 @@ def test_inconclusive_does_not_guess(text):
 def _fixture():
     result = parse_text([(
         "ID: ANON-01\nInBody 580\nBody Composition Analysis\n"
-        "Muscle-Fat Analysis\nWeight 70.4 kg\nPhase Angle Left Leg (50 kHz) 6.1 °",
+        "Muscle-Fat Analysis\nFecha de examen: 31/10/2026 10:30\n"
+        "Weight 70.4 kg\nPhase Angle Left Leg (50 kHz) 6.1 °",
         "pdf_text"
     )], filename="synthetic.pdf", digest="a" * 64)
     return result, review_table(result)
@@ -56,9 +57,18 @@ def test_language_saved_as_exam_metadata():
 
 def test_missing_timestamp_rejected():
     result, table = _fixture()
+    missing = result.model_dump(mode="json")
+    missing["timestamp"] = None
     with pytest.raises(ValueError, match="fecha y hora"):
+        prepare_confirmed_exam(missing, table, "ANON-01",
+                               "InBody 580", "2026-10-31T10:30:00", 34, "EN")
+
+
+def test_timestamp_cannot_be_overridden_by_form():
+    result, table = _fixture()
+    with pytest.raises(ValueError, match="no coincide"):
         prepare_confirmed_exam(result.model_dump(mode="json"), table, "ANON-01",
-                               "InBody 580", "", 34, "EN")
+                               "InBody 580", "2026-10-30T10:30:00", 34, "EN")
 
 
 def test_missing_numeric_value_rejected():

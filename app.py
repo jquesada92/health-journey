@@ -36,7 +36,7 @@ from inbody_mvp.demo_storage import (
 )
 from inbody_mvp.storage import (
     database_enabled, require_report_access, require_database_access, load_measurement_history,
-    prepare_confirmed_exam, save_confirmed_exam,
+    prepare_confirmed_exam, save_confirmed_exam, source_exam_timestamp,
 )
 
 README_PATH = Path(__file__).resolve().with_name("README.md")
@@ -115,17 +115,22 @@ def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None
 
 
 def download_draft(
-    table, person, model, timestamp, age, profile: gr.OAuthProfile | None = None
+    table, person, model, age, extracted_state,
+    profile: gr.OAuthProfile | None = None,
 ):
     # Anonymous OCR/CSV is available even when the public dashboard is enabled.
     # Users must anonymize sensitive files before uploading to a public Space.
+    if extracted_state is None:
+        raise gr.Error("Primero carga y extrae un reporte InBody.")
     try:
         require_report_access(profile)
     except PermissionError as exc:
         raise gr.Error(str(exc)) from exc
     try:
         frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=REVIEW_COLUMNS)
-        content = export_draft_csv(frame, person, model, timestamp, age)
+        content = export_draft_csv(
+            frame, person, model, source_exam_timestamp(extracted_state), age
+        )
     except (ValueError, TypeError) as exc:
         raise gr.Error(str(exc)) from exc
     # Gradio handles file transfer via its temporary cache, which is cleaned periodically.
@@ -192,7 +197,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             person = gr.Textbox(label="Cédula / ID indicado en el reporte")
             model = gr.Textbox(label="Modelo InBody o identificador del equipo")
         with gr.Row():
-            timestamp = gr.Textbox(label="Timestamp del examen (ISO 8601 si se conoce)")
+            timestamp = gr.Textbox(
+                label="Fecha y hora del examen (extraídas automáticamente del documento)",
+                placeholder="Pendiente de extracción del encabezado",
+                interactive=False,
+            )
             age = gr.Number(label="Edad al realizarse el examen", precision=0)
         age_source = gr.Markdown("Origen de la edad: desconocido")
         report_language = gr.Dropdown(
@@ -226,7 +235,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         export_button.click(
             fn=download_draft,
-            inputs=[table, person, model, timestamp, age],
+            inputs=[table, person, model, age, extraction_state],
             outputs=[csv_file],
         )
         gr.Markdown("### Guardar en Neon PostgreSQL")
@@ -316,7 +325,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         saved_status = gr.Markdown()
 
         def save_reviewed(
-            state, edited, person_id, device, when, years, lang, publish,
+            state, edited, person_id, device, years, lang, publish,
             accepted_storage, demo_alias,
             profile: gr.OAuthProfile | None = None,
         ):
@@ -332,8 +341,8 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 try:
                     # Never use person_id/age/filename as the anonymous ID.
                     payload = prepare_confirmed_exam(
-                        state, edited, "ANON-" + str(uuid4()), device, when,
-                        None, lang,
+                        state, edited, "ANON-" + str(uuid4()), device,
+                        source_exam_timestamp(state), None, lang,
                     )
                     save_demo_exam(
                         payload, storage_consent=True,
@@ -353,7 +362,8 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             try:
                 require_database_access(profile)
                 payload = prepare_confirmed_exam(
-                    state, edited, person_id, device, when, years, lang
+                    state, edited, person_id, device,
+                    source_exam_timestamp(state), years, lang
                 )
                 save_confirmed_exam(
                     payload, oauth_profile=profile, publish=bool(publish)
@@ -367,7 +377,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         save_button.click(
             fn=save_reviewed,
             inputs=[
-                extraction_state, table, person, model, timestamp,
+                extraction_state, table, person, model,
                 age, report_language, publication_choice,
                 storage_consent, anonymous_session,
             ],
