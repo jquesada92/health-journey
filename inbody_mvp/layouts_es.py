@@ -41,9 +41,9 @@ CELLS: list[SpanishCell] = [
     cell('body_fat_mass','Masa Grasa Corporal','kg','grasa','masa',.489,.227,bounds=(0,160)),
     cell('weight','Peso','kg','peso','masa',.491,.247,bounds=(0,300)),
     cell('skeletal_muscle_mass','Masa musculoesquelética','kg','musculo','masa',.420,.368,bounds=(0,150)),
-    cell('bmi','IMC','kg/m²','composicion','indice',.385,.488,bounds=(1,100)),
+    cell('bmi','IMC','kg/m²','composicion','indice',.385,.488,dx=.048,dy=.009,bounds=(12,80)),
     cell('body_fat_percentage','Porcentaje de Grasa Corporal','%','grasa','porcentaje',.357,.516,bounds=(0,100)),
-    cell('inbody_score','Puntuación InBody','points','evaluacion','puntuacion',.778,.170,bounds=(0,120)),
+    cell('inbody_score','Puntuación InBody','points','evaluacion','puntuacion',.778,.170,bounds=(20,100)),
     cell('target_weight','Peso objetivo','kg','control','masa',.817,.246,bounds=(0,300)),
     cell('weight_control','Control de peso','kg','control','masa',.814,.261,bounds=(-200,200)),
     cell('fat_control','Control de grasa','kg','control','masa',.814,.278,bounds=(-200,200)),
@@ -81,7 +81,7 @@ for group, mass_key, pct_key, cat in (
 ):
     for seg,x,ym,yp in group:
         CELLS.extend([
-            cell(mass_key,'Análisis segmental', 'kg',cat,'masa',x,ym,dx=.040,dy=.006,segment=seg,bounds=(0,150)),
+            cell(mass_key,'Análisis segmental', 'kg',cat,'masa',x,ym,dx=.043,dy=.009,segment=seg,bounds=(0,150)),
             cell(pct_key,'Porcentaje frente a referencia segmental','%',cat,
                  'porcentaje_referencia',x,yp,dx=.042,dy=.007,segment=seg,bounds=(0,400)),
         ])
@@ -145,6 +145,9 @@ def _choose(tokens: list[Token], spec: SpanishCell) -> tuple[float,str] | None:
             score = re.fullmatch(r"\s*(\d{1,3})\s*/\s*100(?:\s*puntos?)?\s*", t.text, re.I)
             if score:
                 val = float(score.group(1))
+        if spec.metric == 'inbody_score' and val is not None and len(str(int(val))) < 2:
+            # Split OCR can return '7' for a printed '87/100'. Reject fragments.
+            continue
         if val is None or spec.bounds and not (spec.bounds[0] <= val <= spec.bounds[1]):
             continue
         if spec.metric in ('weight_control','fat_control','muscle_control'):
