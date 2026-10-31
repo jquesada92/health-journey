@@ -15,6 +15,8 @@ import easyocr
 import gradio as gr
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 from dotenv import load_dotenv
 
 load_dotenv(override=False)  # Local-only .env; do not commit credentials.
@@ -24,8 +26,8 @@ from inbody_mvp.extractor import (
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
 from inbody_mvp.storage import (
-    database_enabled, prepare_confirmed_exam, save_confirmed_exam,
-    DuplicateExam,
+    database_enabled, require_database_access, load_measurement_history,
+    prepare_confirmed_exam, save_confirmed_exam,
 )
 
 README_PATH = Path(__file__).resolve().with_name("README.md")
@@ -57,8 +59,13 @@ def _ocr_picture(image) -> str:
 
 
 @spaces.GPU
-def process_report(file_path: str | None):
+def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None):
     """Process one upload with a GPU OCR fallback (also runs on local CPU)."""
+    if database_enabled():
+        try:
+            require_database_access(profile)
+        except PermissionError as exc:
+            raise gr.Error(str(exc)) from exc
     if not file_path:
         raise gr.Error("Carga un PDF, JPG, JPEG o PNG.")
     path = Path(file_path)
@@ -90,7 +97,14 @@ def process_report(file_path: str | None):
     )
 
 
-def download_draft(table, person, model, timestamp, age):
+def download_draft(
+    table, person, model, timestamp, age, profile: gr.OAuthProfile | None = None
+):
+    if database_enabled():
+        try:
+            require_database_access(profile)
+        except PermissionError as exc:
+            raise gr.Error(str(exc)) from exc
     try:
         frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=REVIEW_COLUMNS)
         content = export_draft_csv(frame, person, model, timestamp, age)
@@ -104,6 +118,8 @@ def download_draft(table, person, model, timestamp, age):
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
+    if os.getenv("SPACE_ID"):
+        gr.LoginButton()
     with gr.Tab("InBody Upload"):
         gr.Markdown(
             "**MVP de extracción y revisión** — admite PDF, JPG, JPEG y PNG (máximo 15 MB). "
@@ -152,19 +168,27 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         if database_enabled():
             gr.Markdown(
-                "### Guardar examen confirmado en Neon (solo sesión local privada)\n"
-                "Verifica identificación, idioma, valores, unidades y fecha antes de continuar."
+                "### Confirmar examen en Neon\n"
+                "Inicia sesión con una cuenta autorizada y revisa todos los datos. "
+                "En local se permite guardar solamente con configuración explícita."
             )
             save_button = gr.Button("Confirmar y guardar en PostgreSQL", variant="primary")
             saved_status = gr.Markdown()
-            def save_reviewed(state, edited, person_id, device, when, years, lang):
+            def save_reviewed(
+                state, edited, person_id, device, when, years, lang,
+                profile: gr.OAuthProfile | None = None,
+            ):
+                try:
+                    require_database_access(profile)
+                except PermissionError as exc:
+                    raise gr.Error(str(exc)) from exc
                 if state is None:
                     raise gr.Error("Primero procesa un reporte.")
                 try:
                     payload = prepare_confirmed_exam(
                         state, edited, person_id, device, when, years, lang
                     )
-                    exam_id = save_confirmed_exam(payload)
+                    exam_id = save_confirmed_exam(payload, oauth_profile=profile)
                 except (ValueError, TypeError, RuntimeError) as exc:
                     raise gr.Error(str(exc)) from exc
                 return f"Examen confirmado y guardado. ID interno: `{exam_id}`."
@@ -176,14 +200,95 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             )
         else:
             gr.Markdown(
-                "**Persistencia Neon deshabilitada en este entorno.** "
-                "El Space público solo permite revisar y exportar borradores. "
-                "Para guardar, configura DATABASE_URL y ENABLE_PERSISTENCE=1 "
-                "en una ejecución local privada."
+                "**Conexión Neon inactiva.** Configura DATABASE_URL como secreto, "
+                "ENABLE_PERSISTENCE=1 y HF_ALLOWED_USERS con el usuario autorizado "
+                "en Settings del Space. Los reportes reales requieren protección de acceso."
             )
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, csv_file, extraction_state],
                        value="Limpiar")
+    with gr.Tab("Historial en Neon"):
+        gr.Markdown(
+            "Consulta únicamente con una cuenta autorizada. "
+            "Selecciona el ID exacto que aparece en el reporte. "
+            "Las tendencias son exploratorias y no prueban mejoría clínica."
+        )
+        history_id = gr.Textbox(label="ID de persona en InBody", placeholder="ID exacto")
+        with gr.Row():
+            metric_filter = gr.Dropdown(
+                choices=[
+                    "weight", "skeletal_muscle_mass", "body_fat_mass",
+                    "body_fat_percentage", "segmental_lean_mass",
+                    "segmental_fat_mass", "phase_angle",
+                ],
+                value="weight", label="Medida para la tendencia",
+            )
+            unit_filter = gr.Textbox(value="kg", label="Unidad exacta")
+            segment_filter = gr.Dropdown(
+                choices=[
+                    ("Cuerpo completo / sin segmento", ""),
+                    ("Brazo izquierdo", "left_arm"),
+                    ("Brazo derecho", "right_arm"),
+                    ("Pierna izquierda", "left_leg"),
+                    ("Pierna derecha", "right_leg"),
+                    ("Tronco", "trunk"),
+                ],
+                value="", label="Región corporal",
+            )
+        load_button = gr.Button("Consultar Neon")
+        db_status = gr.Markdown("Sin consulta.")
+        db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
+        db_table = gr.Dataframe(
+            label="Detalle de mediciones confirmadas", interactive=False,
+            type="pandas",
+        )
+
+        def display_history(
+            person_id, metric, unit, segment,
+            profile: gr.OAuthProfile | None = None,
+        ):
+            try:
+                records = load_measurement_history(
+                    person_id, oauth_profile=profile, limit=500
+                )
+            except (PermissionError, ValueError) as exc:
+                raise gr.Error(str(exc)) from exc
+            except Exception:
+                raise gr.Error("No se pudo consultar Neon. Revisa la conexión y los permisos.")
+            frame = pd.DataFrame(records)
+            fig = go.Figure()
+            if frame.empty:
+                return "No se encontraron mediciones para ese ID.", fig, frame
+            selected = frame[
+                (frame["variable_medida"] == metric)
+                & (frame["unidad_medida"] == unit)
+                & (frame["segmento"].fillna("") == (segment or ""))
+            ].copy()
+            if not selected.empty:
+                selected["series_name"] = (
+                    selected["modelo_inbody"].fillna("Modelo desconocido")
+                    + " | " + selected["frecuencia_khz"].fillna(-1).astype(str) + " kHz"
+                )
+                selected = selected.sort_values("exam_timestamp")
+                fig = px.line(
+                    selected, x="exam_timestamp", y="valor_medida",
+                    color="series_name", markers=True,
+                    labels={"exam_timestamp": "Fecha del examen",
+                            "valor_medida": unit, "series_name": "Modelo/frecuencia"},
+                    title=f"{metric} — {unit}",
+                )
+            return (
+                f"{len(frame)} mediciones encontradas (máximo 500 por consulta). "
+                "Separadas por modelo y frecuencia para evitar series incompatibles.",
+                fig, frame
+            )
+
+        load_button.click(
+            fn=display_history,
+            inputs=[history_id, metric_filter, unit_filter, segment_filter],
+            outputs=[db_status, db_chart, db_table],
+            concurrency_limit=1,
+        )
     with gr.Tab("Dashboard (siguiente fase)"):
         gr.Markdown(
             "El dashboard se construirá en **Gradio + Plotly** después de verificar "
@@ -196,4 +301,4 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1" if database_enabled() else "0.0.0.0", server_port=int(os.environ.get("PORT", "7860")), share=False, ssr_mode=False)
+    demo.launch(server_name="0.0.0.0" if os.getenv("SPACE_ID") else "127.0.0.1", server_port=int(os.environ.get("PORT", "7860")), share=False, ssr_mode=False)
