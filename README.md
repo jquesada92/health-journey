@@ -43,7 +43,7 @@ No basta con extraer texto: hay que interpretar cada medición, identificar la f
 
 **Objetivo:** unificar exámenes de una misma persona, independientemente del establecimiento, modelo o formato del reporte.
 
-1. Recibir reportes en PDF de texto, PDF con contenido escaneado e imágenes PNG/JPG. **Estado actual:** la versión 0 admite imágenes para OCR; los PDF están pendientes.
+1. Recibir reportes en PDF de texto, PDF con contenido escaneado e imágenes PNG/JPG. **Estado del MVP actual:** Gradio admite PDF, JPG, JPEG y PNG; la extracción tabulada sigue siendo candidata y requiere revisión.
 2. Identificar la persona y los metadatos del examen (fecha/hora, establecimiento o fuente, modelo del equipo) y extraer las mediciones disponibles, sin inventar valores.
 3. Mostrar la extracción para revisión humana y corrección antes de confirmar el registro.
 4. Normalizar nombres y unidades, detectar posibles duplicados, conservar el original o su referencia y consolidar un historial con procedencia.
@@ -105,38 +105,37 @@ La extracción debe ayudar a reducir trabajo manual sin inventar valores. Los ca
 
 ## Formato de datos
 
-La tabla de intercambio usa una fila por medición. Las filas de un mismo examen comparten el ID InBody y sus metadatos.
+La tabla CSV de intercambio y futura vista analítica emplea **una fila por medición**, con siete columnas:
 
 | Columna | Contenido |
 | --- | --- |
-| `id_inbody` | Identificador único y estable del examen |
-| `id_persona` | Identificador estable de la persona |
-| `edad` | Edad en la fecha del examen |
-| `fecha` | Fecha local del examen, `YYYY-MM-DD` |
-| `timestamp` | Fecha y hora del examen con zona horaria, si se conocen |
-| `modelo_inbody` | Modelo del equipo indicado en el reporte |
-| `descripcion_medicion` | Nombre normalizado de la medición, incluyendo unidad y segmento cuando corresponda |
-| `valor_medicion` | Valor numérico; ausente cuando no se pueda confirmar |
+| `id_persona` | Cédula o identificador **tal como figura en el InBody**, sin asumir identidad verificada |
+| `modelo_inbody` | Modelo o identificación del equipo indicada en el documento |
+| `timestamp` | Fecha/hora del examen, si ambas aparecen; dejar vacío si no puede confirmarse |
+| `variable_medida` | Nombre estandarizado, incorporando segmento/frecuencia cuando proceda |
+| `unidad_medida` | Unidad explícita del documento; no se inventa |
+| `valor_medida` | Valor numérico, o vacío si no se puede confirmar |
+| `edad` | Edad al examen, calculada desde fecha de nacimiento o transcrita si está reportada |
 
-Las unidades se documentan en el diccionario de mediciones. Los datos ausentes no se sustituyen por cero. La fuente y la trazabilidad se conservan aparte de estas ocho columnas.
+La clasificación distingue masa muscular esquelética, masa libre de grasa, grasa, ángulo de fase y otros parámetros. Las variables nuevas se añaden como **nuevas filas**, no como nuevas columnas. Los metadatos de auditoría, etiqueta original, dimensión, segmento, frecuencia, hash y páginas quedan separados de esta vista. La exportación actual es un **borrador no confirmado**; la persistencia y la consolidación histórica todavía no están implementadas.
 
 ## Alcance y límites
 
-El alcance inmediato es la **fase 1**. La versión 0 del reto incluye únicamente la interfaz y OCR de imágenes, con datos de prueba o anonimizados. La carga de PDF, extracción estructurada, validación, historial y tendencias son objetivos siguientes de esta fase. Los registros de entrenamiento y macronutrientes corresponden a la fase 2; la integración clínica, a la fase 3. El asistente virtual se incorporará progresivamente, no como capacidad ya disponible.
+El alcance inmediato es la **fase 1**. El prototipo actual ya admite PDF, JPG, JPEG y PNG y ofrece extracción candidata/revisión/CSV. La confirmación persistente, el historial y las tendencias quedan pendientes. Los registros de entrenamiento y macronutrientes corresponden a la fase 2; la integración clínica, a la fase 3. El asistente virtual se incorporará progresivamente, no como capacidad ya disponible.
 
 El diseño contempla CDC hacia Databricks para análisis y un proceso de archivado que reduzca el detalle histórico en la base operativa. Antes de purgar registros, el archivo debe estar verificado y permitir recuperación. Las purgas por archivado deben distinguirse de las eliminaciones reales para no borrar accidentalmente el historial analítico.
 
 ## Tecnología y entornos
 
-Stack: React con TypeScript y Vite; Python con FastAPI y Pydantic; PostgreSQL con SQLAlchemy y Alembic.
+**Stack del MVP actual:** Python, **Gradio** (interfaz en `app.py`), **Pydantic** (validación), **PyMuPDF** (PDF nativo), **EasyOCR** (imágenes o escaneos), Pandas (tabla y CSV). **Plotly** se usará para las visualizaciones históricas en una fase posterior. No utilizamos Flask ni Dash.
 
-| Entorno | Ejecución | Datos |
-| --- | --- | --- |
-| Desarrollo | Todos los servicios en local mediante Docker Compose | PostgreSQL y archivos locales; pruebas independientes de producción |
-| QA | React, FastAPI, OCR y PostgreSQL dentro del mismo Hugging Face Docker Space | Datos temporales, sin almacenamiento durable; base vacía en cada arranque |
-| Producción prevista | Frontend en Vercel, backend en Render y PostgreSQL en Neon | Persistencia durable; almacenamiento de originales pendiente de elección |
+| Entorno | Estado |
+| --- | --- |
+| Desarrollo local | `python app.py`; archivos temporales y extracción sin base de datos |
+| QA en Hugging Face | Gradio + ZeroGPU; datos de prueba sintéticos/anonimizados; publicación por GitHub Actions |
+| Producción | Pendiente: acceso privado, PostgreSQL y almacenamiento seguro de originales |
 
-QA no se conecta a servicios de producción y usa datos ficticios o anonimizados. CDC y archivado de producción permanecen desactivados en ese entorno. Su objetivo es probar el flujo de la app, no conservar historiales reales.
+QA no se conecta a producción. No se deben cargar reportes personales reales en un Space público sin controles de acceso y retención.
 
 ## Criterios de calidad
 
@@ -152,39 +151,32 @@ QA no se conecta a servicios de producción y usa datos ficticios o anonimizados
 
 La ficha para Blackboard y el alcance verificable de la versión 0 se documentan en [docs/hito-semana-2.md](docs/hito-semana-2.md). La [especificación](especificacion.md) limita el MVP a tres funcionalidades y define entradas, salidas, restricciones y criterios de aceptación; [AGENTS.md](AGENTS.md) guía a los asistentes de programación.
 
-**Pieza de IA elegida para el reto:** un modelo de Hugging Face ejecutado localmente, [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), combinado con EasyOCR para detectar regiones de texto. TrOCR reconoce texto impreso de líneas individuales; **no comprende por sí solo un reporte completo ni lo convierte en mediciones estructuradas**. Las reglas de Python/Pydantic identifican y validan las mediciones, que el usuario revisa antes de confirmar. No requiere una API comercial ni tiene cobros por solicitud, pero sí recursos de cómputo y descargas de modelo. En Hugging Face ZeroGPU el alojamiento gratuito está sujeto a elegibilidad, cuotas y disponibilidad. **Estado actual:** EasyOCR funciona como primera aproximación; TrOCR, PDF y tabulación todavía no están integrados. No se utilizarán documentos de salud reales en el Space público del reto.
+**Pieza de IA elegida para el reto:** un modelo de Hugging Face ejecutado localmente, [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), combinado con EasyOCR para detectar regiones de texto. TrOCR reconoce texto impreso de líneas individuales; **no comprende por sí solo un reporte completo ni lo convierte en mediciones estructuradas**. Las reglas de Python/Pydantic identifican y validan las mediciones, que el usuario revisa antes de confirmar. No requiere una API comercial ni tiene cobros por solicitud, pero sí recursos de cómputo y descargas de modelo. En Hugging Face ZeroGPU el alojamiento gratuito está sujeto a elegibilidad, cuotas y disponibilidad. **Estado del reto inicial (histórico):** EasyOCR funcionaba como primera aproximación; TrOCR no está integrado. El MVP posterior añadió PDF y tabulación candidata. No se utilizarán documentos de salud reales en el Space público del reto.
 
 ## Estado actual
 
-El proyecto cuenta con instrucciones de arquitectura en `AGENTS.md`, un `app.py` con Gradio que renderiza este README y un archivo `requirements.txt` con las dependencias Python.
+El punto de entrada **`app.py` utiliza Gradio**. La pestaña **InBody Upload** permite seleccionar PDF, JPG, JPEG y PNG (máximo 15 MB), extraer texto nativo o OCR, revisar mediciones candidatas en una tabla editable y exportar **un CSV borrador vertical de siete columnas**. La clasificación inicial conserva medidas desconocidas y reconoce, cuando el texto lo permite, grasa, masa muscular, segmentos y ángulo de fase/frecuencia.
 
-La vista actual en Gradio muestra documentación y permite extraer texto de imágenes con EasyOCR mediante `@spaces.GPU` en ZeroGPU. El texto requiere revisión; la precisión con reportes InBody y la ejecución GPU aún no están verificadas. PDF y tabulación estructurada siguen pendientes. En local, se usa CPU cuando CUDA no está disponible; los modelos OCR se descargan en el primer arranque.
+La pestaña **Dashboard (siguiente fase)** explica el plan para Gradio + Plotly: filtros por fecha, variable, unidades, regiones, grasa vs. músculo y tendencias de ángulo de fase. **Las gráficas históricas, PostgreSQL, la confirmación de exámenes y la detección persistente de duplicados no están implementados.** La pestaña Proyecto muestra este README.
 
-La interfaz QA completa con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
+La extracción sigue siendo candidata y requiere revisión humana. La precisión con documentos auténticos y la ejecución efectiva en ZeroGPU deben verificarse por separado. El repositorio contiene pruebas unitarias de extracción y revisión; estas no sustituyen pruebas de interfaz en el Space.
 
-El flujo InBody, la interfaz React, la base de datos, el contenedor QA, CDC y archivado todavía no están implementados. Los entornos descritos son objetivos de diseño, no despliegues verificados.
+## MVP local: carga de reportes InBody con Dash
 
-### Ejecutar el ejemplo mínimo
+El MVP se ejecuta con **Gradio**, sin servidor Dash adicional:
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
 
-Abrir http://localhost:7860. Mantener `README.md` junto a `app.py`: se lee en cada solicitud, por lo que los cambios aparecen al recargar la página. Este ejemplo no inicia PostgreSQL ni el flujo de carga de reportes.
+Abrir [http://localhost:7860](http://localhost:7860). La publicación en Hugging Face se realiza con `.github/workflows/deploy-huggingface.yml`, que incluye `app.py` y `inbody_mvp/`. Consulta [docs/despliegue-hugging-face.md](docs/despliegue-hugging-face.md).
 
-## MVP local: carga de reportes InBody con Dash
-
-La primera versión experimental de **InBody Hub** permite cargar **PDF, JPG, JPEG y PNG**, extraer texto nativo o mediante EasyOCR, revisar mediciones candidatas en una tabla editable y exportar un borrador CSV vertical. No realiza persistencia ni confirma exámenes. Esta versión es **local** y no sustituye el prototipo Gradio del Space.
-
+Para ejecutar las pruebas:
 ```bash
-pip install -r requirements.txt
-python dash_app.py
+pip install pytest
+python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py
 ```
-
-Abrir http://127.0.0.1:8050. Ejecutar las pruebas con `pip install pytest && python -m pytest -q tests/test_inbody_mvp.py`. Usar únicamente reportes ficticios o anonimizados; todavía no hay autenticación ni almacenamiento seguro para documentos personales.
-
-Más detalles: [README_DASH_MVP.md](README_DASH_MVP.md).
 
 ## Publicar cambios en Hugging Face Spaces
 
