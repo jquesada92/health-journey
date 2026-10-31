@@ -17,7 +17,7 @@ def standalone_oauth_urls(space_host: str | None) -> dict[str, str] | None:
     Gradio's OAuth middleware implements /login/huggingface and /logout.
     """
     raw = (space_host or "").strip()
-    if not raw or any(char in raw for char in ("/", ":", "@", "?", "#", " ", "\\", "<", ">")):
+    if not raw or any(char in raw for char in ("/", ":", "@", "?", "#", "\\", "<", ">")):
         return None
     # SPACE_HOST can be a comma-delimited list with custom domains. Use
     # the first canonical hf.space host if present.
