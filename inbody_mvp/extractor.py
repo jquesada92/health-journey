@@ -12,18 +12,20 @@ import threading
 import unicodedata
 from datetime import date, datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Any
 
 import fitz
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
+
+from .layouts import extract_inbody580, normalize_detections, tokens_to_text
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_PAGES = 8
 MAX_PIXELS = 20_000_000
 OCR_DPI = 155
 
-OcrFunction = Callable[[Image.Image], str]
+OcrFunction = Callable[[Image.Image], str | list[Any]]
 _OCR_READER = None
 _OCR_LOCK = threading.Lock()
 
@@ -283,8 +285,8 @@ def _default_ocr(image: Image.Image) -> str:
     with _OCR_LOCK:
         if _OCR_READER is None:
             _OCR_READER = easyocr.Reader(["es", "en"], gpu=False)
-        lines = _OCR_READER.readtext(np.asarray(image.convert("RGB")), detail=0, paragraph=False)
-    return "\n".join(lines)
+        detections = _OCR_READER.readtext(np.asarray(image.convert("RGB")), detail=1, paragraph=False)
+    return detections
 
 
 def _load_image(data: bytes) -> Image.Image:
@@ -306,6 +308,16 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
     ocr_engine = ocr or _default_ocr
     texts: list[tuple[str, str]] = []
     notices: list[str] = []
+    positional_pages: list[tuple[int, list, int, int]] = []
+
+    def read_ocr(image: Image.Image, page_number: int) -> str:
+        answer = ocr_engine(image)
+        if isinstance(answer, str):
+            return answer
+        if isinstance(answer, list):
+            positional_pages.append((page_number, answer, image.width, image.height))
+            return tokens_to_text(normalize_detections(answer, image.width, image.height))
+        raise DocumentError("Respuesta OCR no reconocida.")
     if kind == "pdf":
         try:
             with fitz.open(stream=data, filetype="pdf") as pdf:
@@ -323,7 +335,7 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
                     pixmap = page.get_pixmap(dpi=OCR_DPI, colorspace=fitz.csRGB, alpha=False)
                     picture = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
                     try:
-                        scanned = ocr_engine(picture)
+                        scanned = read_ocr(picture, n + 1)
                     except Exception as ex:
                         scanned = ""
                         notices.append(f"Página {n+1}: OCR no disponible ({type(ex).__name__}).")
@@ -335,11 +347,56 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
     else:
         picture = _load_image(data)
         try:
-            text = ocr_engine(picture)
+            text = read_ocr(picture, 1)
         except Exception as ex:
             text = ""
             notices.append(f"OCR no disponible ({type(ex).__name__}); revisa instalación y modelos locales.")
         texts.append((text, "ocr"))
     result = parse_text(texts, filename=filename, digest=digest)
+    for page_number, detections, width, height in positional_pages:
+        rows, metadata = extract_inbody580(detections, width, height)
+        if not metadata:
+            continue
+        if rows:
+            # Positional, multi-column layout: don't interpret chart-axis values
+            # as a simple "label value unit" text line.
+            result.advertencias = [w for w in result.advertencias
+                                  if not w.startswith("Variable no reconocida")]
+            result.medidas = [Measurement.model_validate({**row, "pagina": page_number})
+                             for row in rows]
+            notices.extend([
+                "Plantilla InBody 580: revisar todas las mediciones candidatas "
+                "contra el reporte original antes de exportar.",
+                "El historial gráfico impreso no se incorpora como nuevos "
+                "exámenes; requiere un extractor histórico específico.",
+            ])
+        result.modelo_inbody = metadata.get("modelo_inbody") or result.modelo_inbody
+        result.id_persona = metadata.get("id_persona") or result.id_persona
+        exam = _parse_date(metadata["exam_date_raw"]) if metadata.get("exam_date_raw") else None
+        birth = _parse_date(metadata["dob_raw"]) if metadata.get("dob_raw") else None
+        clock = metadata.get("exam_time_raw")
+        if exam and clock:
+            try:
+                result.timestamp = datetime.combine(
+                    exam, datetime.strptime(clock, "%H:%M").time()
+                ).isoformat(timespec="seconds")
+                notices.append("Timestamp del reporte sin zona horaria verificada.")
+            except ValueError:
+                pass
+        if exam and birth and birth <= exam:
+            calc = exam.year - birth.year - ((exam.month, exam.day) < (birth.month, birth.day))
+            if 0 <= calc <= 120:
+                result.edad, result.origen_edad = calc, "calculada_desde_fecha_nacimiento"
+        elif metadata.get("age_raw") is not None and 0 <= metadata["age_raw"] <= 120:
+            result.edad, result.origen_edad = metadata["age_raw"], "reportada_no_calculada"
+    if result.medidas:
+        result.advertencias = [w for w in result.advertencias
+                              if not w.startswith("No se detectaron mediciones")]
+    if result.timestamp:
+        result.advertencias = [w for w in result.advertencias if not w.startswith(
+            ("Fecha del examen no identificada", "No hay hora verificable"))]
+    if result.edad is not None:
+        result.advertencias = [w for w in result.advertencias
+                              if not w.startswith("Edad desconocida")]
     result.advertencias = list(dict.fromkeys(notices + result.advertencias))
     return result
