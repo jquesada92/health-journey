@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from inbody_mvp.extractor import parse_text
 from inbody_mvp.language import detect_report_language
 from inbody_mvp.review import review_table
-from inbody_mvp.storage import database_enabled, require_database_access, prepare_confirmed_exam
+from inbody_mvp.storage import database_enabled, require_database_access, require_report_access, prepare_confirmed_exam
 
 
 def test_spanish_inbody_headings():
@@ -85,14 +85,14 @@ def test_space_oauth_allowlist_enforced_per_request(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:secret@invalid/db?sslmode=require")
     monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
     assert database_enabled() is True
-    for profile in (None, SimpleNamespace(name="other"), SimpleNamespace(name="")):
+    for profile in (None, SimpleNamespace(username="other"), SimpleNamespace(username="")):
         with pytest.raises(PermissionError):
             require_database_access(profile)
-    require_database_access(SimpleNamespace(name="JAQO"))
+    require_database_access(SimpleNamespace(name="Nombre Visible", username="JAQO"))
     monkeypatch.delenv("HF_ALLOWED_USERS")
     assert database_enabled() is False
     with pytest.raises(PermissionError):
-        require_database_access(SimpleNamespace(name="jaqo"))
+        require_database_access(SimpleNamespace(username="jaqo"))
 
 
 def test_local_owner_only_when_explicitly_enabled(monkeypatch):
@@ -104,3 +104,30 @@ def test_local_owner_only_when_explicitly_enabled(monkeypatch):
         require_database_access(None)
     monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
     require_database_access(None)
+
+
+def test_display_name_is_not_an_authentication_identifier(monkeypatch):
+    monkeypatch.setenv("SPACE_ID", "jaqo/health-journey")
+    monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake:fake@invalid/db?sslmode=require")
+    monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
+    # A user can have a display name that coincidentally matches the owner.
+    with pytest.raises(PermissionError):
+        require_database_access(SimpleNamespace(name="jaqo", username="different-user"))
+    # A valid username must pass regardless of the display name.
+    require_database_access(SimpleNamespace(name="Alias visible", username="jaqo"))
+
+
+def test_upload_and_csv_authorization_independent_from_neon(monkeypatch):
+    monkeypatch.setenv("SPACE_ID", "jaqo/health-journey")
+    monkeypatch.setenv("ENABLE_PERSISTENCE", "0")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
+    assert database_enabled() is False
+    require_report_access(SimpleNamespace(name="Otra persona", username="jaqo"))
+    with pytest.raises(PermissionError):
+        require_report_access(SimpleNamespace(name="jaqo", username="otro"))
+    with pytest.raises(PermissionError):
+        require_report_access(None)
+    monkeypatch.delenv("HF_ALLOWED_USERS")
+    require_report_access(None)  # QA without Neon/allowlist: synthetic files only

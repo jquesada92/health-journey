@@ -96,3 +96,17 @@ Después haz **Restart** o **Factory reboot** del Space y usa **Login** con una 
 **Seguridad:** en el Space, las operaciones de OCR, consulta, exportación y guardado comprueban el usuario OAuth en el servidor cuando la persistencia está habilitada. La lista de usuarios es un control básico de MVP para un solo propietario, **no un sistema de autorización multiusuario**. Antes de manejar reportes personales, limita además la visibilidad del Space a privado, revisa la retención de archivos temporales y valida que el usuario PostgreSQL no herede permisos administrativos.
 
 El botón solo confirma el guardado después de una transacción exitosa; no presupone que el rol tenga permiso de conexión ni que una credencial configurada sea válida. El estado real se comprueba ejecutando una inserción y consulta de prueba con datos sintéticos.
+
+
+## Diagnóstico de autorización OAuth en Hugging Face
+
+**Corrección de compatibilidad:** la clase de Gradio `OAuthProfile` expone `username` (identificador `jaqo`) y `name` (nombre para mostrar). **La allowlist `HF_ALLOWED_USERS` siempre debe compararse con `profile.username`**, nunca con el nombre visible. De otro modo una cuenta autenticada puede ser rechazada o un usuario con nombre visible coincidente puede obtener acceso indebido.
+
+- En Spaces, `hf_oauth: true` debe constar en la cabecera del `README.md`.
+- La dependencia `gradio[oauth]` instala los componentes adicionales requeridos para OAuth.
+- Abre el Space, pulsa **Login** y autoriza el acceso; si hay problemas con la sesión dentro de la vista incrustada, abre el Space en una pestaña independiente.
+- `HF_ALLOWED_USERS=jaqo` es una variable de entorno, no un secreto y no lleva `@`, nombre visible ni correo.
+- La extracción y la exportación CSV **no dependen de la configuración de Neon**. Si `HF_ALLOWED_USERS` está definida dentro del Space, ambas operaciones exigen una sesión HF autorizada por tratarse de archivos potencialmente sensibles.
+- Guardar y consultar Neon requieren adicionalmente `ENABLE_PERSISTENCE=1` y `DATABASE_URL`; cada operación comprueba la sesión.
+- Si el Space no tiene allowlist, la extracción solo debe usarse con datos sintéticos o anonimizados; no constituye un entorno privado seguro.
+- Nunca resuelvas el error deshabilitando las comprobaciones SQL o usando el rol administrador de Neon.

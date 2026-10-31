@@ -140,23 +140,41 @@ def database_enabled() -> bool:
     return True
 
 
-def require_database_access(oauth_profile=None) -> None:
-    """Enforce server-side authorization on EVERY query and write.
+def require_report_access(oauth_profile=None) -> None:
+    """Authorize report processing independent of database connectivity.
 
-    In Spaces, the signed-in HF account must be explicitly allowlisted.
-    A LoginButton alone is not access control. Local mode is bound to localhost.
+    Hugging Face OAuthProfile.name is the display name, whereas
+    OAuthProfile.username is the actual HF account identifier. Checking
+    display names wrongly rejects legitimate accounts and is not a sound
+    authorization boundary.
+    
+    On a Space with HF_ALLOWED_USERS configured, require the user for
+    extraction/CSV as well as for database actions, since the report may
+    contain personal health information. A sandbox without an allowlist
+    may process *synthetic* reports even if Neon is unavailable.
     """
+    if not os.getenv("SPACE_ID"):
+        return
+    allowed = {
+        part.strip().casefold()
+        for part in os.getenv("HF_ALLOWED_USERS", "").split(",")
+        if part.strip()
+    }
+    if not allowed:
+        return
+    username = getattr(oauth_profile, "username", None)
+    if not isinstance(username, str) or username.strip().casefold() not in allowed:
+        raise PermissionError(
+            "Inicia sesión en Hugging Face con un usuario autorizado "
+            "(comprueba HF_ALLOWED_USERS)."
+        )
+
+
+def require_database_access(oauth_profile=None) -> None:
+    """Enforce database configuration and per-request HF authorization."""
     if not database_enabled():
         raise PermissionError("Conexión Neon deshabilitada o incompleta.")
-    if os.getenv("SPACE_ID"):
-        allowed = {
-            part.strip().casefold()
-            for part in os.getenv("HF_ALLOWED_USERS", "").split(",")
-            if part.strip()
-        }
-        username = getattr(oauth_profile, "name", None)
-        if not username or username.casefold() not in allowed:
-            raise PermissionError("Inicia sesión con una cuenta Hugging Face autorizada.")
+    require_report_access(oauth_profile)
 
 
 def load_measurement_history(
