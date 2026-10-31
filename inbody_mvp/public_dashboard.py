@@ -113,13 +113,33 @@ def load_public_person_series(
     if variable not in PUBLIC_METRICS:
         raise ValueError("La variable solicitada no está aprobada para publicación.")
     limit = min(max(int(max_rows), 1), 1500)
+    # Demo view is isolated from production tables and can only be read by
+    # the public read-only role. No anonymous callback can query patient data.
+    if os.getenv("ENABLE_ANONYMOUS_DEMO", "").strip().lower() in ("1", "true", "yes"):
+        source_sql = """
+            SELECT anonymous_id, exam_date, device_group, variable_medida,
+                   unidad_medida, segmento, frecuencia_khz, valor_medida
+            FROM hj_public_person_series
+            UNION ALL
+            SELECT anonymous_id, exam_date, device_group, variable_medida,
+                   unidad_medida, segmento, frecuencia_khz, valor_medida
+            FROM hj_demo_public_series
+        """
+    else:
+        source_sql = """
+            SELECT anonymous_id, exam_date, device_group, variable_medida,
+                   unidad_medida, segmento, frecuencia_khz, valor_medida
+            FROM hj_public_person_series
+        """
     engine = _public_database_engine()
     try:
         with engine.connect() as conn:
             rows = conn.execute(text("""
                 SELECT anonymous_id, exam_date, device_group, variable_medida,
                        unidad_medida, segmento, frecuencia_khz, valor_medida
-                FROM hj_public_person_series
+                FROM (
+            """ + source_sql + """
+                ) AS published
                 WHERE variable_medida = :metric
                 ORDER BY exam_date, anonymous_id
                 LIMIT :row_limit
