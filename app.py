@@ -25,6 +25,10 @@ from inbody_mvp.extractor import (
     DocumentError, MAX_UPLOAD_BYTES, extract_document,
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
+from inbody_mvp.public_dashboard import (
+    PUBLIC_METRICS, public_mode_requested, public_dashboard_enabled,
+    load_public_monthly_summary,
+)
 from inbody_mvp.storage import (
     database_enabled, require_report_access, require_database_access, load_measurement_history,
     prepare_confirmed_exam, save_confirmed_exam,
@@ -163,13 +167,24 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             session_info = gr.Markdown("Comprueba la sesión si aparece un error de autorización.")
         session_check.click(fn=check_session, inputs=[], outputs=[session_info])
     with gr.Tab("InBody Upload"):
+        if public_mode_requested():
+            gr.Markdown(
+                "**Modo público:** no se aceptan cargas, OCR, CSV privados ni "
+                "consultas individuales. Utiliza un Space privado separado."
+            )
         gr.Markdown(
             "**MVP de extracción y revisión** — admite PDF, JPG, JPEG y PNG (máximo 15 MB). "
             "Usa **únicamente archivos sintéticos o anonimizados**: este QA público "
             "todavía no tiene autenticación ni persistencia segura."
         )
-        upload = gr.File(label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"], type="filepath")
-        extract_button = gr.Button("Extraer mediciones", variant="primary")
+        upload = gr.File(
+            label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
+            type="filepath", interactive=not public_mode_requested(),
+        )
+        extract_button = gr.Button(
+            "Extraer mediciones", variant="primary",
+            interactive=not public_mode_requested(),
+        )
         status = gr.Markdown("Sube un archivo y pulsa «Extraer mediciones».")
         with gr.Row():
             person = gr.Textbox(label="Cédula / ID indicado en el reporte")
@@ -195,7 +210,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         with gr.Accordion("Advertencias y texto extraído", open=False):
             warnings = gr.Textbox(label="Advertencias", lines=5, interactive=False)
             raw = gr.Textbox(label="Texto OCR / PDF", lines=12, interactive=False)
-        export_button = gr.Button("Exportar borrador CSV (no guarda en una base de datos)")
+        export_button = gr.Button(
+            "Exportar borrador CSV (no guarda en una base de datos)",
+            interactive=not public_mode_requested(),
+        )
         csv_file = gr.File(label="CSV borrador", interactive=False)
         extract_button.click(
             fn=process_report, inputs=[upload],
@@ -226,7 +244,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         save_button = gr.Button(
             "Guardar examen confirmado en Neon",
             variant="primary",
-            interactive=database_enabled(),
+            interactive=database_enabled() and not public_mode_requested(),
         )
         saved_status = gr.Markdown()
 
@@ -261,6 +279,87 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, csv_file, extraction_state],
                        value="Limpiar")
+    with gr.Tab("Dashboard público"):
+        gr.Markdown(
+            "**Estadísticas de composición corporal sin identificadores personales.** "
+            "Solo se muestran promedios mensuales de exámenes con autorización "
+            "expresa de publicación y grupos de al menos 5 personas distintas. "
+            "No se publican IDs, nombres, edades, fechas exactas ni informes originales. "
+            "Los promedios no representan historiales individuales ni garantizan "
+            "anonimato absoluto frente a información externa."
+        )
+        metric_public = gr.Dropdown(
+            choices=[(label, metric) for metric, label in PUBLIC_METRICS.items()],
+            value="weight", label="Variable pública",
+        )
+        public_button = gr.Button(
+            "Consultar estadísticas públicas",
+            interactive=public_dashboard_enabled(),
+        )
+        if not public_dashboard_enabled():
+            gr.Markdown(
+                "Estadísticas públicas todavía no activadas. "
+                "No se publicará ningún examen automáticamente."
+            )
+        public_status = gr.Markdown("Sin consulta.")
+        public_plot = gr.Plot(label="Evolución mensual por grupo")
+        public_table = gr.Dataframe(
+            label="Datos agregados y aprobados para publicación",
+            type="pandas", interactive=False,
+        )
+
+        def show_public_dashboard(variable):
+            try:
+                records = load_public_monthly_summary(variable)
+            except ValueError as exc:
+                raise gr.Error(str(exc)) from exc
+            except Exception:
+                raise gr.Error(
+                    "No se pudieron consultar las estadísticas públicas. "
+                    "Verifica la migración y la configuración del servidor."
+                )
+            frame = pd.DataFrame(records)
+            fig = go.Figure()
+            if frame.empty:
+                return (
+                    "Aún no hay grupos con autorización de publicación "
+                    "y al menos cinco personas distintas para esta métrica.",
+                    fig, frame,
+                )
+            frame["serie"] = frame.apply(
+                lambda item: (
+                    str(item["device_group"])
+                    + " / " + str(item["segmento"] or "cuerpo completo")
+                    + " / " + (
+                        f'{item["frecuencia_khz"]:g} kHz'
+                        if pd.notna(item["frecuencia_khz"])
+                        else "frecuencia no indicada"
+                    )
+                ),
+                axis=1,
+            )
+            fig = px.line(
+                frame.sort_values("period_month"),
+                x="period_month", y="valor_promedio",
+                color="serie", markers=True,
+                labels={
+                    "period_month": "Mes del examen",
+                    "valor_promedio": f"Promedio ({frame['unidad_medida'].iloc[0]})",
+                    "serie": "Grupo de medición",
+                },
+            )
+            return (
+                f"{len(frame)} agregados mensuales publicados. "
+                "Cada grupo representa al menos cinco personas distintas.",
+                fig, frame,
+            )
+
+        public_button.click(
+            fn=show_public_dashboard,
+            inputs=[metric_public],
+            outputs=[public_status, public_plot, public_table],
+            concurrency_limit=1,
+        )
     with gr.Tab("Historial en Neon"):
         gr.Markdown(
             "Consulta únicamente con una cuenta autorizada. "
@@ -289,7 +388,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 ],
                 value="", label="Región corporal",
             )
-        load_button = gr.Button("Consultar Neon")
+        load_button = gr.Button(
+            "Consultar Neon", interactive=not public_mode_requested()
+        )
         db_status = gr.Markdown("Sin consulta.")
         db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
         db_table = gr.Dataframe(
