@@ -91,3 +91,21 @@ No introducir cambios destructivos de roles/permisos sin revisión y procedimien
 - Secretos nunca aparecen en el HTML, excepciones visibles o logs de CI.
 
 **Un resultado correcto en tests sintéticos no certifica por sí solo un despliegue seguro sobre datos reales.**
+
+## 8. Reglas para el dashboard público (PR #9)
+
+- **No publicar series individuales seudonimizadas como si fueran anónimas.** El histórico por persona sigue siendo privado; el público recibe únicamente agregados mensuales.
+- Solo incluir exámenes con consentimiento explícito que quede registrado y sea revocable. Actualmente la columna `hj_exams.public_release_approved_at` existe, pero **falta un proceso de consentimiento y revocación auditable**.
+- La vista `hj_public_monthly_summary` agrega por mes/modelo sanitizado/métrica/unidad/segmento/frecuencia, con **al menos cinco personas** por grupo; este umbral no certifica anonimato absoluto.
+- Utilizar `PUBLIC_DATABASE_URL` exclusivamente con `health_journey_public`, rol sin permisos de lectura ni escritura sobre las tablas privadas. Nunca enviar el Secret privado `DATABASE_URL` al Space público.
+- El rol público y la vista no bastan: es imprescindible **un Space distinto cuyo código no registre rutas de OCR/carga/descarga de reportes**. Las rutas que solo tienen botones deshabilitados continúan siendo superficie de riesgo.
+- No activar `ENABLE_PUBLIC_DASHBOARD=1` en la instancia que recibe documentos identificables.
+- Ver [10 — Publicación, anonimización y OAuth](10_publicacion_anonima_y_autenticacion.md) y `docs/dashboard-publico.md`.
+
+## 9. Identidad OAuth y orden de validación (PR #7–8)
+
+- `HF_ALLOWED_USERS` contiene el **username** real de Hugging Face. Comparar con `OAuthProfile.username`, nunca con el nombre visible `name`.
+- Sin archivo seleccionado, responder primero «Primero carga un PDF, JPG, JPEG o PNG» **sin exigir autenticación**.
+- Con archivo: validar sesión permitida en el flujo privado antes del procesamiento.
+- No condicionarse a la conexión Neon para OCR o exportación CSV; guardar y consultar Neon sí requieren verificación OAuth y credenciales.
+- Los tests de orden de validación no prueban que EasyOCR real funcione en el Space de producción.
