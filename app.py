@@ -62,15 +62,16 @@ def _ocr_picture(image) -> str:
 
 @spaces.GPU
 def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None):
-    """Process one upload with a GPU OCR fallback (also runs on local CPU)."""
-    # OCR/review access is independent of whether Neon is configured.
-    # If HF_ALLOWED_USERS is set on a Space, the user must log in.
+    """Validate upload first, then authorize access to the uploaded report."""
+    # No document was supplied: do not require OAuth or an OCR/GPU allocation.
+    if not file_path:
+        raise gr.Error("Primero carga un PDF, JPG, JPEG o PNG.")
+    # Processing a real document still requires an authorized HF account.
+    # Neon configuration is unrelated to this OCR permission.
     try:
         require_report_access(profile)
     except PermissionError as exc:
         raise gr.Error(str(exc)) from exc
-    if not file_path:
-        raise gr.Error("Carga un PDF, JPG, JPEG o PNG.")
     path = Path(file_path)
     try:
         if not path.is_file() or path.stat().st_size > MAX_UPLOAD_BYTES:
