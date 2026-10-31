@@ -1,6 +1,6 @@
 # Harness de reconstrucción — Health Journey
 
-**Versión del contrato:** 1.0 — 31 de octubre de 2026  
+**Versión del contrato:** 1.1 — 31 de octubre de 2026 (sincronizada con los PR #8 y #9)  
 **Idioma normativo:** español. Los nombres de tablas, variables, librerías y claves de datos se mantienen tal como exige el código.  
 **Estado:** especificación de reconstrucción + inventario del MVP existente. No equivale a una certificación de producción.
 
@@ -23,6 +23,7 @@ La visión consiste en consolidar datos de salud y ejercicio provenientes de mú
 | [07 — Reconstrucción y operación](07_reconstruccion_y_operacion.md) | Pasos de instalación, Neon, Hugging Face, CI y recuperación |
 | [08 — Calidad y aceptación](08_pruebas_y_criterios.md) | Matriz de criterios verificables, casos negativos y evidencia |
 | [09 — Estado, decisiones y deuda](09_estado_y_decisiones.md) | Qué existe, qué falta, ADR y orden de implementación |
+| [10 — Publicación, anonimización y OAuth](10_publicacion_anonima_y_autenticacion.md) | Spaces privado/público, vista de cohortes, consentimiento y errores al extraer |
 | [PROMPT_AGENTE.md](PROMPT_AGENTE.md) | Instrucciones listas para delegar la reconstrucción a un agente |
 
 ## Reglas normativas
@@ -39,6 +40,8 @@ La visión consiste en consolidar datos de salud y ejercicio provenientes de mú
 10. No registrar datos personales en logs, código, GitHub, pruebas públicas ni prompts.
 11. Evitar cambios destructivos en Neon; ejecutar migraciones reproducibles y con control.
 12. Nunca declarar una función «lista» sin pruebas y verificación de su entorno real.
+13. Separar el Space de ingestión privada del Space de estadísticas públicas: ninguna serie individual se publica por ocultar su ID.
+14. Solo publicar métricas agregadas y explícitamente autorizadas; el umbral de cinco personas no garantiza anonimato absoluto.
 
 ## Prioridad cuando existen contradicciones
 
@@ -55,8 +58,10 @@ La visión consiste en consolidar datos de salud y ejercicio provenientes de mú
 - Neon: proyecto `health-journey`, base `health_journey`, PostgreSQL 17, región `aws-us-east-1`.
 - Neon: `hj_persons`, `hj_exams`, `hj_measurements`, `hj_measurement_catalog` y vista `hj_measurements_long` verificadas. **Cero registros** al consultar el 31/10/2026.
 - En `main` existen carga OCR, tabla editable, CSV de siete columnas, guardado condicionado a configuración y consulta inicial Neon.
-- **Pendientes en `main` al crear este harness:** nombre de CSV con hash+hora de exportación; importación múltiple de CSV al dashboard; filtros unificados y endurecimiento de privacidad/roles.
-- El trabajo de CSV/dashboard y de visibilidad del botón Guardar puede existir en ramas/PR independientes: revisar antes de implementar nuevamente.
+- **Ya fusionado en `main` (PR #7 y #8):** autenticación mediante `OAuthProfile.username`, procesamiento OCR independiente de Neon, y validación del archivo ausente *antes* del login.
+- **Ya fusionado en `main` (PR #9):** `inbody_mvp/public_dashboard.py`, vista `hj_public_monthly_summary`, modo público de estadísticas agrupadas y bloqueo de funciones privadas en callbacks. **No equivale a publicación productiva**: falta consentimiento auditable, instancia pública separada y prueba E2E.
+- **Pendientes:** exportación CSV con hash+timestamp UTC, carga múltiple de CSV en el dashboard, control y reconciliación de datos, endpoint público sin rutas de ingesta.
+- Los datos privados y los agregados públicos tienen credenciales diferentes; consulta el documento [10](10_publicacion_anonima_y_autenticacion.md).
 
 ## «Definición de terminado» del MVP
 
