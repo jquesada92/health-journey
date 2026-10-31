@@ -223,10 +223,8 @@ La aplicación tiene una ruta experimental de lectura agregada desde Neon, **des
 
 [Diseño, migración y guía de seguridad del dashboard público](docs/dashboard-publico.md).
 
-## Publicar mis mediciones sin mi ID
+## Autenticación simplificada
 
-Al guardar cada examen en Neon puedes marcar **«Publicar las mediciones de este examen en mi dashboard público (sin mi ID)»**. La opción está desactivada por defecto. Se mostrará tu evolución individual con un alias **aleatorio**, fecha del examen sin hora, modelo, variable, unidad y valor. No hay requisito de cinco participantes para este tipo de gráfico.
+**Extraer un reporte o exportar CSV ya no requiere un login adicional de Hugging Face.** Se eliminó la comprobación manual de sesión de la cabecera. Guardar y consultar historias privadas en Neon mantienen OAuth del servidor; el acceso se encuentra en «Acceso privado a Neon», dentro de la sección de guardado.
 
-La vista pública `hj_public_person_series` nunca contiene el ID original, nombre, cédula, edad, nacimiento, archivo ni texto OCR. **Esto es seudonimización, no anonimato garantizado**: las fechas y mediciones pueden permitir que alguien te reconozca. Mantener separados los accesos de Neon privado (`DATABASE_URL`) y público (`PUBLIC_DATABASE_URL`). El Space público final debe operar como visor sin endpoints de ingesta.
-
-[Documentación de publicación individual](docs/public-person-series.md) · [Migración SQL 003](db/migrations/003_public_pseudonymous_series.sql).
+Si el Space es público, **anonimiza el archivo antes de subirlo**: elimina cédulas, nombres, fechas de nacimiento y otros identificadores. Procesar un JPG no significa que su contenido deje de estar presente en el servidor.

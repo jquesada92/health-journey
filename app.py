@@ -129,43 +129,8 @@ def download_draft(
         return file.name
 
 
-def check_session(profile: gr.OAuthProfile | None = None) -> str:
-    """Report whether an HF account is authorized without showing secrets."""
-    if not os.getenv("SPACE_ID"):
-        return "Ejecución local. La conexión a Neon se configura por separado."
-    username = getattr(profile, "username", None)
-    if not username:
-        return (
-            "**Sesión no detectada.** Pulsa Login en Hugging Face y vuelve "
-            "a comprobar. Si estás en la vista incrustada, abre el Space "
-            "en una pestaña independiente."
-        )
-    try:
-        require_report_access(profile)
-    except PermissionError:
-        return (
-            f"Cuenta conectada: `{username}`. **Sin autorización.** "
-            "Comprueba que HF_ALLOWED_USERS contenga exactamente tu username."
-        )
-    connection = (
-        "configurada (sin comprobar credenciales)"
-        if database_enabled() else "no configurada"
-    )
-    return (
-        f"Cuenta HF: `{username}`. **Autorizada para revisar archivos.** "
-        f"Neon: {connection}. "
-        "Guardar/consultar requieren comprobar también la conexión real."
-    )
-
-
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
-    if os.getenv("SPACE_ID"):
-        gr.LoginButton()
-        with gr.Row():
-            session_check = gr.Button("Comprobar sesión de Hugging Face", size="sm")
-            session_info = gr.Markdown("Comprueba la sesión si aparece un error de autorización.")
-        session_check.click(fn=check_session, inputs=[], outputs=[session_info])
     with gr.Tab("InBody Upload"):
         if public_mode_requested():
             gr.Markdown(
@@ -173,9 +138,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 "consultas individuales. Utiliza un Space privado separado."
             )
         gr.Markdown(
-            "**MVP de extracción y revisión** — admite PDF, JPG, JPEG y PNG (máximo 15 MB). "
-            "Usa **únicamente archivos sintéticos o anonimizados**: este QA público "
-            "todavía no tiene autenticación ni persistencia segura."
+            "**Extracción sin login:** admite PDF, JPG, JPEG y PNG (máximo 15 MB). "
+            "Si estás en un Space público, carga únicamente documentos "
+            "**previamente anonimizados**: oculta nombres, cédulas, fecha de "
+            "nacimiento y otros identificadores ANTES de subirlos. "
+            "La conexión y los datos privados de Neon siguen requiriendo autorización."
         )
         upload = gr.File(
             label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
@@ -227,16 +194,14 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[csv_file],
         )
         gr.Markdown("### Guardar en Neon PostgreSQL")
-        publication_choice = gr.Checkbox(
-            label="Publicar las mediciones de este examen en mi dashboard público (sin mi ID)",
-            value=False,
-            info=(
-                "Opcional. Se mostrarán valores y fechas (sin hora) con un alias "
-                "aleatorio. Las medidas y fechas podrían permitir que alguien "
-                "te reconozca. Deja la casilla sin marcar para mantenerlo privado."
-            ),
-            interactive=not public_mode_requested(),
-        )
+        if os.getenv("SPACE_ID") and database_enabled() and not public_mode_requested():
+            with gr.Accordion("Acceso privado a Neon (solo para guardar y consultar)", open=False):
+                gr.Markdown(
+                    "El OCR y la exportación CSV no requieren login. "
+                    "Para guardar o consultar exámenes personales, "
+                    "inicia sesión con una cuenta autorizada."
+                )
+                gr.LoginButton()
         gr.Markdown(
             "Después de revisar las mediciones, confirma el examen para guardarlo "
             "en el historial. Esta operación requiere una cuenta Hugging Face "

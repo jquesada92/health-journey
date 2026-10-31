@@ -141,11 +141,11 @@ def database_enabled() -> bool:
 
 
 def require_report_access(oauth_profile=None) -> None:
-    """Authorize the private document workflow independently from Neon.
+    """Permit OCR and CSV without OAuth, but never on a public-only dashboard.
 
-    Spaces operating as a PUBLIC dashboard must never accept real reports,
-    even from an allowed login, because the upload endpoint itself is public.
-    Use a separate PRIVATE Space for all ingestion and individual queries.
+    WARNING: The source document can contain personal data. Anonymous
+    uploads should be synthetic or redacted before reaching a public Space.
+    The *private database* has its own, stricter access control.
     """
     if os.getenv("SPACE_ID") and os.getenv(
         "ENABLE_PUBLIC_DASHBOARD", ""
@@ -154,29 +154,32 @@ def require_report_access(oauth_profile=None) -> None:
             "Este Space solo publica estadísticas agregadas. "
             "Procesa reportes en una instalación privada de Health Journey."
         )
-    if not os.getenv("SPACE_ID"):
-        return
-    allowed = {
-        part.strip().casefold()
-        for part in os.getenv("HF_ALLOWED_USERS", "").split(",")
-        if part.strip()
-    }
-    if not allowed:
-        # Original QA may only process fully synthetic/anonymized fixtures.
-        return
-    username = getattr(oauth_profile, "username", None)
-    if not isinstance(username, str) or username.strip().casefold() not in allowed:
-        raise PermissionError(
-            "Inicia sesión en Hugging Face con un usuario autorizado "
-            "(comprueba HF_ALLOWED_USERS)."
-        )
 
 
 def require_database_access(oauth_profile=None) -> None:
-    """Enforce database configuration and per-request HF authorization."""
+    """Authorize EVERY private Neon read/write against HF OAuth username.
+
+    Unlike OCR/CSV, private data must never be accessible anonymously.
+    """
     if not database_enabled():
         raise PermissionError("Conexión Neon deshabilitada o incompleta.")
     require_report_access(oauth_profile)
+    if os.getenv("SPACE_ID"):
+        allowed = {
+            part.strip().casefold()
+            for part in os.getenv("HF_ALLOWED_USERS", "").split(",")
+            if part.strip()
+        }
+        username = getattr(oauth_profile, "username", None)
+        if (
+            not allowed
+            or not isinstance(username, str)
+            or username.strip().casefold() not in allowed
+        ):
+            raise PermissionError(
+                "Para guardar o consultar datos privados en Neon, inicia sesión "
+                "con un usuario autorizado de Hugging Face."
+            )
 
 
 def load_measurement_history(
