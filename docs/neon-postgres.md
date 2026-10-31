@@ -78,3 +78,21 @@ LIMIT 100;
 ```
 
 La vista y las consultas no garantizan que las mediciones de distintos equipos sean comparables: el dashboard deberá respetar las definiciones, unidades y metodologías de cada modelo.
+
+## Botón de guardado en Gradio / Hugging Face
+
+En la pestaña **InBody Upload**, después de la tabla de revisión y del botón **Exportar borrador CSV**, aparece **Guardar examen confirmado en Neon**. El botón se muestra siempre, pero permanece **deshabilitado** hasta completar la configuración.
+
+En **Hugging Face Space → Settings → Variables and secrets**, configura:
+
+| Tipo | Nombre | Valor |
+| --- | --- | --- |
+| **Secret** | `DATABASE_URL` | Connection string del usuario restringido de Neon con `sslmode=require` |
+| **Variable** | `ENABLE_PERSISTENCE` | `1` |
+| **Variable** | `HF_ALLOWED_USERS` | Tu usuario Hugging Face exacto (o varios separados por coma) |
+
+Después haz **Restart** o **Factory reboot** del Space y usa **Login** con una cuenta incluida en la lista. Si el botón sigue gris, revisa los nombres de las tres variables: se evalúan al arrancar la aplicación. No copies la URL privada en GitHub, README ni comentarios.
+
+**Seguridad:** en el Space, las operaciones de OCR, consulta, exportación y guardado comprueban el usuario OAuth en el servidor cuando la persistencia está habilitada. La lista de usuarios es un control básico de MVP para un solo propietario, **no un sistema de autorización multiusuario**. Antes de manejar reportes personales, limita además la visibilidad del Space a privado, revisa la retención de archivos temporales y valida que el usuario PostgreSQL no herede permisos administrativos.
+
+El botón solo confirma el guardado después de una transacción exitosa; no presupone que el rol tenga permiso de conexión ni que una credencial configurada sea válida. El estado real se comprueba ejecutando una inserción y consulta de prueba con datos sintéticos.
