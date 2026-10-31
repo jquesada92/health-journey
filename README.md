@@ -133,3 +133,16 @@ python app.py
 ```
 
 Abrir http://localhost:7860. Mantener `README.md` junto a `app.py`: se lee en cada solicitud, por lo que los cambios aparecen al recargar la página. Este ejemplo no inicia PostgreSQL ni el flujo de carga de reportes.
+
+## MVP local: carga de reportes InBody con Dash
+
+La primera versión experimental de **InBody Hub** permite cargar **PDF, JPG, JPEG y PNG**, extraer texto nativo o mediante EasyOCR, revisar mediciones candidatas en una tabla editable y exportar un borrador CSV vertical. No realiza persistencia ni confirma exámenes. Esta versión es **local** y no sustituye el prototipo Gradio del Space.
+
+```bash
+pip install -r requirements.txt
+python dash_app.py
+```
+
+Abrir http://127.0.0.1:8050. Ejecutar las pruebas con `pip install pytest && python -m pytest -q tests/test_inbody_mvp.py`. Usar únicamente reportes ficticios o anonimizados; todavía no hay autenticación ni almacenamiento seguro para documentos personales.
+
+Más detalles: [README_DASH_MVP.md](README_DASH_MVP.md).
