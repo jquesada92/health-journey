@@ -39,12 +39,16 @@ PUBLIC_COLUMNS = (
 )
 
 
+def public_mode_requested() -> bool:
+    """Check the public-only mode independently of DB configuration."""
+    return os.getenv("ENABLE_PUBLIC_DASHBOARD", "").strip().lower() in (
+        "1", "true", "yes"
+    )
+
+
 def public_dashboard_enabled() -> bool:
     """Public endpoint is disabled by default, even when Neon is configured."""
-    return (
-        os.getenv("ENABLE_PUBLIC_DASHBOARD", "").strip().lower() in ("1", "true", "yes")
-        and bool(os.getenv("PUBLIC_DATABASE_URL"))
-    )
+    return public_mode_requested() and bool(os.getenv("PUBLIC_DATABASE_URL"))
 
 
 def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -> list[dict]:
