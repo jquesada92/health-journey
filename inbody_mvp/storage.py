@@ -59,6 +59,30 @@ class ConfirmedExam(BaseModel):
         return value.strip()
 
 
+def source_exam_timestamp(extracted_data: dict) -> str:
+    """Return the timestamp recorded by the report extractor, never user input.
+
+    Do not assume midnight, the current date or the Space's timezone when
+    the OCR did not identify the examination's actual date AND time.
+    """
+    extracted = ExtractionResult.model_validate(extracted_data)
+    if not extracted.timestamp:
+        raise ValueError(
+            "No se detectó la fecha y hora del examen en el documento. "
+            "Verifica que el encabezado sea legible y vuelve a extraer; "
+            "no se permite introducir un timestamp manual."
+        )
+    try:
+        parsed = datetime.fromisoformat(extracted.timestamp)
+    except ValueError as exc:
+        raise ValueError(
+            "La fecha y hora extraídas no tienen un formato válido."
+        ) from exc
+    if not 1 <= parsed.year <= 9999:
+        raise ValueError("Fecha del examen fuera de rango.")
+    return parsed.isoformat(timespec="seconds")
+
+
 def prepare_confirmed_exam(
     extracted_data: dict,
     table: pd.DataFrame | list,
@@ -73,11 +97,15 @@ def prepare_confirmed_exam(
     Does not save anything, and never invents an absent number, unit or date.
     """
     extracted = ExtractionResult.model_validate(extracted_data)
+    verified_timestamp = source_exam_timestamp(extracted_data)
+    if timestamp != verified_timestamp:
+        raise ValueError(
+            "La fecha del formulario no coincide con la extraída del reporte. "
+            "Vuelve a extraer el documento."
+        )
     frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=REVIEW_COLUMNS)
     if frame.empty:
         raise ValueError("No hay mediciones para confirmar.")
-    if not timestamp or not str(timestamp).strip():
-        raise ValueError("Introduce y revisa la fecha y hora del examen antes de guardar.")
     records = []
     for index, raw in enumerate(frame.to_dict(orient="records"), start=1):
         def clean(value):
@@ -117,7 +145,7 @@ def prepare_confirmed_exam(
         parsed_age = int(parsed_age)
     return ConfirmedExam(
         id_persona=person_id, modelo_inbody=model or None,
-        timestamp=timestamp, edad=parsed_age, age_source=extracted.origen_edad,
+        timestamp=verified_timestamp, edad=parsed_age, age_source=extracted.origen_edad,
         idioma_reporte=language,
         source_sha256=extracted.hash_sha256, source_type=extracted.tipo_archivo,
         measurements=records,
