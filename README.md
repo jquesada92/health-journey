@@ -5,6 +5,7 @@ colorFrom: blue
 colorTo: green
 sdk: gradio
 app_file: app.py
+hf_oauth: true
 ---
 
 # Health Journey
