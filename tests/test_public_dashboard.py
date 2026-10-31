@@ -97,6 +97,7 @@ def test_public_mode_denies_all_private_report_actions(monkeypatch):
     monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
     monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
     monkeypatch.setenv("PUBLIC_DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
+    monkeypatch.setenv("DATABASE_URL", "configured-test-url")
     allowed_user = SimpleNamespace(username="jaqo", name="Some Name")
     for action in (require_report_access, require_database_access):
         with pytest.raises(PermissionError, match="solo publica estadísticas agregadas"):
