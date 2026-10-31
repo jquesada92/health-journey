@@ -7,7 +7,6 @@ in source control or send medical reports to a public Space.
 from __future__ import annotations
 
 import os
-import re
 from datetime import datetime
 from typing import Literal
 
@@ -97,8 +96,10 @@ def prepare_confirmed_exam(
         reviewed = ReviewedRow.model_validate(row)
         if reviewed.valor_medida is None:
             raise ValueError(f"Fila {index}: valor ambiguo. Corrige o elimina la fila antes de guardar.")
+        if not reviewed.original_label.strip():
+            raise ValueError(f"Fila {index}: falta la etiqueta original de la medición.")
         records.append(StoredMeasurement(
-            original_label=reviewed.original_label or "etiqueta_no_disponible",
+            original_label=reviewed.original_label,
             variable_medida=reviewed.variable_medida,
             categoria=clean(raw.get("categoria")),
             dimension=clean(raw.get("dimension")),
