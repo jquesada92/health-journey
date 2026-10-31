@@ -12,6 +12,7 @@ import re
 from uuid import UUID
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from .public_dashboard import PUBLIC_METRICS
 from .storage import ConfirmedExam
@@ -131,5 +132,11 @@ def save_demo_exam(
                 "publish": publish_consent,
             }).scalar_one()
         return str(record_id)
+    except SQLAlchemyError as exc:
+        # Never show database URLs, SQL driver errors or user inputs in Gradio.
+        raise RuntimeError(
+            "No se pudo guardar el examen de demostración en Neon. "
+            "Comprueba la migración 004 y el rol de escritura restringido."
+        ) from exc
     finally:
         engine.dispose()
