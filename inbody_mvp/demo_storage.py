@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from uuid import UUID
 
 from sqlalchemy import create_engine, text
@@ -123,7 +124,9 @@ def save_demo_exam(
             """), {
                 "alias": str(alias),
                 "exam_date": report.timestamp.date().isoformat(),
-                "device": report.modelo_inbody or "",
+                "device": (report.modelo_inbody if report.modelo_inbody and
+                           re.fullmatch(r"InBody [0-9]{2,4}", report.modelo_inbody)
+                           else "Modelo no especificado"),
                 "measurements": json.dumps(values, ensure_ascii=False),
                 "publish": publish_consent,
             }).scalar_one()
