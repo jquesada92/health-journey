@@ -9,7 +9,7 @@ app_file: app.py
 
 # Health Journey
 
-Proyecto modular para reunir composición corporal, entrenamiento, nutrición y, en una etapa futura, exámenes médicos en un historial personal que alimente un asistente de fitness y salud.
+Health Journey es una plataforma modular de salud y bienestar que busca reunir información fragmentada entre aplicaciones que no se comunican, proveedores y documentos heterogéneos. Su visión es construir un historial personal longitudinal y, sobre esa base, un asistente virtual que acompañe hábitos, entrenamientos y objetivos. El primer entregable se concentra en capturar y consolidar evaluaciones InBody; los demás módulos son fases futuras.
 
 Nombre del repositorio: `health-journey`.
 
@@ -24,36 +24,69 @@ Nombre del repositorio: `health-journey`.
 
 El asistente personal de Health Journey integrará los datos de estos módulos, comenzando por fitness y ampliándose después a salud. Los módulos representan áreas funcionales; no requieren servicios o repositorios separados.
 
-## Visión del proyecto: dos partes
+## Problema que queremos resolver
 
-### Parte 1: consolidación de InBody
+La información personal de fitness y salud llega desde **aplicaciones que no se hablan entre ellas** y desde fuentes no estructuradas. Un mismo usuario puede tener cinco pruebas InBody en una tienda A y otras seis en una tienda B; aunque son once evaluaciones de la misma persona, los proveedores no comparten el historial. La continuidad de sus tendencias se pierde si debe reunir y comparar cada reporte manualmente.
 
-Cargar reportes InBody, extraer y revisar sus mediciones, tabularlas y consolidarlas en una base de datos. Construir un historial por persona que conserve la fecha, el modelo del equipo y la procedencia de cada dato.
+Incluso los documentos no tienen un formato uniforme:
 
-### Parte 2: asistente fitness
+- PDF con texto seleccionable.
+- PDF escaneados o con tablas e información insertadas como imagen.
+- Imágenes PNG y JPG del reporte, a veces con distinta calidad, orientación o diseño.
+- Más adelante, exportaciones de aplicaciones de entrenamiento o nutrición que no tienen integraciones comunes.
 
-Ampliar el historial con dos fuentes adicionales, incorporadas progresivamente:
+No basta con extraer texto: hay que interpretar cada medición, identificar la fecha, el origen, el equipo y la unidad, mantener la trazabilidad y permitir la revisión de los datos antes de consolidarlos. Tampoco es correcto asumir que todas las mediciones de equipos InBody distintos son directamente comparables. Las tendencias deben advertir diferencias de modelo, definición y unidad.
 
-1. **Logs de entrenamiento:** cargar registros de ejercicios, series, repeticiones y cargas para seguir el progreso.
-2. **Macronutrientes diarios:** incorporar registros de proteínas, carbohidratos y grasas, junto con las calorías cuando estén disponibles.
+## Hoja de ruta por fases
 
-Integrar estos registros con las mediciones InBody para crear un asistente fitness personalizado que ayude a planificar y ajustar entrenamiento y alimentación según objetivos, progreso y recuperación.
+### Fase 1 · InBody Hub — consolidación de composición corporal (MVP del reto)
 
-### Ampliación futura: perfil de salud integral
+**Objetivo:** unificar exámenes de una misma persona, independientemente del establecimiento, modelo o formato del reporte.
 
-Incorporar también exámenes médicos para reunir un perfil de salud longitudinal que sirva como base para un asistente médico personal. Conservar fechas, unidades, rangos de referencia y fuentes de los resultados, con controles de privacidad y acceso. Esta ampliación requerirá definir su alcance clínico y validación; el asistente apoyará el seguimiento y la preparación de consultas sin sustituir la evaluación profesional.
+1. Recibir reportes en PDF de texto, PDF con contenido escaneado e imágenes PNG/JPG. **Estado actual:** la versión 0 admite imágenes para OCR; los PDF están pendientes.
+2. Identificar la persona y los metadatos del examen (fecha/hora, establecimiento o fuente, modelo del equipo) y extraer las mediciones disponibles, sin inventar valores.
+3. Mostrar la extracción para revisión humana y corrección antes de confirmar el registro.
+4. Normalizar nombres y unidades, detectar posibles duplicados, conservar el original o su referencia y consolidar un historial con procedencia.
+5. Consultar y comparar la evolución entre evaluaciones, indicando cuándo un cambio de dispositivo o definición limita la interpretación.
 
-Estas capacidades describen la evolución prevista del proyecto. El MVP actual se limita a la primera parte.
+**Resultado esperado:** once pruebas procedentes de dos establecimientos se consultan como un único historial cronológico de esa persona, con la fuente de cada examen y sin perder mediciones anteriores.
 
-## Problema que quiero resolver
+**Alcance de la versión 0 (semana 2 de OBS):** interfaz Gradio y extracción de texto de imágenes con EasyOCR. Aún no equivale a un flujo completo de extracción estructurada, persistencia o comparación de tendencias.
 
-1. **Solo recibimos un PDF.** Al realizar una prueba InBody en una tienda o con un nutricionista, recibimos un reporte aislado, sin datos estructurados que podamos consultar y reutilizar fácilmente.
-2. **El historial se fragmenta entre máquinas.** Al realizar exámenes en equipos o establecimientos distintos, se pierde la continuidad del registro y resulta difícil comparar las mediciones de una misma persona a lo largo del tiempo.
-3. **El formato cambia según el modelo.** Los reportes pueden presentar diferentes distribuciones, etiquetas y mediciones disponibles, lo que dificulta consolidarlos en una tabla común.
+### Fase 2 · Training Hub + Nutrition Hub — seguimiento de hábitos y progreso
 
-Quiero centralizar estos reportes y transformar sus mediciones en un historial confiable, conservando la relación entre cada dato, la persona, el examen y su fuente. También quiero separar la captura operativa del análisis histórico para que la aplicación siga siendo ágil a medida que crecen los datos.
+**Objetivo:** reunir los logs de entrenamiento y los registros de macronutrientes para contextualizar la evolución de composición corporal.
 
-InBody Hub permitirá cargar los reportes, revisar la extracción y normalizar nombres y unidades para reunirlos en un historial cronológico por persona, conservando el modelo de cada examen. La consolidación no implica que todas las mediciones de equipos distintos sean equivalentes: las comparativas deben identificar cambios de modelo y diferencias de definición o unidad. Las mediciones que un reporte no incluya permanecerán ausentes.
+- **Entrenamiento:** ejercicios, fecha, series, repeticiones, peso o carga, frecuencia y otros datos disponibles; importación desde archivos de registro o entrada manual.
+- **Nutrición:** registros diarios de calorías, proteínas, carbohidratos y grasas, más otros hábitos relevantes cuando el usuario los aporte.
+- **Análisis integrado:** relacionar cambios de InBody con la constancia de entrenamiento, volumen, cargas, alimentación y objetivos para identificar patrones y áreas de mejora, sin asumir causalidad automática.
+
+El asistente virtual podrá responder preguntas como «¿Cómo cambió mi composición corporal durante el período en que aumenté la frecuencia de entrenamiento?» y señalar qué información falta para una conclusión más confiable.
+
+### Fase 3 · Medical Hub — integración documental clínica
+
+**Objetivo:** incorporar, de forma voluntaria y protegida, exámenes de laboratorio y documentos clínicos en el historial longitudinal.
+
+- Admitir documentos clínicos en PDF de texto, PDF escaneado o imagen, según el desarrollo futuro.
+- Extraer parámetros, fechas, unidades, rangos de referencia y fuente, siempre con posibilidad de revisión.
+- Permitir consultas históricas y preparar resúmenes orientados a conversaciones con profesionales.
+
+Los resultados clínicos son datos especialmente sensibles; esta fase exige privacidad, permisos, validación adicional y límites claros. El asistente **no diagnosticará, prescribirá ni reemplazará una evaluación médica profesional**.
+
+### Capacidad transversal · Asistente virtual de Health Journey
+
+El asistente se incorporará de manera incremental a medida que los datos de las fases anteriores sean verificables. Su función será ayudar al usuario a seguir hábitos, entrenamientos y metas; consultar tendencias y ofrecer información contextual basada en fuentes identificables. Debe distinguir hechos de sugerencias, señalar incertidumbre y evitar recomendaciones médicas no justificadas.
+
+## Estrategia de integración de fuentes
+
+| Fuente | Formato de entrada previsto | Tratamiento |
+| --- | --- | --- |
+| InBody de distintos establecimientos | PDF de texto, PDF escaneado, PNG, JPG | Extracción, validación, normalización y consolidación por persona |
+| Aplicaciones y bitácoras de entrenamiento | CSV, exportaciones u otros registros disponibles | Importación y homologación de ejercicios, fechas y cargas |
+| Aplicaciones y diarios nutricionales | Exportaciones o registros manuales | Normalización de macronutrientes y calorías por fecha |
+| Laboratorios y proveedores clínicos | PDF, imágenes y otros formatos definidos después | Extracción controlada, trazabilidad y protección reforzada |
+
+Ninguna integración externa, API de terceros o soporte de archivos se considera implementado hasta que exista y se pruebe en la aplicación.
 
 ## Objetivo de la primera versión
 
@@ -89,7 +122,7 @@ Las unidades se documentan en el diccionario de mediciones. Los datos ausentes n
 
 ## Alcance y límites
 
-Esta etapa comprende carga, extracción, validación, consolidación, consulta y exportación de reportes InBody. Los logs de entrenamiento, los registros diarios de macronutrientes y el asistente fitness pertenecen a la segunda parte. Los exámenes médicos y el asistente médico personal corresponden a una ampliación posterior.
+El alcance inmediato es la **fase 1**. La versión 0 del reto incluye únicamente la interfaz y OCR de imágenes, con datos de prueba o anonimizados. La carga de PDF, extracción estructurada, validación, historial y tendencias son objetivos siguientes de esta fase. Los registros de entrenamiento y macronutrientes corresponden a la fase 2; la integración clínica, a la fase 3. El asistente virtual se incorporará progresivamente, no como capacidad ya disponible.
 
 El diseño contempla CDC hacia Databricks para análisis y un proceso de archivado que reduzca el detalle histórico en la base operativa. Antes de purgar registros, el archivo debe estar verificado y permitir recuperación. Las purgas por archivado deben distinguirse de las eliminaciones reales para no borrar accidentalmente el historial analítico.
 
@@ -112,8 +145,14 @@ QA no se conecta a servicios de producción y usa datos ficticios o anonimizados
 - Validación de fechas, unidades, relaciones y consistencia de datos.
 - Aislamiento de personas y sesiones, con protección de datos de salud.
 - Paginación y consultas acotadas para mantener ágil la aplicación.
-- Extracción determinista y OCR local antes de recurrir a modelos de IA.
+- Extracción de texto con modelos OCR preentrenados (EasyOCR actual y TrOCR Small de Hugging Face previsto), más reglas deterministas y revisión humana para normalizar las mediciones.
 - Uso de IA con contexto mínimo, límites de costo y medición de precisión.
+
+## Contexto del reto OBS · Semana 2
+
+La ficha para Blackboard y el alcance verificable de la versión 0 se documentan en [docs/hito-semana-2.md](docs/hito-semana-2.md). La [especificación](especificacion.md) limita el MVP a tres funcionalidades y define entradas, salidas, restricciones y criterios de aceptación; [AGENTS.md](AGENTS.md) guía a los asistentes de programación.
+
+**Pieza de IA elegida para el reto:** un modelo de Hugging Face ejecutado localmente, [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), combinado con EasyOCR para detectar regiones de texto. TrOCR reconoce texto impreso de líneas individuales; **no comprende por sí solo un reporte completo ni lo convierte en mediciones estructuradas**. Las reglas de Python/Pydantic identifican y validan las mediciones, que el usuario revisa antes de confirmar. No requiere una API comercial ni tiene cobros por solicitud, pero sí recursos de cómputo y descargas de modelo. En Hugging Face ZeroGPU el alojamiento gratuito está sujeto a elegibilidad, cuotas y disponibilidad. **Estado actual:** EasyOCR funciona como primera aproximación; TrOCR, PDF y tabulación todavía no están integrados. No se utilizarán documentos de salud reales en el Space público del reto.
 
 ## Estado actual
 
@@ -121,7 +160,7 @@ El proyecto cuenta con instrucciones de arquitectura en `AGENTS.md`, un `app.py`
 
 La vista actual en Gradio muestra documentación y permite extraer texto de imágenes con EasyOCR mediante `@spaces.GPU` en ZeroGPU. El texto requiere revisión; la precisión con reportes InBody y la ejecución GPU aún no están verificadas. PDF y tabulación estructurada siguen pendientes. En local, se usa CPU cuando CUDA no está disponible; los modelos OCR se descargan en el primer arranque.
 
-La interfaz el QA completo con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
+La interfaz QA completa con React, FastAPI y PostgreSQL sigue siendo un objetivo posterior.
 
 El flujo InBody, la interfaz React, la base de datos, el contenedor QA, CDC y archivado todavía no están implementados. Los entornos descritos son objetivos de diseño, no despliegues verificados.
 
