@@ -17,6 +17,7 @@ from typing import Callable, Any
 import fitz
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
+from .language import ReportLanguage, detect_report_language
 
 from .layouts import extract_inbody580, normalize_detections, tokens_to_text
 from .layouts_es import extract_spanish_silhouette
@@ -54,6 +55,7 @@ class ExtractionResult(BaseModel):
     archivo: str
     hash_sha256: str
     tipo_archivo: str
+    idioma_reporte: ReportLanguage = "UNKNOWN"
     id_persona: str | None = None
     modelo_inbody: str | None = None
     timestamp: str | None = None
@@ -169,6 +171,7 @@ def parse_text(
 ) -> ExtractionResult:
     """Parse (text, extraction_method) pairs; all candidates require manual review."""
     text_all = "\n".join(page for page, _ in page_texts)
+    language = detect_report_language(text_all)
     ident = ID_RE.search(text_all)
     model = MODEL_RE.search(text_all)
     dtmatch = DATE_RE.search(text_all)
@@ -247,6 +250,7 @@ def parse_text(
         warnings.append("No se detectaron mediciones en líneas completas; inspeccionar el texto y corregir manualmente.")
     return ExtractionResult(
         archivo=filename, hash_sha256=digest,
+        idioma_reporte=language,
         tipo_archivo=Path(filename).suffix.lower().lstrip("."),
         id_persona=ident.group(1) if ident else None,
         modelo_inbody=f"InBody {model.group(1)}" if model else None,
