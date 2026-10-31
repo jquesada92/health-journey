@@ -58,6 +58,16 @@ HAVING COUNT(*) >= 5;
 COMMENT ON VIEW hj_public_monthly_summary IS
 'Monthly average only from exams with explicit publication consent; minimum 5 persons per group. No identifiers, age, exact dates, or row-level results.';
 
+-- Grant only the public summary read privilege to the existing restricted role
+-- where that role exists. Never grant access to private base tables here.
+DO $
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_journey_runtime') THEN
+        GRANT SELECT ON hj_public_monthly_summary TO health_journey_runtime;
+    END IF;
+END
+$;
+
 -- A separate, read-only role should be used if public analytics moves
 -- to its own service. The current Space backend must never directly expose
 -- unrestricted SQL or the private hj_measurements_long view.
