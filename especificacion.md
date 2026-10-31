@@ -1,5 +1,6 @@
 # Especificación · Health Journey (Fase 1: InBody Hub)
 
+> **Actualización técnica del MVP (31/10/2026):** la aplicación activa sigue usando **Gradio en `app.py`** y ahora admite PDF, JPG, JPEG y PNG con mediciones candidatas, revisión editable y CSV borrador. Este documento conserva las expectativas **históricas** de la semana 2; no asumir que sus descripciones de la versión 0 son el estado actual. El dashboard se realizará después en **Gradio + Plotly** (sin Dash), tras implementar almacenamiento seguro.
 > Documento de la semana 2 del reto de Fundamentos de programación (Python para IA), OBS. Esta especificación se centra en la fase 1; la visión global y la hoja de ruta están en [README.md](README.md).
 
 ## 1. Problema y usuario
