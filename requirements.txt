@@ -9,3 +9,17 @@ python-multipart>=0.0.18,<1.0
 gradio>=6.0,<7.0
 spaces
 easyocr>=1.7.2,<2.0
+
+# Flask + Dash: InBody upload/review and dashboards
+Flask>=3.1,<4.0
+dash>=4.4,<5.0
+dash-ag-grid>=35.3,<36.0
+plotly>=6.0,<7.0
+pandas>=2.2,<4.0
+
+# PDF/image ingestion and normalization
+PyMuPDF>=1.26,<2.0
+Pillow>=11.0,<13.0
+numpy>=1.26,<3.0
+rapidfuzz>=3.10,<4.0
+python-dateutil>=2.9,<3.0
