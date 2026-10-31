@@ -8,9 +8,18 @@ from __future__ import annotations
 
 import os
 
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 
-from .storage import _database_engine
+def _public_database_engine():
+    """Use ONLY the read-only public DB role, never the private DATABASE_URL."""
+    url = os.getenv("PUBLIC_DATABASE_URL")
+    if not url:
+        raise RuntimeError("PUBLIC_DATABASE_URL no está configurada.")
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    if not url.startswith("postgresql+psycopg://") or "sslmode=require" not in url:
+        raise RuntimeError("PUBLIC_DATABASE_URL requiere PostgreSQL y TLS.")
+    return create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=0)
 
 PUBLIC_METRICS: dict[str, str] = {
     "weight": "Peso",
@@ -34,7 +43,7 @@ def public_dashboard_enabled() -> bool:
     """Public endpoint is disabled by default, even when Neon is configured."""
     return (
         os.getenv("ENABLE_PUBLIC_DASHBOARD", "").strip().lower() in ("1", "true", "yes")
-        and bool(os.getenv("DATABASE_URL"))
+        and bool(os.getenv("PUBLIC_DATABASE_URL"))
     )
 
 
@@ -49,7 +58,7 @@ def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -
     if variable not in PUBLIC_METRICS:
         raise ValueError("La variable solicitada no es pública.")
     max_rows = min(max(int(max_rows), 1), 500)
-    engine = _database_engine()
+    engine = _public_database_engine()
     try:
         with engine.connect() as connection:
             rows = connection.execute(text("""
