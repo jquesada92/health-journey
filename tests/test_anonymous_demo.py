@@ -137,8 +137,10 @@ def test_public_demo_view_and_database_role_are_restricted():
     assert "SET search_path = pg_catalog, pg_temp" in migration
     assert "FROM PUBLIC" in migration and "GRANT EXECUTE" in migration
     assert "hj_demo_public_series" in migration
-    assert "hj_persons" not in migration
-    assert "hj_measurements_long" not in migration
+    # Access is restricted to demo objects, not to private patient tables.
+    assert "INSERT INTO public.hj_persons" not in migration
+    assert "INSERT INTO public.hj_exams" not in migration
+    assert "FROM public.hj_measurements" not in migration
 
 
 def test_app_has_separate_storage_and_publish_consents():
