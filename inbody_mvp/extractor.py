@@ -96,9 +96,12 @@ MEASURE_RE = re.compile(
 )
 DOB_RE = re.compile(r"(?:fecha\s+(?:de\s+)?nacimiento|birth\s*date|dob)\s*[:#]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})", re.I)
 DATE_RE = re.compile(
-    r"^[ \t]*(?:fecha(?:\s+de\s+(?:la\s+)?(?:prueba|examen|medici[oó]n))?|"
-    r"fecha\s*/\s*hora|test\s+date|measurement\s+date|"
-    r"date(?:\s+of\s+(?:the\s+)?(?:test|measurement))?|date\s*/\s*time)"
+    # The InBody header can label its date+clock field as one value.
+    r"^[ \t]*(?:fecha\s*(?:y|&|/)\s*hora|"
+    r"fecha(?:\s+de\s+(?:la\s+)?(?:prueba|examen|medici[oó]n))?|"
+    r"test\s+date(?:\s*(?:/|&|and)\s*time)?|measurement\s+date|"
+    r"date\s*(?:/|&|and)\s*time|"
+    r"date(?:\s+of\s+(?:the\s+)?(?:test|measurement))?)"
     r"\s*[:#-]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})"
     r"(?:[ \t]+(\d{1,2}:\d{2}(?::\d{2})?))?",
     re.I | re.M,
