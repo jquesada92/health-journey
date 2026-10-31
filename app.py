@@ -26,7 +26,7 @@ from inbody_mvp.extractor import (
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
 from inbody_mvp.storage import (
-    database_enabled, require_database_access, load_measurement_history,
+    database_enabled, require_report_access, require_database_access, load_measurement_history,
     prepare_confirmed_exam, save_confirmed_exam,
 )
 
@@ -63,11 +63,12 @@ def _ocr_picture(image) -> str:
 @spaces.GPU
 def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None):
     """Process one upload with a GPU OCR fallback (also runs on local CPU)."""
-    if database_enabled():
-        try:
-            require_database_access(profile)
-        except PermissionError as exc:
-            raise gr.Error(str(exc)) from exc
+    # OCR/review access is independent of whether Neon is configured.
+    # If HF_ALLOWED_USERS is set on a Space, the user must log in.
+    try:
+        require_report_access(profile)
+    except PermissionError as exc:
+        raise gr.Error(str(exc)) from exc
     if not file_path:
         raise gr.Error("Carga un PDF, JPG, JPEG o PNG.")
     path = Path(file_path)
@@ -106,11 +107,12 @@ def process_report(file_path: str | None, profile: gr.OAuthProfile | None = None
 def download_draft(
     table, person, model, timestamp, age, profile: gr.OAuthProfile | None = None
 ):
-    if database_enabled():
-        try:
-            require_database_access(profile)
-        except PermissionError as exc:
-            raise gr.Error(str(exc)) from exc
+    # OCR/review access is independent of whether Neon is configured.
+    # If HF_ALLOWED_USERS is set on a Space, the user must log in.
+    try:
+        require_report_access(profile)
+    except PermissionError as exc:
+        raise gr.Error(str(exc)) from exc
     try:
         frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=REVIEW_COLUMNS)
         content = export_draft_csv(frame, person, model, timestamp, age)
