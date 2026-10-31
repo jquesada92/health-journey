@@ -161,7 +161,7 @@ La pestaña **Dashboard (siguiente fase)** explica el plan para Gradio + Plotly:
 
 La extracción sigue siendo candidata y requiere revisión humana. La precisión con documentos auténticos y la ejecución efectiva en ZeroGPU deben verificarse por separado. El repositorio contiene pruebas unitarias de extracción y revisión; estas no sustituyen pruebas de interfaz en el Space.
 
-## MVP local: carga de reportes InBody con Dash
+## MVP Gradio: carga y revisión de reportes InBody
 
 El MVP se ejecuta con **Gradio**, sin servidor Dash adicional:
 
@@ -182,8 +182,8 @@ python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py
 
 La publicación del **prototipo Gradio** se hace desde GitHub mediante el workflow [**Sync app to Hugging Face**](.github/workflows/deploy-huggingface.yml). En GitHub, configura el **secret** `HF_TOKEN` (token de Hugging Face con permiso de escritura) y la **variable** `HF_SPACE_ID=jaqo/health-journey` desde **Settings → Secrets and variables → Actions**.
 
-Al hacer push a `main` con cambios en `app.py`, `README.md` o `requirements.txt`, el workflow publica **solo esos archivos** en el Space. También se puede ejecutar desde **Actions → Sync app to Hugging Face → Run workflow**. Para revisar el estado, comprueba primero los logs de GitHub Actions y luego los logs de [Hugging Face Space](https://huggingface.co/spaces/jaqo/health-journey).
+Al hacer push a `main` con cambios en `app.py`, `inbody_mvp/`, `README.md` o `requirements.txt`, el workflow publica **esos archivos y el paquete `inbody_mvp/`** en el Space. También se puede ejecutar desde **Actions → Sync app to Hugging Face → Run workflow**. Para revisar el estado, comprueba primero los logs de GitHub Actions y luego los logs de [Hugging Face Space](https://huggingface.co/spaces/jaqo/health-journey).
 
-**Importante:** `dash_app.py` y `inbody_mvp/` todavía no se publican en el Space actual; se ejecutan localmente. Migrar a Dash requiere adaptar primero el despliegue a Docker, y no debe confundirse un reinicio con una sincronización de código.
+**Importante:** el Space usa `app.py` con Gradio y sincroniza `inbody_mvp/`. La versión del dashboard histórico con Plotly y el almacenamiento PostgreSQL aún están pendientes. Reiniciar el Space no sincroniza cambios de GitHub.
 
 **Instrucciones completas:** [docs/despliegue-hugging-face.md](docs/despliegue-hugging-face.md) (configuración, despliegue automático, ejecución manual, CLI, verificación y solución de problemas).
