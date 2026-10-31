@@ -63,3 +63,7 @@ La visión consiste en consolidar datos de salud y ejercicio provenientes de mú
 El MVP solo se considera recuperado cuando: (a) carga documentos compatibles, (b) devuelve candidatos trazables, (c) permite corregir y exportar CSV sin Neon, (d) puede guardar exámenes confirmados en Neon con autorización, (e) consulta Neon **y** importa varios CSV sin persistirlos, (f) genera gráficos de líneas correctamente segmentados, (g) respeta privacidad, y (h) pasa pruebas automatizadas y manuales. Ver [08 — Calidad y aceptación](08_pruebas_y_criterios.md).
 
 **Ningún documento de este harness contiene credenciales, imágenes InBody reales ni resultados de salud identificables.**
+
+## Actualización de publicación individual (migración 003)
+
+Se añade al modelo objetivo la **publicación voluntaria de un historial individual seudonimizado**: conservar ID en tablas privadas, utilizar alias aleatorio `hj_persons.public_alias`, y consultar `hj_public_person_series` desde un lector público de solo lectura. No exigir una cohorte de cinco para un examen que el propietario aprueba explícitamente. La autorización inicial se efectúa mediante una casilla al guardar el examen en Neon, **desmarcada por defecto**; queda pendiente un mecanismo de revocación auditado y el Space público sin endpoints de carga. Las mediciones y fechas pueden permitir reidentificación. Más detalles: [`docs/public-person-series.md`](../docs/public-person-series.md).

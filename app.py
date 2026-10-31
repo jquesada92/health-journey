@@ -27,7 +27,7 @@ from inbody_mvp.extractor import (
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
 from inbody_mvp.public_dashboard import (
     PUBLIC_METRICS, public_mode_requested, public_dashboard_enabled,
-    load_public_monthly_summary,
+    load_public_monthly_summary, load_public_person_series,
 )
 from inbody_mvp.storage import (
     database_enabled, require_report_access, require_database_access, load_measurement_history,
@@ -224,7 +224,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         saved_status = gr.Markdown()
 
         def save_reviewed(
-            state, edited, person_id, device, when, years, lang,
+            state, edited, person_id, device, when, years, lang, publish,
             profile: gr.OAuthProfile | None = None,
         ):
             try:
@@ -237,16 +237,20 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 payload = prepare_confirmed_exam(
                     state, edited, person_id, device, when, years, lang
                 )
-                exam_id = save_confirmed_exam(payload, oauth_profile=profile)
+                exam_id = save_confirmed_exam(
+                    payload, oauth_profile=profile, publish=bool(publish)
+                )
             except (ValueError, TypeError, RuntimeError) as exc:
                 raise gr.Error(str(exc)) from exc
-            return f"Examen confirmado y guardado. ID interno: `{exam_id}`."
+            if publish:
+                return "Examen guardado y autorizado para el dashboard público."
+            return "Examen guardado de forma privada en Neon."
 
         save_button.click(
             fn=save_reviewed,
             inputs=[
                 extraction_state, table, person, model, timestamp,
-                age, report_language,
+                age, report_language, publication_choice,
             ],
             outputs=[saved_status],
             concurrency_limit=1,
@@ -256,77 +260,93 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                        value="Limpiar")
     with gr.Tab("Dashboard público"):
         gr.Markdown(
-            "**Estadísticas de composición corporal sin identificadores personales.** "
-            "Solo se muestran promedios mensuales de exámenes con autorización "
-            "expresa de publicación y grupos de al menos 5 personas distintas. "
-            "No se publican IDs, nombres, edades, fechas exactas ni informes originales. "
-            "Los promedios no representan historiales individuales ni garantizan "
-            "anonimato absoluto frente a información externa."
+            "**Progreso personal con identificador aleatorio.** "
+            "Solo aparecen los exámenes que autorizaste al guardarlos. "
+            "No se publican nombre, cédula, ID InBody, edad, hora, archivos "
+            "ni texto OCR. Se muestran las fechas (sin hora) y valores "
+            "de las mediciones: aunque tu ID esté oculto, los patrones "
+            "pueden permitir reidentificación."
         )
         metric_public = gr.Dropdown(
             choices=[(label, metric) for metric, label in PUBLIC_METRICS.items()],
-            value="weight", label="Variable pública",
+            value="weight", label="Medición que deseas visualizar",
         )
         public_button = gr.Button(
-            "Consultar estadísticas públicas",
+            "Ver progreso público",
             interactive=public_dashboard_enabled(),
         )
         if not public_dashboard_enabled():
             gr.Markdown(
-                "Estadísticas públicas todavía no activadas. "
-                "No se publicará ningún examen automáticamente."
+                "Dashboard público sin conexión. Configura PUBLIC_DATABASE_URL "
+                "y ENABLE_PUBLIC_DASHBOARD=1 en un Space de visualización separado."
             )
         public_status = gr.Markdown("Sin consulta.")
-        public_plot = gr.Plot(label="Evolución mensual por grupo")
+        public_plot = gr.Plot(label="Tendencias de mediciones publicadas")
         public_table = gr.Dataframe(
-            label="Datos agregados y aprobados para publicación",
+            label="Mediciones publicadas sin datos de identidad",
             type="pandas", interactive=False,
         )
 
         def show_public_dashboard(variable):
             try:
-                records = load_public_monthly_summary(variable)
+                records = load_public_person_series(variable)
             except ValueError as exc:
                 raise gr.Error(str(exc)) from exc
             except Exception:
                 raise gr.Error(
-                    "No se pudieron consultar las estadísticas públicas. "
-                    "Verifica la migración y la configuración del servidor."
+                    "No se pudieron consultar las mediciones públicas. "
+                    "Verifica la conexión y la migración 003."
                 )
             frame = pd.DataFrame(records)
             fig = go.Figure()
             if frame.empty:
                 return (
-                    "Aún no hay grupos con autorización de publicación "
-                    "y al menos cinco personas distintas para esta métrica.",
+                    "Todavía no hay mediciones de esta variable autorizadas "
+                    "para el dashboard. Guarda un examen marcando la casilla "
+                    "de publicación desde el Space privado.",
                     fig, frame,
                 )
-            frame["serie"] = frame.apply(
+            # Never render the underlying UUID alias or raw personal identifier.
+            frame["serie"] = frame["anonymous_id"].map(
+                lambda alias: "Serie " + str(alias)[:8]
+            )
+            frame["modelo_y_region"] = frame.apply(
                 lambda item: (
                     str(item["device_group"])
-                    + " / " + str(item["segmento"] or "cuerpo completo")
-                    + " / " + (
+                    + " · " + str(item["segmento"] or "Cuerpo completo")
+                    + " · " + (
                         f'{item["frecuencia_khz"]:g} kHz'
                         if pd.notna(item["frecuencia_khz"])
-                        else "frecuencia no indicada"
+                        else "Frecuencia no indicada"
                     )
                 ),
                 axis=1,
             )
+            frame["linea"] = frame["serie"] + " · " + frame["modelo_y_region"]
+            # Separate incomparable units, models, segments and frequencies.
+            frame["linea"] = frame["linea"] + " · " + frame["unidad_medida"].fillna("?")
             fig = px.line(
-                frame.sort_values("period_month"),
-                x="period_month", y="valor_promedio",
-                color="serie", markers=True,
+                frame.sort_values("exam_date"),
+                x="exam_date", y="valor_medida",
+                color="linea", markers=True,
                 labels={
-                    "period_month": "Mes del examen",
-                    "valor_promedio": f"Promedio ({frame['unidad_medida'].iloc[0]})",
-                    "serie": "Grupo de medición",
+                    "exam_date": "Fecha del examen (sin hora)",
+                    "valor_medida": "Valor medido",
+                    "linea": "Serie y tipo de medición",
                 },
             )
+            visible = frame[
+                ["serie", "exam_date", "device_group", "variable_medida",
+                 "unidad_medida", "segmento", "frecuencia_khz", "valor_medida"]
+            ].copy()
+            visible.columns = [
+                "Serie", "Fecha", "Modelo", "Medición", "Unidad",
+                "Segmento", "Frecuencia (kHz)", "Valor"
+            ]
             return (
-                f"{len(frame)} agregados mensuales publicados. "
-                "Cada grupo representa al menos cinco personas distintas.",
-                fig, frame,
+                f"{len(visible)} mediciones publicadas, "
+                f"{frame['serie'].nunique()} serie(s) sin ID personal.",
+                fig, visible,
             )
 
         public_button.click(
