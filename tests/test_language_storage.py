@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+from types import SimpleNamespace
 
 from inbody_mvp.extractor import parse_text
 from inbody_mvp.language import detect_report_language
 from inbody_mvp.review import review_table
-from inbody_mvp.storage import database_enabled, prepare_confirmed_exam
+from inbody_mvp.storage import database_enabled, require_database_access, prepare_confirmed_exam
 
 
 def test_spanish_inbody_headings():
@@ -77,3 +78,29 @@ def test_public_space_never_allows_writes(monkeypatch):
     assert database_enabled() is True
     monkeypatch.setenv("ENABLE_PERSISTENCE", "0")
     assert database_enabled() is False
+
+def test_space_oauth_allowlist_enforced_per_request(monkeypatch):
+    monkeypatch.setenv("SPACE_ID", "jaqo/health-journey")
+    monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:secret@invalid/db?sslmode=require")
+    monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
+    assert database_enabled() is True
+    for profile in (None, SimpleNamespace(name="other"), SimpleNamespace(name="")):
+        with pytest.raises(PermissionError):
+            require_database_access(profile)
+    require_database_access(SimpleNamespace(name="JAQO"))
+    monkeypatch.delenv("HF_ALLOWED_USERS")
+    assert database_enabled() is False
+    with pytest.raises(PermissionError):
+        require_database_access(SimpleNamespace(name="jaqo"))
+
+
+def test_local_owner_only_when_explicitly_enabled(monkeypatch):
+    monkeypatch.delenv("SPACE_ID", raising=False)
+    monkeypatch.setenv("ENABLE_PERSISTENCE", "0")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:secret@invalid/db?sslmode=require")
+    assert database_enabled() is False
+    with pytest.raises(PermissionError):
+        require_database_access(None)
+    monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
+    require_database_access(None)
