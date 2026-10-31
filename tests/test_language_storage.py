@@ -118,16 +118,34 @@ def test_display_name_is_not_an_authentication_identifier(monkeypatch):
     require_database_access(SimpleNamespace(name="Alias visible", username="jaqo"))
 
 
-def test_upload_and_csv_authorization_independent_from_neon(monkeypatch):
+def test_upload_and_csv_are_available_without_login_or_neon(monkeypatch):
     monkeypatch.setenv("SPACE_ID", "jaqo/health-journey")
     monkeypatch.setenv("ENABLE_PERSISTENCE", "0")
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
+    monkeypatch.delenv("ENABLE_PUBLIC_DASHBOARD", raising=False)
     assert database_enabled() is False
-    require_report_access(SimpleNamespace(name="Otra persona", username="jaqo"))
+    # Neither OAuth nor Neon is required for OCR and CSV draft export.
+    for profile in (
+        None,
+        SimpleNamespace(username="otro"),
+        SimpleNamespace(username="jaqo"),
+    ):
+        require_report_access(profile)
+    # The exact same user is still rejected from private SQL when Neon is off.
     with pytest.raises(PermissionError):
-        require_report_access(SimpleNamespace(name="jaqo", username="otro"))
+        require_database_access(SimpleNamespace(username="jaqo"))
+
+
+def test_private_sql_stays_protected_after_ocr_login_removed(monkeypatch):
+    monkeypatch.setenv("SPACE_ID", "jaqo/health-journey")
+    monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
+    monkeypatch.setenv("DATABASE_URL", "configured-for-test")
+    monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
+    monkeypatch.delenv("ENABLE_PUBLIC_DASHBOARD", raising=False)
+    require_report_access(None)
     with pytest.raises(PermissionError):
-        require_report_access(None)
-    monkeypatch.delenv("HF_ALLOWED_USERS")
-    require_report_access(None)  # QA without Neon/allowlist: synthetic files only
+        require_database_access(None)
+    with pytest.raises(PermissionError):
+        require_database_access(SimpleNamespace(username="otro"))
+    require_database_access(SimpleNamespace(username="jaqo"))

@@ -110,3 +110,11 @@ El botón solo confirma el guardado después de una transacción exitosa; no pre
 - Guardar y consultar Neon requieren adicionalmente `ENABLE_PERSISTENCE=1` y `DATABASE_URL`; cada operación comprueba la sesión.
 - Si el Space no tiene allowlist, la extracción solo debe usarse con datos sintéticos o anonimizados; no constituye un entorno privado seguro.
 - Nunca resuelvas el error deshabilitando las comprobaciones SQL o usando el rol administrador de Neon.
+
+## Acceso opcional tras retirar el login del OCR
+
+La carga, extracción OCR, revisión y exportación del CSV borrador **no solicitan inicio de sesión de Hugging Face**. El botón «Comprobar sesión de Hugging Face» y la ventana de acceso situada en la cabecera de la aplicación se han eliminado.
+
+El inicio de sesión OAuth se conserva solamente para **guardar exámenes personales en Neon o consultar su historial privado**. Cuando la conexión privada está habilitada en un Space, el botón de acceso se encuentra en el acordeón cerrado «Acceso privado a Neon». El backend verifica `OAuthProfile.username` contra `HF_ALLOWED_USERS` en **cada** lectura y escritura; esconder un botón no concede permisos.
+
+**Seguridad:** un Space público con OCR anónimo solo debe recibir archivos sintéticos o anonimizados **antes** de subirlos. El archivo fuente puede contener cédulas/nombres/fechas de nacimiento que el backend reciba aunque la interfaz oculte una columna. No utilizar este modo con informes identificables. Para documentos reales, mantener un entorno privado.
