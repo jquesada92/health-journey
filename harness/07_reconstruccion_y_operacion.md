@@ -151,3 +151,19 @@ Documentar RTO/RPO y retención de backups antes de producción; no asumir garan
 - No reusar credenciales de producción en QA.
 - Mantener backups externos verificados de DB y CSV confirmados según la política privada.
 - Nunca prometer reconstrucción completa de los reportes originales si no se conservaron sus bytes o una copia segura fuera de Neon.
+
+## 10. Reconstruir la modalidad de estadísticas públicas
+
+Este apartado complementa, **no reemplaza**, la reconstrucción del Space privado de los pasos anteriores.
+
+1. Verificar en `main` el merge de los PR #8 y #9. El historial de merges no demuestra que el Space esté actualizado; comprobar su ejecución real.
+2. Revisar y aplicar, cuando corresponda, la migración **aditiva** `db/migrations/002_public_aggregate_dashboard.sql` sobre la base autorizada. **Nunca autorizar exámenes existentes automáticamente.**
+3. Confirmar la vista `hj_public_monthly_summary` y el rol `health_journey_public`. Verificar que no tiene `SELECT` en `hj_measurements` ni privilegios de escritura o administración.
+4. Crear un **Space público nuevo, de solo visualización** con un entrypoint que no registre subida ni callbacks de OCR/extracción/descarga o consulta individual. Este paso **no está resuelto completamente por el prototipo actual**.
+5. Configurar `PUBLIC_DATABASE_URL` como **Secret** del Space público, con SSL y el rol dedicado. Configurar `ENABLE_PUBLIC_DASHBOARD=1` como Variable; no incluir `DATABASE_URL`.
+6. Mantener la instancia privada de OCR con `ENABLE_PUBLIC_DASHBOARD=0`, `HF_ALLOWED_USERS`, OAuth y `DATABASE_URL` del rol de lectura/escritura restringida.
+7. Comprobar grupos sintéticos de cuatro y cinco personas en QA: el primero debe suprimirse y el segundo puede aparecer si está explícitamente autorizado.
+8. **No publicar datos reales** hasta implementar consentimiento/revocación auditables, medidas de retención, evaluación de reidentificación y E2E de seguridad.
+9. Para errores al extraer sin archivo, comprobar que el callback valida primero `file_path` y luego la sesión; no confundir ese caso con fallos EasyOCR de los JPG reales.
+
+Guía ampliada: [10 — Publicación, anonimización y OAuth](10_publicacion_anonima_y_autenticacion.md) y `docs/dashboard-publico.md`.
