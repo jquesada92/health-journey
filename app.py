@@ -25,6 +25,9 @@ from inbody_mvp.extractor import (
     DocumentError, MAX_UPLOAD_BYTES, extract_document,
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
+from inbody_mvp.public_dashboard import (
+    PUBLIC_METRICS, public_dashboard_enabled, load_public_monthly_summary,
+)
 from inbody_mvp.storage import (
     database_enabled, require_report_access, require_database_access, load_measurement_history,
     prepare_confirmed_exam, save_confirmed_exam,
@@ -260,6 +263,87 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, csv_file, extraction_state],
                        value="Limpiar")
+    with gr.Tab("Dashboard público"):
+        gr.Markdown(
+            "**Estadísticas de composición corporal sin identificadores personales.** "
+            "Solo se muestran promedios mensuales de exámenes con autorización "
+            "expresa de publicación y grupos de al menos 5 personas distintas. "
+            "No se publican IDs, nombres, edades, fechas exactas ni informes originales. "
+            "Los promedios no representan historiales individuales ni garantizan "
+            "anonimato absoluto frente a información externa."
+        )
+        metric_public = gr.Dropdown(
+            choices=[(label, metric) for metric, label in PUBLIC_METRICS.items()],
+            value="weight", label="Variable pública",
+        )
+        public_button = gr.Button(
+            "Consultar estadísticas públicas",
+            interactive=public_dashboard_enabled(),
+        )
+        if not public_dashboard_enabled():
+            gr.Markdown(
+                "Estadísticas públicas todavía no activadas. "
+                "No se publicará ningún examen automáticamente."
+            )
+        public_status = gr.Markdown("Sin consulta.")
+        public_plot = gr.Plot(label="Evolución mensual por grupo")
+        public_table = gr.Dataframe(
+            label="Datos agregados y aprobados para publicación",
+            type="pandas", interactive=False,
+        )
+
+        def show_public_dashboard(variable):
+            try:
+                records = load_public_monthly_summary(variable)
+            except ValueError as exc:
+                raise gr.Error(str(exc)) from exc
+            except Exception:
+                raise gr.Error(
+                    "No se pudieron consultar las estadísticas públicas. "
+                    "Verifica la migración y la configuración del servidor."
+                )
+            frame = pd.DataFrame(records)
+            fig = go.Figure()
+            if frame.empty:
+                return (
+                    "Aún no hay grupos con autorización de publicación "
+                    "y al menos cinco personas distintas para esta métrica.",
+                    fig, frame,
+                )
+            frame["serie"] = frame.apply(
+                lambda item: (
+                    str(item["device_group"])
+                    + " / " + str(item["segmento"] or "cuerpo completo")
+                    + " / " + (
+                        f'{item["frecuencia_khz"]:g} kHz'
+                        if pd.notna(item["frecuencia_khz"])
+                        else "frecuencia no indicada"
+                    )
+                ),
+                axis=1,
+            )
+            fig = px.line(
+                frame.sort_values("period_month"),
+                x="period_month", y="valor_promedio",
+                color="serie", markers=True,
+                labels={
+                    "period_month": "Mes del examen",
+                    "valor_promedio": f"Promedio ({frame['unidad_medida'].iloc[0]})",
+                    "serie": "Grupo de medición",
+                },
+            )
+            return (
+                f"{len(frame)} agregados mensuales publicados. "
+                "Cada grupo representa al menos cinco personas distintas.",
+                fig, frame,
+            )
+
+        public_button.click(
+            fn=show_public_dashboard,
+            inputs=[metric_public],
+            outputs=[public_status, public_plot, public_table],
+            concurrency_limit=1,
+        )
     with gr.Tab("Historial en Neon"):
         gr.Markdown(
             "Consulta únicamente con una cuenta autorizada. "
