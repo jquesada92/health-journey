@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 import spaces  # ZeroGPU compatibility: import before torch.
 import torch
@@ -30,6 +31,9 @@ from inbody_mvp.public_dashboard import (
     load_public_monthly_summary, load_public_person_series,
 )
 from inbody_mvp.oauth_ui import standalone_oauth_urls
+from inbody_mvp.demo_storage import (
+    anonymous_demo_enabled, anonymous_demo_requested, save_demo_exam,
+)
 from inbody_mvp.storage import (
     database_enabled, require_report_access, require_database_access, load_measurement_history,
     prepare_confirmed_exam, save_confirmed_exam,
@@ -150,7 +154,7 @@ OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
-    if os.getenv("SPACE_ID") and OAUTH_URLS:
+    if os.getenv("SPACE_ID") and OAUTH_URLS and not anonymous_demo_requested():
         gr.HTML(
             '<div style="padding:0.4rem 0">'
             '¿Necesitas guardar en Neon? Evita la pantalla blanca del login incrustado: '
@@ -162,14 +166,19 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
     with gr.Tab("InBody Upload"):
         gr.Markdown(
-            "**Carga y dashboard en el mismo Space.** Puedes extraer PDF/JPG/PNG "
-            "y consultar las medidas públicas sin iniciar sesión. "
-            "**Si este Space es público, anonimiza el documento antes de subirlo**: "
-            "oculta nombres, cédulas y fechas de nacimiento. El archivo original "
-            "llega al servidor; ocultar el ID en la gráfica no lo anonimiza. "
-            "Guardar y consultar datos individuales en Neon sigue requiriendo "
-            "una cuenta Hugging Face autorizada."
+            "**InBody Hub:** carga JPG/PDF, revisa tus medidas y usa el "
+            "dashboard público sin login. **Si este Space es público, "
+            "anonimiza los reportes antes de subirlos**: el JPG/PDF original "
+            "llega al servidor, aunque la base de demostración guarde solo "
+            "medidas numéricas seudonimizadas."
         )
+        if anonymous_demo_requested():
+            gr.Markdown(
+                "**Modo demostración:** puedes guardar mediciones sin cuenta, "
+                "aceptando almacenamiento y publicación por separado. "
+                "El guardado anónimo no accede a historiales privados, "
+                "solo almacena medidas compatibles y caduca a los 7 días."
+            )
         upload = gr.File(
             label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
             type="filepath", interactive=True,
@@ -192,6 +201,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             info="ES = español; EN = inglés; UNKNOWN = no reconocido",
         )
         extraction_state = gr.State(value=None)
+        anonymous_session = gr.State(value=lambda: str(uuid4()), time_to_live=3600)
         gr.Markdown("### Mediciones candidatas (editar antes de exportar)")
         table = gr.Dataframe(
             headers=REVIEW_COLUMNS,
@@ -220,6 +230,16 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[csv_file],
         )
         gr.Markdown("### Guardar en Neon PostgreSQL")
+        storage_consent = gr.Checkbox(
+            label="Acepto almacenar las mediciones revisadas en Neon",
+            value=False,
+            info=(
+                "El guardado de demostración solo conserva fecha sin hora, "
+                "modelo sanitizado y mediciones compatibles, con alias aleatorio. "
+                "No conserva ID real, edad, archivo, hash ni texto OCR. "
+                "Los registros de demostración dejan de mostrarse a los 7 días."
+            ),
+        )
         publication_choice = gr.Checkbox(
             label="Publicar las mediciones de este examen en mi dashboard público (sin mi ID)",
             value=False,
@@ -230,7 +250,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             ),
             interactive=True,
         )
-        if os.getenv("SPACE_ID") and database_enabled():
+        if os.getenv("SPACE_ID") and database_enabled() and not anonymous_demo_requested():
             with gr.Accordion("Acceso privado a Neon (solo para guardar y consultar)", open=False):
                 gr.Markdown(
                     "OCR, CSV y dashboard público funcionan sin login. "
@@ -261,12 +281,23 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     inputs=[],
                     outputs=[session_message],
                 )
-        gr.Markdown(
-            "Después de revisar las mediciones, confirma el examen para guardarlo "
-            "en el historial. Esta operación requiere una cuenta Hugging Face "
-            "autorizada cuando se usa desde el Space."
-        )
-        if not database_enabled():
+        if anonymous_demo_requested():
+            gr.Markdown(
+                "Para la demostración no hace falta login. Debes marcar "
+                "**Aceptar almacenamiento**; publicar los valores en el "
+                "dashboard es una elección **independiente**."
+            )
+        else:
+            gr.Markdown(
+                "Guardar y consultar el historial privado requiere una "
+                "cuenta Hugging Face autorizada. La publicación es opcional."
+            )
+        if anonymous_demo_requested() and not anonymous_demo_enabled():
+            gr.Markdown(
+                "**Demo sin configurar:** agrega DEMO_DATABASE_URL como "
+                "Secret usando el rol SQL exclusivo de demostración."
+            )
+        if not anonymous_demo_requested() and not database_enabled():
             gr.Markdown(
                 "**Guardado no disponible por configuración.** En el Space, "
                 "agrega el secreto `DATABASE_URL` y las variables "
@@ -276,30 +307,58 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 "personales hasta confirmar el acceso autorizado."
             )
         save_button = gr.Button(
-            "Guardar examen confirmado en Neon",
+            "Guardar demostración en Neon (sin login)"
+            if anonymous_demo_requested() else "Guardar examen confirmado en Neon",
             variant="primary",
-            interactive=database_enabled(),
+            interactive=anonymous_demo_enabled()
+            if anonymous_demo_requested() else database_enabled(),
         )
         saved_status = gr.Markdown()
 
         def save_reviewed(
             state, edited, person_id, device, when, years, lang, publish,
+            accepted_storage, demo_alias,
             profile: gr.OAuthProfile | None = None,
         ):
-            try:
-                require_database_access(profile)
-            except PermissionError as exc:
-                raise gr.Error(str(exc)) from exc
+            if accepted_storage is not True:
+                raise gr.Error(
+                    "Debes aceptar el almacenamiento antes de guardar."
+                )
             if state is None:
                 raise gr.Error("Primero procesa un reporte.")
+            if anonymous_demo_requested():
+                if not anonymous_demo_enabled():
+                    raise gr.Error("DEMO_DATABASE_URL no está configurada.")
+                try:
+                    # Never use person_id/age/filename as the anonymous ID.
+                    payload = prepare_confirmed_exam(
+                        state, edited, "ANON-" + str(uuid4()), device, when,
+                        None, lang,
+                    )
+                    save_demo_exam(
+                        payload, storage_consent=True,
+                        publish_consent=bool(publish), anonymous_alias=demo_alias,
+                    )
+                except (ValueError, TypeError, RuntimeError, PermissionError) as exc:
+                    raise gr.Error(str(exc)) from exc
+                if publish:
+                    return (
+                        "Mediciones de demostración guardadas con alias "
+                        "aleatorio y visibles en el dashboard público."
+                    )
+                return (
+                    "Mediciones de demostración guardadas en Neon sin "
+                    "publicación. No aparecen en el dashboard."
+                )
             try:
+                require_database_access(profile)
                 payload = prepare_confirmed_exam(
                     state, edited, person_id, device, when, years, lang
                 )
-                exam_id = save_confirmed_exam(
+                save_confirmed_exam(
                     payload, oauth_profile=profile, publish=bool(publish)
                 )
-            except (ValueError, TypeError, RuntimeError) as exc:
+            except (ValueError, TypeError, RuntimeError, PermissionError) as exc:
                 raise gr.Error(str(exc)) from exc
             if publish:
                 return "Examen guardado y autorizado para el dashboard público."
@@ -310,13 +369,14 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             inputs=[
                 extraction_state, table, person, model, timestamp,
                 age, report_language, publication_choice,
+                storage_consent, anonymous_session,
             ],
             outputs=[saved_status],
             concurrency_limit=1,
         )
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, csv_file, extraction_state,
-                        publication_choice],
+                        publication_choice, storage_consent],
                        value="Limpiar")
     with gr.Tab("Dashboard público"):
         gr.Markdown(
@@ -446,7 +506,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 value="", label="Región corporal",
             )
         load_button = gr.Button(
-            "Consultar Neon", interactive=True
+            "Consultar Neon", interactive=not anonymous_demo_requested()
         )
         db_status = gr.Markdown("Sin consulta.")
         db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
