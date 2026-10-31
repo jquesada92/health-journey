@@ -75,3 +75,48 @@ def test_both_layouts_accept_structured_ocr_without_false_success():
     assert result.texto_por_pagina
     assert "Body Composition Analysis" in result.texto_por_pagina[0]
     assert result.tipo_archivo == "jpg"
+
+def test_missing_upload_is_reported_before_hugging_face_authentication():
+    """Evaluate the actual Gradio callback without importing OCR/torch weights.
+
+    The decorated callback is extracted via AST. This checks the runtime
+    error ordering, not merely the existence of both checks.
+    """
+    import ast
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    source = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    callback = next(
+        node for node in module.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "process_report"
+    )
+    callback.decorator_list = []
+    isolated = ast.fix_missing_locations(ast.Module(body=[callback], type_ignores=[]))
+
+    class UiError(Exception):
+        pass
+
+    access_calls = []
+    def deny_access(profile):
+        access_calls.append(profile)
+        raise PermissionError("Se necesita autenticación")
+
+    scope = {
+        "gr": SimpleNamespace(Error=UiError),
+        "require_report_access": deny_access,
+        "DocumentError": ValueError,
+    }
+    exec(compile(isolated, "<Gradio process_report test>", "exec"), scope)
+    fn = scope["process_report"]
+
+    for absent in (None, ""):
+        with pytest.raises(UiError, match="Primero carga"):
+            fn(absent)
+    assert access_calls == [], "No debe exigir login cuando no hay archivo."
+
+    with pytest.raises(UiError, match="Se necesita autenticación"):
+        fn("/tmp/reporte_sintetico.jpg")
+    assert len(access_calls) == 1
