@@ -1,68 +1,60 @@
-# AGENTS.md · Health Journey
+# AGENTS.md — Health Journey
 
-## Qué es este proyecto
+## Estado real y dirección técnica (31 de octubre de 2026)
 
-Health Journey es una plataforma modular para consolidar información personal de fitness y, en fases posteriores, documentos clínicos procedentes de aplicaciones que no comparten datos y de reportes PDF, PNG y JPG. La primera entrega es **InBody Hub**, enfocada en reunir evaluaciones de composición corporal de múltiples establecimientos y equipos en un historial confiable por persona.
+Este repositorio implementa progresivamente **InBody Hub**, primera fase de Health Journey. **Gradio** es la única interfaz web del MVP: el punto de entrada es `app.py` y el Space usa `sdk: gradio` con ZeroGPU. **Pydantic** valida los datos, **PyMuPDF** extrae texto de PDF, **EasyOCR** procesa JPG/PNG y páginas escaneadas, y **Pandas** permite revisar/exportar. **Plotly** se reserva para un dashboard de tendencias integrado en Gradio (`gr.Plot`) en la siguiente fase.
 
-## Hoja de ruta y alcance
+**No desarrollar ni reintroducir Dash, Flask o React como interfaces.** Mantener `app.py` como entrypoint. No sustituir el SDK de Gradio ni romper ZeroGPU sin una necesidad técnica verificada y autorización expresa.
 
-1. **Fase 1 — InBody Hub:** captura, extracción, revisión, normalización y consolidación de reportes InBody. El ejemplo de 5 pruebas de una tienda y 6 de otra debe terminar en un historial unificado, sin duplicar registros ni perder fuentes.
-2. **Fase 2 — Training + Nutrition:** unificar registros de entrenamiento (ejercicios, series, repeticiones, cargas y frecuencia) y macronutrientes (proteínas, carbohidratos, grasas y calorías); interpretar tendencias de progreso y hábitos.
-3. **Fase 3 — Medical Hub:** integrar exámenes y resultados clínicos con privacidad reforzada y validación; no ofrecer diagnósticos.
-4. **Capacidad transversal — asistente virtual:** habilitar, progresivamente, seguimiento de objetivos, hábitos y entrenamiento mediante datos verificables de los módulos.
+## Funcionalidad implementada
 
-**Regla de alcance:** no implementar fases 2 o 3 como parte del hito de la semana 2. Mantener como máximo tres funcionalidades principales del MVP, descritas en `especificacion.md`.
+- Carga de **PDF, JPG, JPEG y PNG** desde `app.py` (límite 15 MB y 8 páginas para PDF).
+- Extracción de texto digital con PyMuPDF; OCR EasyOCR para archivos escaneados e imágenes.
+- Clasificación conservadora de mediciones conocidas; admite variables desconocidas, segmentos y frecuencias (por ejemplo, ángulo de fase).
+- Revisión humana con `gr.Dataframe`; extracción, etiquetas, unidades y valores son **candidatos**.
+- Exportación **CSV borrador** con siete columnas: `id_persona`, `modelo_inbody`, `timestamp`, `variable_medida`, `unidad_medida`, `valor_medida`, `edad`.
+- Vista informativa de Dashboard futuro y pestaña Proyecto que muestra `README.md`.
 
-## Cómo está hecho (estado verificado en la rama main al 14/10/2026)
+**No implementado:** identificación verificada, confirmación persistente, base de datos, deduplicación histórica, autenticación, analítica longitudinal real, gráficas históricas, TrOCR o asistente virtual.
 
-- **Python / interfaz actual:** Gradio en `app.py`. La interfaz tiene pestañas InBody Hub y Proyecto.
-- **Extracción actual:** EasyOCR (es/en) con `spaces.GPU` para Hugging Face ZeroGPU y CPU en local cuando no hay CUDA. El usuario sube **una imagen** y recibe **texto no estructurado**; la extracción no persiste datos.
-- **Documentación visible en la app:** la pestaña Proyecto lee `README.md` y omite la cabecera YAML del Space.
-- **Dependencias:** `requirements.txt`.
-- **Arquitectura prevista, todavía no desplegada:** React/TypeScript, FastAPI/Pydantic, PostgreSQL (SQLAlchemy/Alembic); desarrollo local, QA aislado y producción separada.
-- **Modelo de IA elegido para la evolución del reto:** [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), ejecutado con pesos descargados de Hugging Face, y EasyOCR para localizar texto o servir de comparación. TrOCR reconoce texto impreso **línea a línea**, no extrae automáticamente la semántica de tablas InBody. **TrOCR todavía no está integrado**; no presentarlo como disponible.
+## Organización
 
-Documentos de referencia: `README.md` (visión, fases, estado), `especificacion.md` (contrato funcional y pruebas), `docs/hito-semana-2.md` (ficha académica).
+- `app.py`: componentes y eventos Gradio; mantener la lógica de extracción separada.
+- `inbody_mvp/extractor.py`: lectura PDF/imágenes, OCR de respaldo, Pydantic y clasificación inicial.
+- `inbody_mvp/review.py`: tabla de revisión, validación de ediciones, exportación CSV.
+- `tests/test_inbody_mvp.py` y `tests/test_review.py`: pruebas unitarias.
+- `requirements.txt`: dependencias de ejecución.
+- `.github/workflows/deploy-huggingface.yml`: sincroniza `app.py`, `README.md`, `requirements.txt` y los módulos Python de `inbody_mvp/` con el Space `jaqo/health-journey`.
+- `docs/despliegue-hugging-face.md`: instrucciones de despliegue.
 
-## Reglas del agente
+## Principios de extracción y almacenamiento
 
-- Antes de modificar código, leer `README.md` y `especificacion.md`. Explicar el alcance del cambio y no agregar funcionalidades fuera de fase sin pedir confirmación.
-- Hacer cambios pequeños y comprobables; preservar comportamiento existente. Al terminar, informar archivos, motivo y pruebas.
-- **No cambiar arquitectura ni modelo de IA sin autorización.** No desplegar, hacer merge ni push a producción o a `main` sin revisión del usuario.
-- Preservar el frontmatter YAML inicial de `README.md`: Hugging Face lo requiere para arrancar la app.
-- No introducir datos personales de salud reales, credenciales, PDFs identificables ni nombres de pacientes en ejemplos, logs o pruebas. Usar datos sintéticos/anonimizados.
-- La solución elegida no requiere API de pago ni clave de Gemini. Si se añaden credenciales en el futuro, guardarlas únicamente como secretos/variables de entorno, nunca en GitHub o chats.
-- Para documentos: distinguir PDF de texto de PDF escaneado; un OCR de imagen no demuestra que PDF ya funciona.
-- Para mediciones: jamás inventar valores, fechas o unidades. Los campos ilegibles se dejan vacíos y requieren revisión humana. No reemplazar ausentes por cero.
-- Mantener el identificador de persona separado del de examen, almacenar procedencia y modelo del equipo por examen y verificar duplicados. No mezclar series de personas diferentes.
-- Marcar cambios de equipo, unidad, definición o método cuando afecten comparaciones entre pruebas; no asumir equivalencia sin validación.
-- Validar entradas, controlar tamaños de archivo y devolver errores en español sin exponer secretos ni trazas internas.
-- En la futura integración de TrOCR, manejar errores de carga del modelo, red, límites de ZeroGPU e inferencia con mensajes claros en español. Validar esquemas antes de persistir; no activar endpoints o servicios de pago automáticamente.
-- En la fase clínica, no crear diagnósticos, recetas, cambios de medicación ni afirmaciones de certeza clínica. Asegurar privacidad, acceso autorizado y revisión de la información.
-- Si añades una biblioteca, actualizar `requirements.txt` y documentar por qué es necesaria.
+1. **Una fila por medición.** Las nuevas variables se agregan como nuevas filas, nunca requieren nuevas columnas en la tabla analítica.
+2. **Nada de datos inventados:** faltantes/ambiguos permanecen vacíos; no sustituir por cero ni suponer unidades o timestamps.
+3. **Clasificación y dimensión independientes:** conservar etiqueta original, categoría, unidad, segmento, lateralidad, frecuencia y trazabilidad.
+4. **Separar masa muscular esquelética de masa libre de grasa.** No equiparar porcentajes relativos a referencia con porcentajes de composición corporal.
+5. **Ángulo de fase:** diferenciar cuerpo completo y segmentos, respetar frecuencia (kHz) si aparece; no suponer 50 kHz.
+6. **Edad:** calcular desde fecha de nacimiento y fecha del examen si ambas existen; distinguir de edad transcrita.
+7. **Identidad:** el ID del reporte no necesariamente es una cédula verificada; no mezclar personas.
+8. **Comparabilidad:** no graficar como equivalentes mediciones de definiciones, modelos o frecuencias incompatibles.
+9. **Privacidad:** jamás incluir documentos reales, IDs reales, datos médicos o secretos en repositorio, ejemplos, pruebas o logs públicos. QA público solo con archivos ficticios o anonimizados.
 
-## Cómo comprobar que funciona
+## Flujo de trabajo para agentes
 
-### Versión 0 (actual)
+- Leer `README.md`, `especificacion.md` y este archivo antes de modificar arquitectura.
+- Implementar cambios pequeños y verificables. No declarar disponibles funciones que solo estén previstas.
+- No publicar ni alterar credenciales; las claves de Hugging Face están en secretos de GitHub, no en el código.
+- No desplegar, hacer merge ni push a `main` sin autorización del usuario.
+- Preservar el encabezado YAML de `README.md`: `sdk: gradio`, `app_file: app.py`.
+- Mantener separado el motor Python de la UI para poder extender el dashboard Gradio + Plotly sin reescribir la extracción.
+- Antes de finalizar, ejecutar `python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py` y revisar la compilación sintáctica.
+- No afirmar que se ha validado el Space ni el OCR real con reportes auténticos si no hay pruebas de ello.
 
-1. Ejecutar `pip install -r requirements.txt` y `python app.py` en un entorno apropiado.
-2. Abrir `http://localhost:7860` o el Space de QA cuando esté operativo.
-3. Probar subida de una imagen sintética legible → aparece texto OCR editable.
-4. Probar imagen ausente → mensaje claro solicitando cargar una imagen.
-5. Probar imagen que exceda 20 millones de píxeles → rechazo con mensaje claro.
-6. Abrir pestaña Proyecto → se muestra el README, sin la cabecera YAML.
+## Hoja de ruta
 
-Estas son expectativas verificables desde el código, **no una declaración de pruebas ejecutadas**.
+1. Completar y probar extracción en reportes InBody reales **anonimizados** de diferentes modelos, reforzar la clasificación y revisión.
+2. Almacenar exámenes confirmados con trazabilidad, control de duplicados y acceso privado en PostgreSQL.
+3. Crear **dashboard Gradio + Plotly**: filtros por persona, fecha, medida, unidad, región, segmentos (brazos, piernas, tronco), gráficas de líneas, grasa versus músculo y ángulo de fase (global/segmental/frecuencia).
+4. Expandir posteriormente a módulos Training y Nutrition; Medical Hub requiere controles clínicos adicionales.
 
-### Fase 1 posterior
-
-- Validar PDF con texto y PDF escaneado, PNG/JPG, campos ilegibles, duplicados, 5+6 exámenes de dos fuentes, cambios de modelo y límites de ZeroGPU. Comparar EasyOCR y TrOCR con casos sintéticos y medir errores de reconocimiento de números/unidades.
-- Separar pruebas unitarias de extracción, normalización, reglas de negocio, persistencia y UI.
-- No almacenar datos dudosos sin confirmación. Verificar los casos de `especificacion.md`.
-
-## Qué no hacer
-
-- No afirmar que los módulos Training, Nutrition y Medical ya funcionan.
-- No confundir extracción OCR de texto con extracción validada de mediciones InBody.
-- No borrar ni sustituir partes del README sin mantener el contenido existente y la configuración de Hugging Face.
-- No usar datos sensibles reales ni servicios de producción para las pruebas del reto.
+La documentación del reto OBS de semana 2 describe estados históricos y no debe confundirse con las capacidades actuales.
