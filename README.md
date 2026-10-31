@@ -185,3 +185,13 @@ python dash_app.py
 Abrir http://127.0.0.1:8050. Ejecutar las pruebas con `pip install pytest && python -m pytest -q tests/test_inbody_mvp.py`. Usar únicamente reportes ficticios o anonimizados; todavía no hay autenticación ni almacenamiento seguro para documentos personales.
 
 Más detalles: [README_DASH_MVP.md](README_DASH_MVP.md).
+
+## Publicar cambios en Hugging Face Spaces
+
+La publicación del **prototipo Gradio** se hace desde GitHub mediante el workflow [**Sync app to Hugging Face**](.github/workflows/deploy-huggingface.yml). En GitHub, configura el **secret** `HF_TOKEN` (token de Hugging Face con permiso de escritura) y la **variable** `HF_SPACE_ID=jaqo/health-journey` desde **Settings → Secrets and variables → Actions**.
+
+Al hacer push a `main` con cambios en `app.py`, `README.md` o `requirements.txt`, el workflow publica **solo esos archivos** en el Space. También se puede ejecutar desde **Actions → Sync app to Hugging Face → Run workflow**. Para revisar el estado, comprueba primero los logs de GitHub Actions y luego los logs de [Hugging Face Space](https://huggingface.co/spaces/jaqo/health-journey).
+
+**Importante:** `dash_app.py` y `inbody_mvp/` todavía no se publican en el Space actual; se ejecutan localmente. Migrar a Dash requiere adaptar primero el despliegue a Docker, y no debe confundirse un reinicio con una sincronización de código.
+
+**Instrucciones completas:** [docs/despliegue-hugging-face.md](docs/despliegue-hugging-face.md) (configuración, despliegue automático, ejecución manual, CLI, verificación y solución de problemas).
