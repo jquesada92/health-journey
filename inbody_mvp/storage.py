@@ -240,7 +240,7 @@ def _database_engine():
     return create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=2)
 
 
-def save_confirmed_exam(report: ConfirmedExam, oauth_profile=None) -> str:
+def save_confirmed_exam(report: ConfirmedExam, oauth_profile=None, publish: bool = False) -> str:
     """Insert person/exam/all metrics atomically; reject duplicate file hash."""
     require_database_access(oauth_profile)
     engine = _database_engine()
@@ -266,11 +266,13 @@ def save_confirmed_exam(report: ConfirmedExam, oauth_profile=None) -> str:
                 INSERT INTO hj_exams (
                     person_uuid, source_sha256, modelo_inbody,
                     exam_timestamp, timezone_name, edad, age_source,
-                    idioma_reporte, language_basis, source_type
+                    idioma_reporte, language_basis, source_type,
+                    public_release_approved_at
                 ) VALUES (
                     :person, :hash, :model,
                     :tested_at, :timezone_name, :age, :age_source,
-                    :language, 'human_review', :source_type
+                    :language, 'human_review', :source_type,
+                    CASE WHEN :publish THEN now() ELSE NULL END
                 ) RETURNING exam_uuid
             """), {
                 "person": person, "hash": report.source_sha256,
@@ -278,6 +280,7 @@ def save_confirmed_exam(report: ConfirmedExam, oauth_profile=None) -> str:
                 "timezone_name": tz_name, "age": report.edad,
                 "age_source": report.age_source,
                 "language": report.idioma_reporte, "source_type": report.source_type,
+                "publish": bool(publish),
             }).scalar_one()
             connection.execute(text("""
                 INSERT INTO hj_measurements (
