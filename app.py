@@ -478,11 +478,19 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             concurrency_limit=1,
         )
     with gr.Tab("Historial en Neon"):
-        gr.Markdown(
-            "Consulta únicamente con una cuenta autorizada. "
-            "Selecciona el ID exacto que aparece en el reporte. "
-            "Las tendencias son exploratorias y no prueban mejoría clínica."
-        )
+        if anonymous_demo_requested():
+            gr.Markdown(
+                "**Historial privado deshabilitado en demostración.** "
+                "Para verificar las mediciones publicadas, utiliza "
+                "la pestaña «Dashboard público». Los datos de demostración "
+                "nunca se mezclan con pacientes privados."
+            )
+        else:
+            gr.Markdown(
+                "Consulta únicamente con una cuenta autorizada. "
+                "Selecciona el ID exacto que aparece en el reporte. "
+                "Las tendencias son exploratorias y no prueban mejoría clínica."
+            )
         history_id = gr.Textbox(label="ID de persona en InBody", placeholder="ID exacto")
         with gr.Row():
             metric_filter = gr.Dropdown(
