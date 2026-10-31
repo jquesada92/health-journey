@@ -1,0 +1,20 @@
+# Local secrets and environments
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# InBody files / health data
+uploads/
+private_data/
+*.pdf
+*.jpg
+*.jpeg
+*.png
+# Generated reports / exports
+inbody_borrador_*.csv
