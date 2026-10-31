@@ -124,10 +124,43 @@ def download_draft(
         return file.name
 
 
+def check_session(profile: gr.OAuthProfile | None = None) -> str:
+    """Report whether an HF account is authorized without showing secrets."""
+    if not os.getenv("SPACE_ID"):
+        return "Ejecución local. La conexión a Neon se configura por separado."
+    username = getattr(profile, "username", None)
+    if not username:
+        return (
+            "**Sesión no detectada.** Pulsa Login en Hugging Face y vuelve "
+            "a comprobar. Si estás en la vista incrustada, abre el Space "
+            "en una pestaña independiente."
+        )
+    try:
+        require_report_access(profile)
+    except PermissionError:
+        return (
+            f"Cuenta conectada: `{username}`. **Sin autorización.** "
+            "Comprueba que HF_ALLOWED_USERS contenga exactamente tu username."
+        )
+    connection = (
+        "configurada (sin comprobar credenciales)"
+        if database_enabled() else "no configurada"
+    )
+    return (
+        f"Cuenta HF: `{username}`. **Autorizada para revisar archivos.** "
+        f"Neon: {connection}. "
+        "Guardar/consultar requieren comprobar también la conexión real."
+    )
+
+
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
     if os.getenv("SPACE_ID"):
         gr.LoginButton()
+        with gr.Row():
+            session_check = gr.Button("Comprobar sesión de Hugging Face", size="sm")
+            session_info = gr.Markdown("Comprueba la sesión si aparece un error de autorización.")
+        session_check.click(fn=check_session, inputs=[], outputs=[session_info])
     with gr.Tab("InBody Upload"):
         gr.Markdown(
             "**MVP de extracción y revisión** — admite PDF, JPG, JPEG y PNG (máximo 15 MB). "
