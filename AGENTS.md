@@ -90,3 +90,9 @@ El directorio [`harness/`](harness/README.md) reúne en **español** la especifi
 La modalidad pública es **solo estadísticas agregadas**, nunca registros por persona: la vista `hj_public_monthly_summary` usa únicamente exámenes explícitamente aprobados, agrupa por mes/modelo/métrica/unidad/segmento/frecuencia y suprime grupos de menos de cinco participantes. No expone ID, fechas exactas ni edad.
 
 Se requiere un Space separado para ingesta **privada**, y otro para lectura **pública**. `PUBLIC_DATABASE_URL` usa únicamente el rol `health_journey_public` sin acceso a tablas privadas; el Space público **no puede usar** `DATABASE_URL`. En modo `ENABLE_PUBLIC_DASHBOARD=1` denegar del lado servidor uploads, OCR, exportación privada y consultas/escrituras individuales de Neon. No publicar exámenes reales antes de implementar consentimiento auditable y revocación. Ver `docs/dashboard-publico.md` y migración `db/migrations/002_public_aggregate_dashboard.sql`.
+
+## Flujo de autenticación simplificado
+
+La extracción OCR, revisión y exportación CSV no requieren OAuth ni conexión Neon, pero **solo se permiten reportes sintéticos o anonimizados** si el Space es público. Se eliminó la sección superior de «Login / Comprobar sesión»; los controles de login quedan dentro de «Acceso privado a Neon» cuando el servicio está configurado.
+
+Las lecturas y escrituras individuales de Neon **siguen exigiendo** OAuth con `OAuthProfile.username` y `HF_ALLOWED_USERS` validado en servidor. No desactivar esta comprobación para resolver problemas de OCR. El modo dashboard público exclusivamente agregado bloquea uploads, exportaciones y consultas privadas. La ausencia de login en OCR no significa que sea seguro subir informes identificables a un Space público.
