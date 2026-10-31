@@ -42,10 +42,11 @@ reader = easyocr.Reader(["es", "en"], gpu=DEVICE, verbose=False)
 
 
 def _ocr_picture(image) -> str:
-    detections = reader.readtext(
-        np.asarray(image.convert("RGB")), detail=0, paragraph=False,
+    # Return bounding boxes so the extractor can associate labels with
+    # their cells in dense, multi-column InBody reports.
+    return reader.readtext(
+        np.asarray(image.convert("RGB")), detail=1, paragraph=False,
     )
-    return "\n".join(detections)
 
 
 @spaces.GPU
