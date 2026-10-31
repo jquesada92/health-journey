@@ -59,6 +59,7 @@ jobs:
               'inbody_mvp/language.py',
               'inbody_mvp/storage.py',
               'inbody_mvp/public_dashboard.py',
+              'inbody_mvp/oauth_ui.py',
           ]
           for name in files:
               if not Path(name).is_file():

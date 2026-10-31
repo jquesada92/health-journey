@@ -77,3 +77,7 @@ El servicio puede recibir **dos credenciales distintas**: `DATABASE_URL` para gu
 **Limitación aceptada:** en un Space públicamente accesible, cualquier upload envía sus bytes al servidor antes de que Python pueda anonimizarlo. Por tanto, solo cargar informes anonimizados **antes del upload** o utilizar un Space privado para datos de identidad. Este cambio no convierte series individuales seudonimizadas en anónimas irreversibles.
 
 Los apartados históricos que prescriben dos Spaces ya no describen la configuración requerida actual; este contrato los sustituye. Las pruebas deben demostrar coexistencia de OCR/dashboard y bloqueo de operaciones SQL privadas sin OAuth.
+
+## Corrección de login: pestaña OAuth independiente
+
+Para evitar pantallas blancas al iniciar sesión desde la vista incrustada, se usa un enlace a `https://<SPACE_HOST>/login/huggingface` que abre en una pestaña nueva; el host se valida dentro de `inbody_mvp/oauth_ui.py` y nunca contiene secretos. El login solo es necesario para guardar/consultar Neon privado. El OCR, el CSV y las mediciones publicadas permanecen disponibles sin autenticar; el acceso de base privada se valida del lado servidor con `OAuthProfile.username`. Hay prueba sintética de URL segura y despliegue. La autenticación efectiva aún requiere prueba real en Hugging Face.

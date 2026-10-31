@@ -96,3 +96,7 @@ La modalidad pública es **solo estadísticas agregadas**, nunca registros por p
 La extracción OCR, revisión y exportación CSV no requieren OAuth ni conexión Neon, pero **solo se permiten reportes sintéticos o anonimizados** si el Space es público. Se eliminó la sección superior de «Login / Comprobar sesión»; los controles de login quedan dentro de «Acceso privado a Neon» cuando el servicio está configurado.
 
 Las lecturas y escrituras privadas de Neon **siguen exigiendo** OAuth con `OAuthProfile.username` y `HF_ALLOWED_USERS` validado en servidor. No desactivar esta comprobación. `ENABLE_PUBLIC_DASHBOARD=1` activa el lector público pero **no bloquea** OCR, CSV ni los controles privados. La ausencia de login en OCR no significa que sea seguro subir informes identificables a un Space público.
+
+## OAuth robusto: evitar pantalla blanca de login en iframe
+
+Para operaciones privadas de Neon, el Space presenta un enlace de login en pestaña nueva basado en `SPACE_HOST` validado y `/login/huggingface`, que evita problemas de cookies en la aplicación incrustada. Mantener `hf_oauth: true` y `gradio[oauth]`. No insertar credenciales en URLs, archivos o logs, ni construir hosts desde un ID sin verificar. El componente nativo `gr.LoginButton` puede existir oculto como respaldo para registrar OAuth y solo mostrarse cuando el Space no provea un `SPACE_HOST` válido. Guardar/consultar Neon **siempre** exige `OAuthProfile.username` permitido. `inbody_mvp/oauth_ui.py` y `tests/test_oauth_standalone.py` definen y verifican este contrato.
