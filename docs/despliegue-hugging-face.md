@@ -3,17 +3,17 @@
 **Repositorio fuente:** [jquesada92/health-journey](https://github.com/jquesada92/health-journey)  
 **Space de QA:** [jaqo/health-journey](https://huggingface.co/spaces/jaqo/health-journey)
 
-> **Situación actual:** el Space usa `sdk: gradio` con `app.py` y EasyOCR/ZeroGPU. La aplicación Flask + Dash de `dash_app.py` es **local** y NO se despliega con el workflow actual. Un redeploy no convierte automáticamente el Space a Dash.
+> **Situación actual:** el Space utiliza `sdk: gradio` con `app.py`, EasyOCR y el módulo `inbody_mvp/`. El dashboard histórico con Plotly está planificado, no implementado.
 
 ## 1. Cómo funciona la publicación automática (ya implementada)
 
 Existe el workflow [`.github/workflows/deploy-huggingface.yml`](../.github/workflows/deploy-huggingface.yml), llamado **Sync app to Hugging Face**.
 
-- Se ejecuta al hacer **push a `main`** cuando cambian `app.py`, `README.md`, `requirements.txt` o el propio workflow.
+- Se ejecuta al hacer **push a `main`** cuando cambian `app.py`, archivos de `inbody_mvp/`, `README.md`, `requirements.txt` o el propio workflow.
 - También se puede iniciar manualmente desde **GitHub → Actions → Sync app to Hugging Face → Run workflow**.
-- Solo envía al Space **`app.py`, `README.md` y `requirements.txt`** mediante `huggingface_hub.HfApi.upload_folder`.
+- Envía al Space **`app.py`, `README.md`, `requirements.txt` y los archivos Python de `inbody_mvp/`** mediante `huggingface_hub.HfApi.upload_folder`.
 - Una actualización del código en el repositorio del Space inicia automáticamente su reconstrucción/reinicio en Hugging Face.
-- Cambios solo en `dash_app.py`, `inbody_mvp/`, pruebas o documentación NO se publican por ese workflow, ni activan su ejecución automática.
+- Cambios solo en pruebas o documentación fuera del README no activan el despliegue. El directorio `inbody_mvp/` sí está incluido.
 
 ### Configuración inicial en GitHub (una sola vez)
 
@@ -30,13 +30,13 @@ No se ha comprobado desde esta guía que estas credenciales ya estén configurad
 ```bash
 git checkout main
 git pull origin main
-# Edita app.py, README.md o requirements.txt
-git add app.py README.md requirements.txt
+# Edita app.py, inbody_mvp/, README.md o requirements.txt
+git add app.py inbody_mvp README.md requirements.txt
 git commit -m "Update Gradio InBody Hub"
 git push origin main
 ```
 
-GitHub Actions ejecutará el workflow **si cambió alguno de esos archivos**. Para cambios en otros archivos, ejecutarlo manualmente sigue subiendo solo los tres archivos definidos; **no sube Dash**.
+GitHub Actions ejecutará el workflow **si cambió alguno de esos archivos**. El workflow publica únicamente el conjunto permitido; no sube los PDFs o archivos de prueba del equipo local.
 
 ### Verificar el despliegue
 
@@ -49,7 +49,7 @@ Un workflow exitoso solo confirma que los archivos se subieron; no garantiza que
 
 ## 2. Lanzar manualmente el workflow existente (sin nuevo commit)
 
-Ve a [Actions](https://github.com/jquesada92/health-journey/actions) → **Sync app to Hugging Face** → **Run workflow** → selecciona `main` → **Run workflow**. Esto vuelve a publicar los tres archivos indicados.
+Ve a [Actions](https://github.com/jquesada92/health-journey/actions) → **Sync app to Hugging Face** → **Run workflow** → selecciona `main` → **Run workflow**. Esto vuelve a publicar los archivos de la aplicación Gradio y el paquete de extracción.
 
 ## 3. Subir manualmente desde tu computadora (alternativa)
 
@@ -67,10 +67,11 @@ git pull origin main
 hf upload jaqo/health-journey . . --repo-type space \
   --include "app.py" \
   --include "README.md" \
-  --include "requirements.txt"
+  --include "requirements.txt" \
+  --include "inbody_mvp/**"
 ```
 
-Esto publica los mismos archivos permitidos por el workflow y evita subir carpetas locales, reportes InBody, `.env` y archivos de desarrollo. No uses `hf upload ... . .` sin filtros sobre un directorio que pueda contener información privada.
+Esto publica los archivos de Gradio y el paquete de extracción, igual que el workflow y evita subir carpetas locales, reportes InBody, `.env` y archivos de desarrollo. No uses `hf upload ... . .` sin filtros sobre un directorio que pueda contener información privada.
 
 Si solamente quieres **reiniciar** el código ya publicado, sin subir cambios:
 
@@ -86,17 +87,12 @@ hf spaces restart jaqo/health-journey --factory-reboot
 
 **Reiniciar no sincroniza GitHub**: el Space ejecuta el código que ya tiene alojado.
 
-## 4. Cuando migremos el Space a Flask + Dash
+## 4. Próxima fase: dashboard con Gradio + Plotly
 
-`dash_app.py` existe como prototipo local, pero no es el entrypoint del Space. Para publicar Dash se necesitará un cambio de arquitectura separado:
+No es necesario cambiar el SDK a Docker ni incorporar Dash. Se reutilizará el mismo `app.py`, agregando una pestaña con `gr.Plot` y figuras Plotly. Las gráficas históricas requerirán primero almacenamiento seguro, revisión/confirmación de mediciones y consultas de series temporales; por ahora la pestaña Dashboard solo explica el plan.
 
-1. Preparar un `Dockerfile` y un servidor Dash escuchando en `0.0.0.0:7860` (no en `127.0.0.1:8050`).
-2. Cambiar el encabezado YAML de `README.md` a `sdk: docker` con `app_port: 7860`, después de verificar el contenedor.
-3. Cambiar explícitamente el workflow para publicar todos los archivos de aplicación necesarios (`dash_app.py`, `inbody_mvp/`, `Dockerfile`, etc.), con exclusiones estrictas para credenciales, datos, PDFs y archivos personales.
-4. Probar OCR y dependencias con CPU o GPU compatible; **ZeroGPU para Gradio no se traslada automáticamente a Docker**.
-5. Validar privacidad, autenticación y control de acceso antes de subir reportes reales. En QA usar únicamente documentos sintéticos o anonimizados.
+Para futuras dependencias o cambios de módulos, actualizar `requirements.txt` y, si se agrega un módulo de aplicación obligatorio, ajustar la lista explícita de archivos del workflow. Los datos personales de salud no deben publicarse en el repositorio ni cargarse en un Space público sin controles de acceso.
 
-**No cambies el SDK ni el workflow de sincronización hasta que el despliegue Docker esté listo y probado.**
 
 ## 5. Solución de problemas
 
@@ -105,7 +101,7 @@ hf spaces restart jaqo/health-journey --factory-reboot
 | El push no inició Actions | ¿Cambió un archivo de la lista `paths` en `main`? Si no, usa **Run workflow**. |
 | Falta `HF_TOKEN` o `HF_SPACE_ID` | Configura el secret y la variable en GitHub; comprueba que el token pueda escribir en el Space. |
 | Actions pasa, pero la app falla | Revisa los logs de construcción/ejecución del Space y las dependencias en `requirements.txt`. |
-| Dash no aparece en Hugging Face | Es esperado: el workflow actual solo publica Gradio y tres archivos. |
+| El extractor no aparece en el Space | Verifica que la sincronización incluya `inbody_mvp/` y revisa los logs de construcción. |
 | Los cambios en GitHub no aparecen | Confirma que el workflow terminó y que Hugging Face reconstruyó el commit subido. |
 | El reinicio borró archivos cargados | El filesystem del Space es efímero. Nunca lo uses como almacenamiento durable para datos personales. |
 
