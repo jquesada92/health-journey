@@ -60,13 +60,13 @@ COMMENT ON VIEW hj_public_monthly_summary IS
 
 -- Grant only the public summary read privilege to the existing restricted role
 -- where that role exists. Never grant access to private base tables here.
-DO $
+DO $grant$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_journey_runtime') THEN
         GRANT SELECT ON hj_public_monthly_summary TO health_journey_runtime;
     END IF;
 END
-$;
+$grant$;
 
 -- A separate, read-only role should be used if public analytics moves
 -- to its own service. The current Space backend must never directly expose
