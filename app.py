@@ -166,44 +166,56 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             inputs=[table, person, model, timestamp, age],
             outputs=[csv_file],
         )
-        if database_enabled():
+        gr.Markdown("### Guardar en Neon PostgreSQL")
+        gr.Markdown(
+            "Después de revisar las mediciones, confirma el examen para guardarlo "
+            "en el historial. Esta operación requiere una cuenta Hugging Face "
+            "autorizada cuando se usa desde el Space."
+        )
+        if not database_enabled():
             gr.Markdown(
-                "### Confirmar examen en Neon\n"
-                "Inicia sesión con una cuenta autorizada y revisa todos los datos. "
-                "En local se permite guardar solamente con configuración explícita."
+                "**Guardado no disponible por configuración.** En el Space, "
+                "agrega el secreto `DATABASE_URL` y las variables "
+                "`ENABLE_PERSISTENCE=1` y `HF_ALLOWED_USERS` con tu usuario "
+                "de Hugging Face. Luego reinicia el Space. "
+                "No compartas el connection string ni utilices documentos "
+                "personales hasta confirmar el acceso autorizado."
             )
-            save_button = gr.Button("Confirmar y guardar en PostgreSQL", variant="primary")
-            saved_status = gr.Markdown()
-            def save_reviewed(
-                state, edited, person_id, device, when, years, lang,
-                profile: gr.OAuthProfile | None = None,
-            ):
-                try:
-                    require_database_access(profile)
-                except PermissionError as exc:
-                    raise gr.Error(str(exc)) from exc
-                if state is None:
-                    raise gr.Error("Primero procesa un reporte.")
-                try:
-                    payload = prepare_confirmed_exam(
-                        state, edited, person_id, device, when, years, lang
-                    )
-                    exam_id = save_confirmed_exam(payload, oauth_profile=profile)
-                except (ValueError, TypeError, RuntimeError) as exc:
-                    raise gr.Error(str(exc)) from exc
-                return f"Examen confirmado y guardado. ID interno: `{exam_id}`."
-            save_button.click(
-                fn=save_reviewed,
-                inputs=[extraction_state, table, person, model, timestamp, age, report_language],
-                outputs=[saved_status],
-                concurrency_limit=1,
-            )
-        else:
-            gr.Markdown(
-                "**Conexión Neon inactiva.** Configura DATABASE_URL como secreto, "
-                "ENABLE_PERSISTENCE=1 y HF_ALLOWED_USERS con el usuario autorizado "
-                "en Settings del Space. Los reportes reales requieren protección de acceso."
-            )
+        save_button = gr.Button(
+            "Guardar examen confirmado en Neon",
+            variant="primary",
+            interactive=database_enabled(),
+        )
+        saved_status = gr.Markdown()
+
+        def save_reviewed(
+            state, edited, person_id, device, when, years, lang,
+            profile: gr.OAuthProfile | None = None,
+        ):
+            try:
+                require_database_access(profile)
+            except PermissionError as exc:
+                raise gr.Error(str(exc)) from exc
+            if state is None:
+                raise gr.Error("Primero procesa un reporte.")
+            try:
+                payload = prepare_confirmed_exam(
+                    state, edited, person_id, device, when, years, lang
+                )
+                exam_id = save_confirmed_exam(payload, oauth_profile=profile)
+            except (ValueError, TypeError, RuntimeError) as exc:
+                raise gr.Error(str(exc)) from exc
+            return f"Examen confirmado y guardado. ID interno: `{exam_id}`."
+
+        save_button.click(
+            fn=save_reviewed,
+            inputs=[
+                extraction_state, table, person, model, timestamp,
+                age, report_language,
+            ],
+            outputs=[saved_status],
+            concurrency_limit=1,
+        )
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, csv_file, extraction_state],
                        value="Limpiar")
