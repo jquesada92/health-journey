@@ -67,3 +67,13 @@ La documentación del reto OBS de semana 2 describe estados históricos y no deb
 - No agregar reportes reales ni capturas con cédulas o datos médicos a los tests o al repositorio.
 - Los resultados espaciales son candidatos no confirmados: validar visualmente números, signos, unidades, segmentos y porcentajes contra sus referencias originales.
 - El historial impreso dentro de una hoja InBody no debe mezclarse automáticamente con el examen actual.
+
+## Persistencia Neon y clasificación de idioma (implementación experimental)
+
+- El proyecto Neon `health-journey` y la base `health_journey` existen con tablas `hj_persons`, `hj_exams`, `hj_measurements`, `hj_measurement_catalog` y vista `hj_measurements_long`. El DDL está en `db/schema.sql`; no ejecutarlo de manera destructiva.
+- Clasificar `idioma_reporte` en `ES`, `EN`, `UNKNOWN` desde encabezados mediante `inbody_mvp/language.py`. Pedir revisión humana si no hay suficiente evidencia; el idioma se almacena por examen.
+- La capa `inbody_mvp/storage.py` escribe las mediciones revisadas transaccionalmente; necesita `DATABASE_URL` TLS y `ENABLE_PERSISTENCE=1`. No leer ni imprimir credenciales, ni almacenar PDFs o imágenes reales en Git.
+- **Prohibido activar guardar en un Space público** sin autenticación/autorización y controles específicos de información médica. El código fuerza `SPACE_ID` a deshabilitar la escritura, además de requerir configuración explícita.
+- `hj_measurements_long` conserva siete columnas y no contiene `idioma_reporte`; el idioma y la etiqueta original se consultan en las tablas base. Nuevas métricas agregan filas y entradas al catálogo, no nuevas columnas.
+- Los tests `tests/test_language_storage.py` no requieren conexión a Neon ni usan datos personales reales.
+- Guía de operación: `docs/neon-postgres.md`.
