@@ -200,3 +200,11 @@ El OCR ahora conserva las **coordenadas de cada bloque de texto** (`EasyOCR deta
 - **No subir reportes reales ni identificadores personales a un Space público**, al repositorio o a los tests. El código se verificó con fixtures sintéticos; la precisión sobre archivos reales requiere validación separada.
 
 Pruebas: `python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py tests/test_inbody_layouts.py`.
+
+## Idioma del reporte y PostgreSQL en Neon (fase experimental)
+
+Los reportes InBody pueden venir en español o inglés. El extractor detecta de forma conservadora `idioma_reporte` con valores `ES`, `EN` o `UNKNOWN` y permite corregirlo desde Gradio. La etiqueta original se conserva y las variables se normalizan de manera independiente del idioma.
+
+Se creó el proyecto PostgreSQL **health-journey** en Neon, base `health_journey`. Su esquema separa personas, exámenes, mediciones y catálogo; la vista `hj_measurements_long` expone las siete columnas del formato vertical definido. El guardado, con validación y detección de duplicados por SHA-256, está disponible **solo en sesión local privada** cuando `DATABASE_URL` y `ENABLE_PERSISTENCE=1` estén configurados. El Space público **no guarda resultados**.
+
+[Guía de Neon, esquema y seguridad](docs/neon-postgres.md) · [DDL versionado](db/schema.sql).
