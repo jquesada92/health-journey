@@ -105,8 +105,10 @@ def test_demo_only_writes_anonymized_approved_values(monkeypatch):
         "frequency_khz": None, "value": 74.3,
     }]
     combined = sql + json.dumps(params)
-    for secret in ("CEDULA-PRIVADA-123", "PERSONAL-PII", "OCR PRIVATE", "a"*64, "34"):
+    for secret in ("CEDULA-PRIVADA-123", "PERSONAL-PII", "OCR PRIVATE", "a"*64):
         assert secret not in combined
+    assert not {"age", "edad", "id_persona", "source_sha256", "raw_ocr"} & set(params)
+    assert not {"age", "edad", "id_persona", "original_label"} & set(measures[0])
 
 
 def test_demo_publish_opt_out_is_not_public(monkeypatch):
