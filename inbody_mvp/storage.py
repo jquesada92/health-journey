@@ -161,6 +161,13 @@ def require_report_access(oauth_profile=None) -> None:
         if part.strip()
     }
     if not allowed:
+        # Fail closed for uploads when a public analytics tab is enabled.
+        # Viewing approved cohort summaries never calls this private path.
+        if os.getenv("ENABLE_PUBLIC_DASHBOARD", "").strip().lower() in ("1", "true", "yes"):
+            raise PermissionError(
+                "La carga de reportes está deshabilitada hasta configurar "
+                "HF_ALLOWED_USERS y una sesión autorizada."
+            )
         return
     username = getattr(oauth_profile, "username", None)
     if not isinstance(username, str) or username.strip().casefold() not in allowed:
