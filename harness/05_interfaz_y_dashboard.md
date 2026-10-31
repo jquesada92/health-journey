@@ -87,6 +87,11 @@ En `main` verificado el 31/10/2026:
 - Dashboard de varias fuentes (Neon + múltiple CSV): **pendiente**.
 - Nombre CSV hash+timestamp exportación: **pendiente**.
 - Validación real de Space y de datos sensibles: **pendiente**.
-- Botón «Guardar» visible cuando falta configuración: trabajo separado en un PR; verificar estado antes de reconstruir.
+- Botón «Guardar» visible aunque falte configuración: **código presente**; debe quedar deshabilitado con un mensaje claro cuando falten credenciales.
+- Validación del archivo antes de OAuth en «Extraer mediciones»: **fusionada en `main` (PR #8)**. Con archivo ausente debe mostrarse «Primero carga un PDF, JPG, JPEG o PNG».
+- Dashboard público agregado en Gradio: **código presente en `main` (PR #9)**, pero deshabilitado por defecto y sin datos aprobados de publicación. Utiliza solo `PUBLIC_DATABASE_URL` y `hj_public_monthly_summary`.
+- La vista pública no equivale al dashboard de Neon/CSV para el propietario: son dos productos distintos. Para datos reales debe haber un **Space privado de ingesta** y un **Space público de solo visualización, sin endpoints de carga**.
+- Flujo de consentimiento explícito para publicación y revocación: **pendiente**. No activar para datos reales sin esas garantías.
+- Ver [10 — Publicación, anonimización y OAuth](10_publicacion_anonima_y_autenticacion.md).
 
 Este documento describe la funcionalidad **que debe construirse** y no afirma que todas las opciones ya estén desplegadas.
