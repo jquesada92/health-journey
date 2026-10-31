@@ -90,17 +90,30 @@ def test_public_view_requires_explicit_approval_and_five_distinct_people():
     assert "e.person_uuid" in migration and "personal_monthly_mean" in migration
     assert "FROM hj_measurements_long" not in migration
 
-def test_public_mode_denies_all_private_report_actions(monkeypatch):
-    from inbody_mvp.storage import require_report_access, require_database_access
-    monkeypatch.setenv("SPACE_ID", "jaqo/health-journey-public")
+def test_single_space_allows_ocr_and_public_dashboard_while_protecting_neon(monkeypatch):
+    from inbody_mvp.storage import (
+        database_enabled, require_report_access, require_database_access,
+    )
+    monkeypatch.setenv("SPACE_ID", "jaqo/health-journey")
     monkeypatch.setenv("ENABLE_PUBLIC_DASHBOARD", "1")
     monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
     monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
-    monkeypatch.setenv("PUBLIC_DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
+    monkeypatch.setenv(
+        "PUBLIC_DATABASE_URL", "postgresql://public:fake@localhost/db?sslmode=require"
+    )
     monkeypatch.setenv("DATABASE_URL", "configured-test-url")
-    allowed_user = SimpleNamespace(username="jaqo", name="Some Name")
-    for action in (require_report_access, require_database_access):
-        with pytest.raises(PermissionError, match="solo publica estadísticas agregadas"):
-            action(allowed_user)
-        with pytest.raises(PermissionError, match="solo publica estadísticas agregadas"):
-            action(None)
+    owner = SimpleNamespace(username="jaqo", name="Visible")
+    outsider = SimpleNamespace(username="other", name="jaqo")
+
+    assert subject.public_dashboard_enabled()
+    assert database_enabled()
+
+    # OCR and draft CSV do not require OAuth, even when dashboard is ON.
+    for account in (None, outsider, owner):
+        require_report_access(account)
+
+    # Only the explicitly allowed OAuth account can read/write private Neon.
+    for account in (None, outsider):
+        with pytest.raises(PermissionError):
+            require_database_access(account)
+    require_database_access(owner)
