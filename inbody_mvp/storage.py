@@ -141,18 +141,19 @@ def database_enabled() -> bool:
 
 
 def require_report_access(oauth_profile=None) -> None:
-    """Authorize report processing independent of database connectivity.
+    """Authorize the private document workflow independently from Neon.
 
-    Hugging Face OAuthProfile.name is the display name, whereas
-    OAuthProfile.username is the actual HF account identifier. Checking
-    display names wrongly rejects legitimate accounts and is not a sound
-    authorization boundary.
-    
-    On a Space with HF_ALLOWED_USERS configured, require the user for
-    extraction/CSV as well as for database actions, since the report may
-    contain personal health information. A sandbox without an allowlist
-    may process *synthetic* reports even if Neon is unavailable.
+    Spaces operating as a PUBLIC dashboard must never accept real reports,
+    even from an allowed login, because the upload endpoint itself is public.
+    Use a separate PRIVATE Space for all ingestion and individual queries.
     """
+    if os.getenv("SPACE_ID") and os.getenv(
+        "ENABLE_PUBLIC_DASHBOARD", ""
+    ).strip().lower() in ("1", "true", "yes"):
+        raise PermissionError(
+            "Este Space solo publica estadísticas agregadas. "
+            "Procesa reportes en una instalación privada de Health Journey."
+        )
     if not os.getenv("SPACE_ID"):
         return
     allowed = {
@@ -161,13 +162,7 @@ def require_report_access(oauth_profile=None) -> None:
         if part.strip()
     }
     if not allowed:
-        # Fail closed for uploads when a public analytics tab is enabled.
-        # Viewing approved cohort summaries never calls this private path.
-        if os.getenv("ENABLE_PUBLIC_DASHBOARD", "").strip().lower() in ("1", "true", "yes"):
-            raise PermissionError(
-                "La carga de reportes está deshabilitada hasta configurar "
-                "HF_ALLOWED_USERS y una sesión autorizada."
-            )
+        # Original QA may only process fully synthetic/anonymized fixtures.
         return
     username = getattr(oauth_profile, "username", None)
     if not isinstance(username, str) or username.strip().casefold() not in allowed:
