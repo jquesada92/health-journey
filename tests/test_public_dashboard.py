@@ -16,21 +16,21 @@ from inbody_mvp import public_dashboard as subject
 
 def test_public_endpoint_off_by_default(monkeypatch):
     monkeypatch.delenv("ENABLE_PUBLIC_DASHBOARD", raising=False)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
+    monkeypatch.setenv("PUBLIC_DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
     assert subject.public_dashboard_enabled() is False
     assert subject.load_public_monthly_summary() == []
 
 
 def test_public_endpoint_requires_database_url(monkeypatch):
     monkeypatch.setenv("ENABLE_PUBLIC_DASHBOARD", "1")
-    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("PUBLIC_DATABASE_URL", raising=False)
     assert subject.public_dashboard_enabled() is False
     assert subject.load_public_monthly_summary() == []
 
 
 def test_public_metric_allowlist(monkeypatch):
     monkeypatch.setenv("ENABLE_PUBLIC_DASHBOARD", "1")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
+    monkeypatch.setenv("PUBLIC_DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
     for candidate in ("id_persona", "birth_date", "sin_clasificar", "weight;DROP TABLE hj_persons;"):
         with pytest.raises(ValueError):
             subject.load_public_monthly_summary(candidate)
@@ -38,7 +38,7 @@ def test_public_metric_allowlist(monkeypatch):
 
 def test_public_records_only_use_approved_columns_and_cohorts(monkeypatch):
     monkeypatch.setenv("ENABLE_PUBLIC_DASHBOARD", "1")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
+    monkeypatch.setenv("PUBLIC_DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
     executed = []
     class FakeConnect:
         def __enter__(self):
@@ -67,7 +67,7 @@ def test_public_records_only_use_approved_columns_and_cohorts(monkeypatch):
         def dispose(self):
             pass
 
-    monkeypatch.setattr(subject, "_database_engine", lambda: FakeEngine())
+    monkeypatch.setattr(subject, "_public_database_engine", lambda: FakeEngine())
     found = subject.load_public_monthly_summary("weight")
     assert len(found) == 1
     assert set(found[0]) == set(subject.PUBLIC_COLUMNS)
@@ -96,7 +96,7 @@ def test_public_mode_denies_all_private_report_actions(monkeypatch):
     monkeypatch.setenv("ENABLE_PUBLIC_DASHBOARD", "1")
     monkeypatch.setenv("ENABLE_PERSISTENCE", "1")
     monkeypatch.setenv("HF_ALLOWED_USERS", "jaqo")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
+    monkeypatch.setenv("PUBLIC_DATABASE_URL", "postgresql://fake:fake@localhost/db?sslmode=require")
     allowed_user = SimpleNamespace(username="jaqo", name="Some Name")
     for action in (require_report_access, require_database_access):
         with pytest.raises(PermissionError, match="solo publica estadísticas agregadas"):
