@@ -265,9 +265,16 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 & (frame["segmento"].fillna("") == (segment or ""))
             ].copy()
             if not selected.empty:
-                selected["series_name"] = (
-                    selected["modelo_inbody"].fillna("Modelo desconocido")
-                    + " | " + selected["frecuencia_khz"].fillna(-1).astype(str) + " kHz"
+                selected["series_name"] = selected.apply(
+                    lambda item: (
+                        str(item["modelo_inbody"] or "Modelo desconocido")
+                        + " | " + (
+                            f'{item["frecuencia_khz"]:g} kHz'
+                            if pd.notna(item["frecuencia_khz"])
+                            else "Frecuencia no indicada"
+                        )
+                    ),
+                    axis=1,
                 )
                 selected = selected.sort_values("exam_timestamp")
                 fig = px.line(
