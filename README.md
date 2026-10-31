@@ -228,3 +228,11 @@ La aplicación incluye la vista agregada `hj_public_monthly_summary` y la vista 
 **Extraer un reporte o exportar CSV ya no requiere un login adicional de Hugging Face.** Se eliminó la comprobación manual de sesión de la cabecera. Guardar y consultar historias privadas en Neon mantienen OAuth del servidor; el acceso se encuentra en «Acceso privado a Neon», dentro de la sección de guardado.
 
 Si el Space es público, **anonimiza el archivo antes de subirlo**: elimina cédulas, nombres, fechas de nacimiento y otros identificadores. Procesar un JPG no significa que su contenido deje de estar presente en el servidor.
+
+## Solución al inicio de sesión con pantalla blanca en Hugging Face
+
+Hugging Face OAuth puede fallar al iniciar sesión desde una aplicación Gradio incrustada en un iframe, por cookies de terceros o redirecciones. El flujo del proyecto conserva `hf_oauth: true` y `gradio[oauth]`, pero ahora muestra un enlace **«Iniciar sesión en pestaña nueva»** que utiliza `SPACE_HOST` del propio entorno y la ruta oficial de Gradio `/login/huggingface`.
+
+Después del login, usa **esa misma pestaña independiente** para guardar o consultar Neon; la sesión OAuth pertenece a ese origen. Si la pestaña aparece en blanco, revisa las cookies, extensiones de privacidad o la consola y logs de Hugging Face. Las llamadas privadas conservan la validación de `OAuthProfile.username` contra `HF_ALLOWED_USERS`. El OCR/CSV y el dashboard público no requieren autenticación.
+
+No introducir manualmente `OAUTH_CLIENT_ID` o `OAUTH_CLIENT_SECRET`: Hugging Face los proporciona cuando está activado OAuth con `hf_oauth: true` en el README del Space. No publicar capturas con tokens, URLs de callback que contengan códigos ni secretos.
