@@ -125,12 +125,86 @@ def prepare_confirmed_exam(
 
 
 def database_enabled() -> bool:
-    """Never expose a write action in a public Hugging Face Space."""
-    return (
+    """Configured database connection; Spaces also need an explicit user allowlist.
+
+    This only reports configuration readiness, not authorization for a request.
+    """
+    configured = (
         os.getenv("ENABLE_PERSISTENCE", "").strip().lower() in ("true", "1", "yes")
         and bool(os.getenv("DATABASE_URL"))
-        and not os.getenv("SPACE_ID")
     )
+    if not configured:
+        return False
+    if os.getenv("SPACE_ID"):
+        return bool(os.getenv("HF_ALLOWED_USERS", "").strip())
+    return True
+
+
+def require_database_access(oauth_profile=None) -> None:
+    """Enforce server-side authorization on EVERY query and write.
+
+    In Spaces, the signed-in HF account must be explicitly allowlisted.
+    A LoginButton alone is not access control. Local mode is bound to localhost.
+    """
+    if not database_enabled():
+        raise PermissionError("Conexión Neon deshabilitada o incompleta.")
+    if os.getenv("SPACE_ID"):
+        allowed = {
+            part.strip().casefold()
+            for part in os.getenv("HF_ALLOWED_USERS", "").split(",")
+            if part.strip()
+        }
+        username = getattr(oauth_profile, "name", None)
+        if not username or username.casefold() not in allowed:
+            raise PermissionError("Inicia sesión con una cuenta Hugging Face autorizada.")
+
+
+def load_measurement_history(
+    person_id: str, oauth_profile=None, limit: int = 250
+) -> list[dict]:
+    """Read confirmed measurements for the explicitly requested InBody ID.
+
+    Single-owner MVP: the HF allowlist is the security boundary.
+    A multiuser app must introduce owner-scoped row-level authorization.
+    """
+    require_database_access(oauth_profile)
+    person_id = str(person_id or "").strip()
+    if not person_id or len(person_id) > 128:
+        raise ValueError("Introduce un ID de persona válido para consultar el historial.")
+    limit = max(1, min(int(limit), 500))
+    engine = _database_engine()
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(text("""
+                SELECT e.exam_timestamp, e.modelo_inbody, e.idioma_reporte,
+                       m.variable_medida, m.original_label, m.unidad_medida,
+                       m.valor_medida, m.segmento, m.frecuencia_khz, e.edad
+                FROM hj_measurements m
+                JOIN hj_exams e ON e.exam_uuid = m.exam_uuid
+                JOIN hj_persons p ON p.person_uuid = e.person_uuid
+                WHERE p.id_persona = :person_id
+                ORDER BY e.exam_timestamp DESC NULLS LAST, m.row_number
+                LIMIT :row_limit
+            """), {"person_id": person_id, "row_limit": limit}).mappings().all()
+            return [
+                {
+                    **dict(row),
+                    "exam_timestamp": (
+                        row["exam_timestamp"].isoformat(timespec="seconds")
+                        if row["exam_timestamp"] else None
+                    ),
+                    "valor_medida": (
+                        float(row["valor_medida"])
+                        if row["valor_medida"] is not None else None
+                    ),
+                    "frecuencia_khz": (
+                        float(row["frecuencia_khz"])
+                        if row["frecuencia_khz"] is not None else None
+                    ),
+                } for row in rows
+            ]
+    finally:
+        engine.dispose()
 
 
 def _database_engine():
@@ -146,10 +220,9 @@ def _database_engine():
     return create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=2)
 
 
-def save_confirmed_exam(report: ConfirmedExam) -> str:
+def save_confirmed_exam(report: ConfirmedExam, oauth_profile=None) -> str:
     """Insert person/exam/all metrics atomically; reject duplicate file hash."""
-    if not database_enabled():
-        raise RuntimeError("Persistencia deshabilitada. Usar solo una sesión local privada.")
+    require_database_access(oauth_profile)
     engine = _database_engine()
     try:
         with engine.begin() as connection:
