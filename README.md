@@ -187,3 +187,16 @@ Al hacer push a `main` con cambios en `app.py`, `inbody_mvp/`, `README.md` o `re
 **Importante:** el Space usa `app.py` con Gradio y sincroniza `inbody_mvp/`. La versión del dashboard histórico con Plotly y el almacenamiento PostgreSQL aún están pendientes. Reiniciar el Space no sincroniza cambios de GitHub.
 
 **Instrucciones completas:** [docs/despliegue-hugging-face.md](docs/despliegue-hugging-face.md) (configuración, despliegue automático, ejecución manual, CLI, verificación y solución de problemas).
+
+### Extracción de reportes con varias columnas (InBody 580)
+
+El OCR ahora conserva las **coordenadas de cada bloque de texto** (`EasyOCR detail=1`). Para la plantilla **InBody 580**, el módulo `inbody_mvp/layouts.py` usa regiones de la página para recuperar valores de tablas independientes, como composición corporal, grasa segmental, masa magra segmental, agua extracelular y ángulo de fase. Otros modelos mantienen el extractor genérico anterior.
+
+- Las filas son **candidatas** y requieren cotejo visual; no se guardan automáticamente.
+- Los porcentajes segmentales de `segmental_fat_reference_percentage` y `segmental_lean_reference_percentage` son relativos a una **referencia del equipo**, no porcentajes de grasa o músculo respecto al peso del segmento.
+- No se presupone una frecuencia para el ángulo de fase si no se indica en la fuente.
+- Las cifras de referencia, marcas del eje y el gráfico de historial no se convierten automáticamente en medidas de una evaluación actual.
+- Valores pequeños o poco nítidos pueden no reconocerse. Si falta una medición, revisar el texto extraído y el original; nunca inventarla.
+- **No subir reportes reales ni identificadores personales a un Space público**, al repositorio o a los tests. El código se verificó con fixtures sintéticos; la precisión sobre archivos reales requiere validación separada.
+
+Pruebas: `python -m pytest -q tests/test_inbody_mvp.py tests/test_review.py tests/test_inbody_layouts.py`.
