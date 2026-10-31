@@ -193,4 +193,4 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", "7860")), share=False, ssr_mode=False)
+    demo.launch(server_name="127.0.0.1" if database_enabled() else "0.0.0.0", server_port=int(os.environ.get("PORT", "7860")), share=False, ssr_mode=False)
