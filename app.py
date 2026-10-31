@@ -130,6 +130,22 @@ def download_draft(
         return file.name
 
 
+def verify_neon_session(profile: gr.OAuthProfile | None = None) -> str:
+    """Only checks HF OAuth and allowlist, never contacts Neon or logs secrets."""
+    try:
+        require_database_access(profile)
+    except PermissionError:
+        return (
+            "No hay sesión Hugging Face autorizada para Neon. "
+            "Inicia sesión desde una pestaña independiente con la cuenta "
+            "incluida en HF_ALLOWED_USERS."
+        )
+    return (
+        "Sesión Hugging Face autorizada para operaciones privadas. "
+        "La conexión SQL todavía no ha sido comprobada."
+    )
+
+
 OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
@@ -238,6 +254,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 # login link is available. Show the old embedded button only
                 # when HF does not expose a validated standalone host.
                 gr.LoginButton(visible=OAUTH_URLS is None)
+                session_button = gr.Button("Verificar acceso de mi sesión a Neon", size="sm")
+                session_message = gr.Markdown("Verifica tu sesión después de iniciar sesión.")
+                session_button.click(
+                    fn=verify_neon_session,
+                    inputs=[],
+                    outputs=[session_message],
+                )
         gr.Markdown(
             "Después de revisar las mediciones, confirma el examen para guardarlo "
             "en el historial. Esta operación requiere una cuenta Hugging Face "
