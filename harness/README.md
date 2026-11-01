@@ -93,3 +93,23 @@ Para evitar pantallas blancas al iniciar sesión desde la vista incrustada, se u
 ## OCR de encabezado multicolumna
 
 Para reportes InBody con `Test Date / Time` y `Fecha / Hora del test`, las etiquetas y valores pueden estar en diferentes renglones, con la fecha de nacimiento en la columna izquierda. La función `extract_header_exam_timestamp` usa coordenadas del OCR para recuperar fecha y hora en el encabezado de la **columna de examen**; `extract_document` conserva ese valor aunque se active la plantilla de siluetas españolas. No se deben construir timestamps a partir de la concatenación arbitraria de DOB + hora ni del reloj del sistema. Mantener prueba end-to-end sintética `tests/test_header_spatial_timestamp.py`. No confundir pruebas sintéticas verdes con validación de reconocimiento EasyOCR sobre fotos reales.
+
+## IA visual para seccionar reportes (referencia de arquitectura)
+
+El documento **[OCR por secciones con IA](../docs/ocr-secciones-ia.md)**
+explica por qué un detector de layout identifica *regiones genéricas* en
+una imagen, pero **no sabe automáticamente** que corresponden a masa grasa,
+músculo, agua o análisis segmental. La semántica del prototipo se determina
+con encabezados leídos por EasyOCR y reglas explícitas; se comprueba después
+contra la imagen original.
+
+Se decidió evaluar `PP-DocLayout-S` como componente opcional, sin
+sustituir aún al extractor baseline. **No es un VLM** ni se ha demostrado
+una mejora con los 22 reportes privados. La propuesta de un VLM es una
+alternativa futura. El filtro regional de historial no excluye todavía
+todas las cifras históricas del OCR global. No activar el experimento
+en el Space hasta pasar pruebas de exactitud, privacidad y recursos.
+
+Los criterios para aceptar esta nueva arquitectura están en
+[04 — OCR y normalización](04_extraccion_y_normalizacion.md) y
+[08 — Calidad y aceptación](08_pruebas_y_criterios.md).
