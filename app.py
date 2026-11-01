@@ -191,7 +191,10 @@ def detect_report_sections(file_path):
         if not path.is_file() or path.stat().st_size > MAX_UPLOAD_BYTES:
             raise DocumentError("Archivo inexistente o demasiado grande.")
         rows, metadata = propose_regions(path.name, path.read_bytes())
-        return rows, metadata, f"Detectadas {len(rows)} regiones. Corrige la columna sección y las coordenadas antes de extraer.", preview_proposals(path.name, path.read_bytes(), rows)
+        from inbody_mvp.visual_editor import make_editor_payload
+        return (rows, metadata, f"Detectadas {len(rows)} regiones. Edítalas en el visor.", 
+                preview_proposals(path.name, path.read_bytes(), rows),
+                make_editor_payload(path.name, path.read_bytes(), rows, metadata))
     except Exception as exc:
         raise gr.Error(f"No se pudieron detectar regiones ({type(exc).__name__}).") from exc
 
@@ -207,16 +210,17 @@ def preview_reviewed_sections(file_path, regions_table, metadata):
         raise gr.Error(str(exc)) from exc
 
 
-def approve_report_sections(file_path, regions_table, metadata):
+def approve_report_sections(file_path, editor_value, metadata):
     """Freeze the approved selection before extraction."""
-    from inbody_mvp.section_review import validate_regions, preview_regions
+    from inbody_mvp.section_review import preview_regions
+    from inbody_mvp.visual_editor import editor_rows
     if not file_path:
         raise gr.Error("Carga un reporte.")
     try:
         path = Path(file_path)
         data = path.read_bytes()
-        approved = validate_regions(regions_table, metadata, data)
-        preview = preview_regions(path.name, data, regions_table, metadata)
+        rows, approved = editor_rows(editor_value, metadata, data)
+        preview = preview_regions(path.name, data, rows, metadata)
         return {"hash": metadata["hash"], "regions": approved}, preview, "Secciones validadas. Ya puedes extraer."
     except (DocumentError, ValueError, TypeError, KeyError, OSError) as exc:
         raise gr.Error(str(exc)) from exc
@@ -258,6 +262,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         approved_state = gr.State(value=None)
         region_status = gr.Markdown("Carga un archivo y detecta las secciones.")
         proposal_preview = gr.Gallery(label="Regiones propuestas por IA (azul)", columns=1, height=520)
+        from inbody_mvp.visual_editor_ui import HTML_TEMPLATE, CSS_TEMPLATE, JS_ON_LOAD
+        visual_editor = gr.HTML(
+            value='{}', html_template=HTML_TEMPLATE,
+            css_template=CSS_TEMPLATE, js_on_load=JS_ON_LOAD,
+            label="Editor visual de secciones",
+        )
+        gr.Markdown("Arrastra para crear, selecciona y mueve regiones, usa la esquina verde para cambiar el tamaño. La tabla de abajo es un respaldo técnico.")
         regions_table = gr.Dataframe(
             headers=["pagina", "seccion", "x0", "y0", "x1", "y1", "incluir", "confianza"],
             datatype=["number", "str", "number", "number", "number", "number", "bool", "number"],
@@ -268,16 +279,16 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         region_preview = gr.Gallery(label="Secciones validadas (verde)", columns=1, height=520)
         detect_sections_button.click(
             fn=detect_report_sections, inputs=[upload],
-            outputs=[regions_table, sections_state, region_status, proposal_preview],
+            outputs=[regions_table, sections_state, region_status, proposal_preview, visual_editor],
             concurrency_limit=1,
         ).then(fn=lambda: None, outputs=[approved_state])
         validate_sections_button.click(
             fn=approve_report_sections,
-            inputs=[upload, regions_table, sections_state],
+            inputs=[upload, visual_editor, sections_state],
             outputs=[approved_state, region_preview, region_status],
         )
         upload.change(fn=lambda: (None, None), outputs=[sections_state, approved_state])
-        regions_table.change(fn=lambda: None, outputs=[approved_state])
+        visual_editor.input(fn=lambda: None, outputs=[approved_state])
         gr.Markdown("### 3. Extraer mediciones de secciones validadas")
         extract_button = gr.Button("Extraer mediciones", variant="primary")
         status = gr.Markdown("Sube un archivo y pulsa «Extraer mediciones».")
@@ -484,7 +495,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, extraction_state,
                         publication_choice, storage_consent, debug_gallery, debug_table, debug_status,
-                         regions_table, sections_state, approved_state, region_status, region_preview, proposal_preview],
+                         regions_table, sections_state, approved_state, region_status, region_preview, proposal_preview, visual_editor],
                        value="Limpiar")
     with gr.Tab("Dashboard público"):
         gr.Markdown(
