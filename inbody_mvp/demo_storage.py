@@ -69,11 +69,20 @@ def anonymized_measurements(report: ConfirmedExam) -> list[dict]:
         if (base_metric == "body_fat_percentage"
                 and not 0 <= measure.valor_medida <= 100):
             continue
+        suffix = measure.variable_medida.rsplit("__", 1)[-1]
+        frequency = None
+        if suffix.endswith("khz"):
+            try:
+                frequency = float(suffix[:-3])
+            except ValueError:
+                continue
+            if not 0 <= frequency <= 1000:
+                continue
         filtered.append({
             "metric": base_metric,
             "unit": measure.unidad_medida,
             "segment": measure.segmento,
-            "frequency_khz": None,
+            "frequency_khz": frequency,
             "value": measure.valor_medida,
         })
     if not filtered:
