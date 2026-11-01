@@ -1,5 +1,62 @@
 # Gemini Flash: revisión y auditoría por medición
 
+## Dos consentimientos al inicio; guardado sin login de Hugging Face
+
+La pestaña **InBody Upload** presenta dos casillas independientes, ambas
+desmarcadas inicialmente y antes de cargar el documento:
+
+- **Enviar a Gemini:** autoriza una llamada externa de extracción, nunca
+  la realiza al previsualizar el documento. Debe renovarse cuando cambia
+  el archivo.
+- **Guardar en Neon:** autoriza el envío a la base **después** de revisar
+  todas las mediciones. Si cambia el archivo se revoca este consentimiento.
+  El usuario puede extraer sin autorizar almacenamiento.
+
+La carga, visualización y extracción aprobada no exigen OAuth. El guardado
+de una auditoría tampoco exige una sesión de Hugging Face; **no** concede
+acceso de lectura al historial ni convierte el consentimiento en prueba de
+identidad. La pestaña de historial privado mantiene su control de acceso
+OAuth; el dashboard público sigue separado.
+
+### Seguridad para insertar sin login
+
+Nunca reutilizar `DATABASE_URL` (credencial privada/administrativa)
+como un servicio anónimo. La migración
+`migrations/005_consent_only_audit_writer.sql` instala una función
+`public.hj_submit_reviewed_audit(jsonb)` con validaciones en PostgreSQL,
+rechazo de duplicados y transacción única para encabezado y todas las
+filas revisadas. La API ejecuta **una sola llamada SQL** a esa función.
+
+La migración crea `health_journey_audit_submit` como rol **NOLOGIN** y
+sin pertenecer a `neon_superuser`, y solo le concede ejecución de esa
+función. No posee permisos SELECT/INSERT/UPDATE/DELETE directos sobre
+las tablas de auditoría. No utilizar el botón estándar «Crear rol» de
+Neon para este caso: dicho flujo puede añadir automáticamente
+`neon_superuser`, que invalida el aislamiento buscado.
+
+Después de aprobar e instalar la migración en la rama principal de
+Neon, un administrador debe establecer una contraseña aleatoria
+fuerte por un canal privado y habilitar LOGIN para ese rol. Configurar
+en Hugging Face **Secrets** la cadena `AUDIT_DATABASE_URL`
+con ese usuario restringido, SSL y `sslmode=require`; y en
+**Variables** `ENABLE_ANONYMOUS_AUDIT=1`. El botón de guardado queda
+deshabilitado hasta que ambos estén configurados; el código rechaza
+URLs cuyo username no sea `health_journey_audit_submit`.
+No guardar ninguna contraseña en GitHub ni en mensajes públicos.
+
+**Advertencia:** sin identidad de usuario, esta función acepta nuevas
+auditorías revisadas pero no puede atribuir la autoría ni impedir por
+sí sola abuso o spam. Requiere protección operativa contra volumen,
+monitorización y control de acceso privado efectivo antes de manejar
+datos identificables. En Spaces públicos solo probar con reportes
+sintéticos o anonimizados. El cache del visor Gradio puede contener
+imágenes accesibles según la configuración de hosting.
+
+No se modifica el esquema de usuarios `hj_persons` ni el historial
+privado; esta migración es aditiva y su despliegue en Neon principal
+requiere autorización y verificación de permisos.
+
+
 ## Extracción en inglés y vista local del documento (flujo actual)
 
 El modelo Gemini interpreta informes InBody en español o inglés y devuelve
