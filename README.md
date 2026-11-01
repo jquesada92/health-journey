@@ -28,8 +28,8 @@ original, la corrección y su comentario.
 **Escritura sin OAuth:** la auditoría solo se guarda tras revisión
 y consentimiento Neon. Se ejecuta `hj_submit_reviewed_audit(jsonb)`
 usando una conexión **distinta** de `DATABASE_URL`:
-`AUDIT_DATABASE_URL` (Secret HF), usuario exacto
-`health_journey_audit_submit`, SSL y
+`DEMO_DATABASE_URL` (Secret HF), usuario exacto
+`health_journey_demo_writer`, SSL y
 `ENABLE_ANONYMOUS_AUDIT=1` (Variable HF). El nuevo rol se crea en
 `migrations/005_consent_only_audit_writer.sql` como `NOLOGIN`
 para que un administrador establezca su contraseña por canal seguro
