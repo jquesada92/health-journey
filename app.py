@@ -261,7 +261,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         sections_state = gr.State(value=None)
         approved_state = gr.State(value=None)
         region_status = gr.Markdown("Carga un archivo y detecta las secciones.")
-        proposal_preview = gr.Gallery(label="Regiones propuestas por IA (azul)", columns=1, height=520)
+        proposal_preview = gr.Gallery(label="Regiones propuestas por IA (azul)", columns=1, height=300, object_fit="contain")
         from inbody_mvp.visual_editor_ui import HTML_TEMPLATE, CSS_TEMPLATE, JS_ON_LOAD
         visual_editor = gr.HTML(
             value='{}', html_template=HTML_TEMPLATE,
@@ -276,7 +276,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             label="Edita categorías, coordenadas e inclusión. history y other no se extraen.",
         )
         validate_sections_button = gr.Button("Validar secciones corregidas", variant="secondary")
-        region_preview = gr.Gallery(label="Secciones validadas (verde)", columns=1, height=520)
+        region_preview = gr.Gallery(label="Secciones validadas (verde)", columns=1, height=300, object_fit="contain")
         detect_sections_button.click(
             fn=detect_report_sections, inputs=[upload],
             outputs=[regions_table, sections_state, region_status, proposal_preview, visual_editor],
@@ -328,7 +328,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             debug_button = gr.Button("Visualizar regiones detectadas", variant="secondary")
             debug_status = gr.Markdown("Sin diagnóstico.")
             debug_gallery = gr.Gallery(label="Páginas con regiones reales", columns=1,
-                                      height=620, object_fit="contain", preview=True)
+                                      height=380, object_fit="contain", preview=True)
             debug_table = gr.Dataframe(
                 headers=["pagina", "origen", "texto_o_region", "confianza", "coordenadas", "nota"],
                 datatype=["number", "str", "str", "number", "str", "str"],
