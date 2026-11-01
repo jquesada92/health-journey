@@ -23,12 +23,11 @@ y consentimiento Neon. Se ejecuta `hj_submit_reviewed_audit(jsonb)`
 usando una conexión **distinta** de `DATABASE_URL`:
 `DEMO_DATABASE_URL` (Secret HF), usuario exacto
 `health_journey_demo_writer`, SSL y
-`ENABLE_ANONYMOUS_AUDIT=1` (Variable HF). El nuevo rol se crea en
-`migrations/005_consent_only_audit_writer.sql` como `NOLOGIN`
-para que un administrador establezca su contraseña por canal seguro
-y habilite el login **después** de aplicar la migración. No usar
-la creación automática de roles Neon: puede heredar
-`neon_superuser`.
+`ENABLE_ANONYMOUS_AUDIT=1` (Variable HF). La migración
+`migrations/005_consent_only_audit_writer.sql` **reutiliza** el rol
+`health_journey_demo_writer` y no crea usuarios ni modifica contraseñas.
+Solo concede permiso EXECUTE sobre la función de auditoría; el rol sigue
+sin acceso directo de lectura o escritura sobre tablas privadas.
 
 El rol solo puede ejecutar la función de inserción y no posee
 permisos SELECT/INSERT/UPDATE/DELETE directos sobre las tablas.
