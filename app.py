@@ -226,6 +226,22 @@ def preview_reviewed_sections(file_path, regions_table, metadata):
         raise gr.Error(str(exc)) from exc
 
 
+def capture_section_edits(upload_state, editor_value, metadata):
+    """Capture the current canvas boxes in the review table, without approving them."""
+    from inbody_mvp.visual_editor import editor_rows
+    try:
+        _, data = report_from_snapshot(upload_state)
+        rows, _ = editor_rows(editor_value, metadata, data)
+        return rows, None, (
+            f"Capturadas {len(rows)} secciones del editor visual. "
+            "Revisa la tabla y pulsa Validar secciones corregidas."
+        )
+    except DocumentError as exc:
+        raise gr.Error(str(exc)) from exc
+    except (ValueError, TypeError, KeyError) as exc:
+        raise gr.Error("No se pudieron capturar las secciones; revisa el editor.") from exc
+
+
 def approve_report_sections(upload_state, editor_value, metadata):
     """Freeze the approved selection using the upload's in-session bytes."""
     from inbody_mvp.visual_editor import editor_rows
@@ -289,12 +305,18 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             interactive=True, type="pandas", static_columns=[0, 7],
             label="Edita categorías, coordenadas e inclusión. history y other no se extraen.",
         )
+        capture_sections_button = gr.Button("Capturar nuevas secciones y correcciones", variant="secondary")
         validate_sections_button = gr.Button("Validar secciones corregidas", variant="secondary")
         detect_sections_button.click(
             fn=detect_report_sections, inputs=[upload_snapshot],
             outputs=[regions_table, sections_state, region_status, visual_editor],
             concurrency_limit=1,
         ).then(fn=lambda: None, outputs=[approved_state])
+        capture_sections_button.click(
+            fn=capture_section_edits,
+            inputs=[upload_snapshot, visual_editor, sections_state],
+            outputs=[regions_table, approved_state, region_status],
+        )
         validate_sections_button.click(
             fn=approve_report_sections,
             inputs=[upload_snapshot, visual_editor, sections_state],
