@@ -23,7 +23,7 @@ def test_gemini_consent_checked_before_provider_key_or_api_call():
         arg.annotation = None
     class UiError(Exception):
         pass
-    scope = {"gr": SimpleNamespace(Error=UiError)}
+    scope = {"_ui_error": UiError}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[])),
                  "<gemini guard>", "exec"), scope)
     try:
