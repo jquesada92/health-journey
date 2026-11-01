@@ -268,276 +268,78 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             '</div>'
         )
     with gr.Tab("InBody Upload"):
+        from inbody_mvp.gemini_review import (
+            COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
+            save_audit,
+        )
         gr.Markdown(
-            "**InBody Hub:** carga JPG/PDF, revisa tus medidas y usa el "
-            "dashboard público sin login. **Si este Space es público, "
-            "anonimiza los reportes antes de subirlos**: el JPG/PDF original "
-            "llega al servidor, aunque la base de demostración guarde solo "
-            "medidas numéricas seudonimizadas."
+            "### InBody Hub · Gemini Flash\n"
+            "Carga un PDF o imagen, extrae las mediciones y revisa **cada fila**. "
+            "El visor de secciones se ha retirado. No se extraen historiales. "
+            "**Privacidad:** en un Space público, utiliza únicamente reportes anonimizados. "
+            "Gemini procesa la imagen en el servicio de Google."
         )
-        if anonymous_demo_requested():
-            gr.Markdown(
-                "**Modo demostración:** puedes guardar mediciones sin cuenta, "
-                "aceptando almacenamiento y publicación por separado. "
-                "El guardado anónimo no accede a historiales privados, "
-                "solo almacena medidas compatibles y caduca a los 7 días."
-            )
-        gr.Markdown("### 1. Cargar reporte")
-        upload = gr.File(label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
-                         type="filepath", interactive=True)
-        upload_snapshot = gr.State(value=None)
-        upload.change(fn=snapshot_upload, inputs=[upload], outputs=[upload_snapshot])
-        gr.Markdown("### 2. Detectar, revisar y corregir secciones")
-        detect_sections_button = gr.Button("Detectar secciones con IA")
-        sections_state = gr.State(value=None)
-        approved_state = gr.State(value=None)
-        region_status = gr.Markdown("Carga un archivo y detecta las secciones.")
-        from inbody_mvp.visual_editor_ui import HTML_TEMPLATE, CSS_TEMPLATE, JS_ON_LOAD
-        visual_editor = gr.HTML(
-            value='{}', html_template=HTML_TEMPLATE,
-            css_template=CSS_TEMPLATE, js_on_load=JS_ON_LOAD,
-            label="Editor visual de secciones",
+        gemini_upload = gr.File(
+            label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
+            type="filepath",
         )
-        gr.Markdown("Arrastra para crear, selecciona y mueve regiones, usa la esquina verde para cambiar el tamaño. La tabla de abajo es un respaldo técnico.")
-        regions_table = gr.Dataframe(
-            headers=["pagina", "seccion", "x0", "y0", "x1", "y1", "incluir", "confianza"],
-            datatype=["number", "str", "number", "number", "number", "number", "bool", "number"],
-            interactive=True, type="pandas", static_columns=[0, 7],
-            label="Edita categorías, coordenadas e inclusión. history y other no se extraen.",
-        )
-        capture_sections_button = gr.Button("Actualizar secciones", variant="secondary")
-        validate_sections_button = gr.Button("Validar secciones corregidas", variant="secondary")
-        detect_sections_button.click(
-            fn=detect_report_sections, inputs=[upload_snapshot],
-            outputs=[regions_table, sections_state, region_status, visual_editor],
-            concurrency_limit=1,
-        ).then(fn=lambda: None, outputs=[approved_state])
-        capture_sections_button.click(
-            fn=capture_section_edits,
-            inputs=[upload_snapshot, visual_editor, sections_state],
-            outputs=[regions_table, approved_state, region_status],
-        )
-        validate_sections_button.click(
-            fn=approve_report_sections,
-            inputs=[upload_snapshot, visual_editor, sections_state],
-            outputs=[approved_state, region_status],
-        )
-        upload.change(fn=lambda: (None, None), outputs=[sections_state, approved_state])
-        visual_editor.input(fn=lambda: None, outputs=[approved_state])
-        gr.Markdown("### 3. Extraer mediciones de secciones validadas")
-        extract_button = gr.Button("Extraer mediciones", variant="primary")
-        status = gr.Markdown("Sube un archivo y pulsa «Extraer mediciones».")
-        with gr.Row():
-            person = gr.Textbox(label="Cédula / ID indicado en el reporte")
-            model = gr.Textbox(label="Modelo InBody o identificador del equipo")
-        with gr.Row():
-            timestamp = gr.Textbox(
-                label="Fecha y hora del examen (extraídas automáticamente del documento)",
-                placeholder="Pendiente de extracción del encabezado",
-                interactive=False,
-            )
-            age = gr.Number(label="Edad al realizarse el examen", precision=0)
-        age_source = gr.Markdown("Origen de la edad: desconocido")
-        report_language = gr.Dropdown(
-            choices=["ES", "EN", "UNKNOWN"], value="UNKNOWN",
-            label="Idioma del reporte (confirmar)",
-            info="ES = español; EN = inglés; UNKNOWN = no reconocido",
-        )
-        extraction_state = gr.State(value=None)
-        anonymous_session = gr.State(value=lambda: str(uuid4()), time_to_live=3600)
-        gr.Markdown("### 4. Revisar mediciones extraídas")
+        gemini_upload_state = gr.State(value=None)
+        gemini_snapshot = gr.State(value=None)
+        gemini_upload.change(
+            fn=snapshot_upload, inputs=[gemini_upload], outputs=[gemini_upload_state],
+        ).then(fn=lambda: None, outputs=[gemini_snapshot])
+        gemini_extract = gr.Button("Extraer mediciones con Gemini Flash", variant="primary")
+        gemini_status = gr.Markdown("Pendiente de extracción.")
         gr.Markdown(
-            "**Ángulo de fase:** medición independiente (unidad: °), calculada a partir "
-            "de la relación entre reactancia y resistencia eléctrica. Se utiliza como "
-            "indicador indirecto de propiedades celulares; no equivale a un diagnóstico. "
-            "Cada segmento y frecuencia del examen se identifican en el nombre de la variable."
+            "### Revisar y corregir mediciones\n"
+            "La columna **original_value** es el valor obtenido por Gemini y no se modifica. "
+            "Edita **value**, **unit**, **section** o **measurement** cuando corresponda. "
+            "Si cambias algo, debes escribir **correction_comment**. "
+            "Marca **reviewed** en TODAS las filas, incluso cuando Gemini acertó. "
+            "La columna **was_corrected** se calcula automáticamente al guardar."
         )
-        table = gr.Dataframe(
-            headers=REVIEW_COLUMNS,
-            datatype=["str", "str", "str", "str", "str", "str", "number", "number", "str"],
-            type="pandas", interactive=True, static_columns=[0, 7, 8],
-            label="Una fila por medición; valores sin confirmar",
+        gemini_table = gr.Dataframe(
+            headers=GEMINI_COLUMNS,
+            datatype=["str","str","str","number","str","str","str","str",
+                      "str","bool","str","bool"],
+            type="pandas", interactive=True,
+            static_columns=[0,1,2,3,8,9],
+            label="Revisión de mediciones; una fila por valor",
         )
-        gr.Markdown("Los valores decimales, unidades y segmentos deben cotejarse con el documento original. Ejemplo: 8.20 kg se almacena numéricamente como 8.2 kg, nunca como 8 kg.")
-        with gr.Accordion("Diagnóstico OCR (opcional)", open=False):
-            gr.Markdown(
-                "Visualiza cajas **naranjas** de EasyOCR y, cuando está habilitado el "
-                "modelo experimental, regiones **azules** de IA. "
-                "La tabla muestra evidencias, no asociaciones confirmadas con mediciones. "
-                "No subas documentos con información personal a un Space público."
-            )
-            debug_button = gr.Button("Visualizar regiones detectadas", variant="secondary")
-            debug_status = gr.Markdown("Sin diagnóstico.")
-            debug_gallery = gr.Gallery(label="Páginas con regiones reales", columns=1,
-                                      height=380, object_fit="contain", preview=True)
-            debug_table = gr.Dataframe(
-                headers=["pagina", "origen", "texto_o_region", "confianza", "coordenadas", "nota"],
-                datatype=["number", "str", "str", "number", "str", "str"],
-                interactive=False, label="Trazabilidad de cajas detectadas",
-            )
-            debug_button.click(fn=inspect_report_visual, inputs=[upload_snapshot],
-                               outputs=[debug_gallery, debug_table, debug_status],
-                               concurrency_limit=1)
-        with gr.Accordion("Advertencias y texto extraído", open=False):
-            warnings = gr.Textbox(label="Advertencias", lines=5, interactive=False)
-            raw = gr.Textbox(label="Texto OCR / PDF", lines=12, interactive=False)
-        extract_button.click(
-            fn=process_report, inputs=[upload_snapshot, approved_state],
-            outputs=[status, person, model, timestamp, age, age_source, report_language,
-                     table, raw, warnings, extraction_state],
+        gemini_extract.click(
+            fn=extract_gemini, inputs=[gemini_upload_state],
+            outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
         )
-        gr.Markdown("### 5. Guardar en Neon PostgreSQL")
-        storage_consent = gr.Checkbox(
-            label="Acepto almacenar las mediciones revisadas en Neon",
-            value=False,
-            info=(
-                "El guardado de demostración solo conserva fecha sin hora, "
-                "modelo sanitizado y mediciones compatibles, con alias aleatorio. "
-                "No conserva ID real, edad, archivo, hash ni texto OCR. "
-                "Los registros de demostración dejan de mostrarse a los 7 días."
-            ),
+        gemini_check = gr.Button("Validar revisión y correcciones", variant="secondary")
+        gemini_check.click(
+            fn=review_status, inputs=[gemini_table, gemini_snapshot],
+            outputs=[gemini_status],
         )
-        publication_choice = gr.Checkbox(
-            label="Publicar las mediciones de este examen en mi dashboard público (sin mi ID)",
-            value=False,
-            info=(
-                "Opcional: se publicarán fecha (sin hora), modelo y valores "
-                "con un alias aleatorio. El patrón de mediciones podría "
-                "permitir identificarte. La casilla empieza desmarcada."
-            ),
-            interactive=True,
+        gr.Markdown(
+            "### Guardar auditoría en Neon\n"
+            "El guardado requiere autenticación autorizada, consentimiento y la "
+            "migración SQL 004. Se conserva el valor original y el final, el "
+            "comentario y si hubo corrección. El historial/dashboard existente "
+            "no se modifica automáticamente en esta etapa."
         )
-        if os.getenv("SPACE_ID") and database_enabled() and not anonymous_demo_requested():
-            with gr.Accordion("Acceso privado a Neon (solo para guardar y consultar)", open=False):
-                gr.Markdown(
-                    "OCR, CSV y dashboard público funcionan sin login. "
-                    "Guardar o consultar datos privados requiere iniciar sesión "
-                    "en Hugging Face con un usuario autorizado. "
-                    "La vista incrustada puede fallar por las cookies OAuth."
-                )
-                if OAUTH_URLS:
-                    gr.HTML(
-                        f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
-                        'rel="noopener noreferrer">'
-                        'Iniciar sesión de forma segura en una pestaña nueva'
-                        '</a>'
-                    )
-                    gr.Markdown(
-                        "Tras iniciar sesión, utiliza la aplicación en esa "
-                        "misma pestaña nueva para guardar o consultar Neon. "
-                        "El inicio de sesión no cambia los permisos del dashboard."
-                    )
-                # Keep native OAuth routing registered even when a first-party
-                # login link is available. Show the old embedded button only
-                # when HF does not expose a validated standalone host.
-                gr.LoginButton(visible=OAUTH_URLS is None)
-                session_button = gr.Button("Verificar acceso de mi sesión a Neon", size="sm")
-                session_message = gr.Markdown("Verifica tu sesión después de iniciar sesión.")
-                session_button.click(
-                    fn=verify_neon_session,
-                    inputs=[],
-                    outputs=[session_message],
-                )
-        if anonymous_demo_requested():
-            gr.Markdown(
-                "Para la demostración no hace falta login. Debes marcar "
-                "**Aceptar almacenamiento**; publicar los valores en el "
-                "dashboard es una elección **independiente**."
-            )
-        else:
-            gr.Markdown(
-                "Guardar y consultar el historial privado requiere una "
-                "cuenta Hugging Face autorizada. La publicación es opcional."
-            )
-        if anonymous_demo_requested() and not anonymous_demo_enabled():
-            gr.Markdown(
-                "**Demo sin configurar:** agrega DEMO_DATABASE_URL como "
-                "Secret usando el rol SQL exclusivo de demostración."
-            )
-        if not anonymous_demo_requested() and not database_enabled():
-            gr.Markdown(
-                "**Guardado no disponible por configuración.** En el Space, "
-                "agrega el secreto `DATABASE_URL` y las variables "
-                "`ENABLE_PERSISTENCE=1` y `HF_ALLOWED_USERS` con tu usuario "
-                "de Hugging Face. Luego reinicia el Space. "
-                "No compartas el connection string ni utilices documentos "
-                "personales hasta confirmar el acceso autorizado."
-            )
-        save_button = gr.Button(
-            "Guardar demostración en Neon (sin login)"
-            if anonymous_demo_requested() else "Guardar examen confirmado en Neon",
-            variant="primary",
-            interactive=anonymous_demo_enabled()
-            if anonymous_demo_requested() else database_enabled(),
+        gemini_consent = gr.Checkbox(label="Autorizo guardar la auditoría privada en Neon", value=False)
+        gemini_save = gr.Button(
+            "Guardar mediciones revisadas y auditoría",
+            interactive=database_enabled(), variant="primary",
         )
-        saved_status = gr.Markdown()
-
-        def save_reviewed(
-            state, edited, person_id, device, years, lang, publish,
-            accepted_storage, demo_alias,
-            profile: gr.OAuthProfile | None = None,
-        ):
-            if accepted_storage is not True:
-                raise gr.Error(
-                    "Debes aceptar el almacenamiento antes de guardar."
-                )
-            if state is None:
-                raise gr.Error("Primero procesa un reporte.")
-            if anonymous_demo_requested():
-                if not anonymous_demo_enabled():
-                    raise gr.Error("DEMO_DATABASE_URL no está configurada.")
-                try:
-                    # Never use person_id/age/filename as the anonymous ID.
-                    payload = prepare_confirmed_exam(
-                        state, edited, "ANON-" + str(uuid4()), device,
-                        source_exam_timestamp(state), None, lang,
-                    )
-                    save_demo_exam(
-                        payload, storage_consent=True,
-                        publish_consent=bool(publish), anonymous_alias=demo_alias,
-                    )
-                except (ValueError, TypeError, RuntimeError, PermissionError) as exc:
-                    raise gr.Error(str(exc)) from exc
-                if publish:
-                    return (
-                        "Mediciones de demostración guardadas con alias "
-                        "aleatorio y visibles en el dashboard público."
-                    )
-                return (
-                    "Mediciones de demostración guardadas en Neon sin "
-                    "publicación. No aparecen en el dashboard."
-                )
-            try:
-                require_database_access(profile)
-                payload = prepare_confirmed_exam(
-                    state, edited, person_id, device,
-                    source_exam_timestamp(state), years, lang
-                )
-                save_confirmed_exam(
-                    payload, oauth_profile=profile, publish=bool(publish)
-                )
-            except (ValueError, TypeError, RuntimeError, PermissionError) as exc:
-                raise gr.Error(str(exc)) from exc
-            if publish:
-                return "Examen guardado y autorizado para el dashboard público."
-            return "Examen guardado de forma privada en Neon."
-
-        save_button.click(
-            fn=save_reviewed,
-            inputs=[
-                extraction_state, table, person, model,
-                age, report_language, publication_choice,
-                storage_consent, anonymous_session,
-            ],
-            outputs=[saved_status],
+        gemini_save_status = gr.Markdown()
+        gemini_save.click(
+            fn=save_audit,
+            inputs=[gemini_table, gemini_snapshot, gemini_consent],
+            outputs=[gemini_save_status],
             concurrency_limit=1,
         )
-        gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
-                        report_language, table, raw, warnings, extraction_state,
-                        publication_choice, storage_consent, debug_gallery, debug_table, debug_status,
-                         regions_table, sections_state, approved_state, region_status, visual_editor, upload_snapshot],
-                       value="Limpiar")
+        gr.ClearButton(
+            [gemini_upload, gemini_upload_state, gemini_snapshot,
+             gemini_table, gemini_status, gemini_consent, gemini_save_status],
+            value="Limpiar",
+        )
     with gr.Tab("Dashboard público"):
         gr.Markdown(
             "**Progreso personal con identificador aleatorio.** "
