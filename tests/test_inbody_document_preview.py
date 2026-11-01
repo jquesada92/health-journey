@@ -91,8 +91,8 @@ def test_prompt_uses_only_english_canonical_labels():
 def test_review_ui_has_read_only_pdf_viewer_and_reset_on_upload():
     source = (Path(__file__).resolve().parents[1] / "app.py").read_text()
     assert "gemini_preview = gr.Gallery(" in source
-    assert "show_share_button=False" in source
-    assert "show_download_button=False" in source
+    assert 'buttons=["fullscreen"]' in source
+    assert "show_share_button=False" not in source
     assert "fn=render_document_preview" in source
     assert "outputs=[gemini_preview, gemini_preview_status]" in source
     assert "gemini_preview, gemini_preview_status, gemini_table" in source
