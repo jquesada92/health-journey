@@ -591,11 +591,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             )
             visible = frame[
                 ["serie", "exam_date", "device_group", "variable_medida",
-                 "unidad_medida", "segmento", "frecuencia_khz", "valor_medida"]
+                 "unidad_medida", "segmento", "valor_medida"]
             ].copy()
             visible.columns = [
                 "Serie", "Fecha", "Modelo", "Medición", "Unidad",
-                "Segmento", "Frecuencia (kHz)", "Valor"
+                "Segmento", "Valor"
             ]
             return (
                 f"{len(visible)} mediciones publicadas, "
