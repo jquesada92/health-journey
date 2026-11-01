@@ -96,11 +96,22 @@ MEASURE_RE = re.compile(
 )
 DOB_RE = re.compile(r"(?:fecha\s+(?:de\s+)?nacimiento|birth\s*date|dob)\s*[:#]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})", re.I)
 DATE_RE = re.compile(
-    r"^[ \t]*(?:fecha(?:\s+de\s+(?:la\s+)?(?:prueba|examen|medici[oó]n))?|"
-    r"fecha\s*/\s*hora|test\s+date|measurement\s+date|"
-    r"date(?:\s+of\s+(?:the\s+)?(?:test|measurement))?|date\s*/\s*time)"
-    r"\s*[:#-]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})"
-    r"(?:[ \t]+(\d{1,2}:\d{2}(?::\d{2})?))?",
+    # Printed InBody headers often put the label and value on different
+    # lines, and terminate the year with a dot: "04.10.2026. 10:04".
+    # Restrict to at most ONE newline after an explicit exam-date label
+    # so a DOB or a date in the history chart is not mistaken for the exam.
+    r"^[ \t]*(?:test[ \t]+date(?:[ \t]*(?:/|&|and)[ \t]*time)?|"
+    r"fecha[ \t]*(?:/|y|&)[ \t]*hora"
+    r"(?:[ \t]+(?:del|de)[ \t]+(?:test|examen|prueba))?|"
+    r"fecha(?:[ \t]+de[ \t]+(?:la[ \t]+)?"
+    r"(?:prueba|examen|medici[oó]n))?|"
+    r"measurement[ \t]+date|date[ \t]*(?:/|&|and)[ \t]*time|"
+    r"date(?:[ \t]+of[ \t]+(?:the[ \t]+)?"
+    r"(?:test|measurement))?)"
+    r"[ \t]*[:#-]?[ \t]*(?:\n[ \t]*)?"
+    r"(\d{4}[/.-]\d{1,2}[/.-]\d{1,2}|"
+    r"\d{1,2}[/.-]\d{1,2}[/.-]\d{4})"
+    r"\.?(?:[ \t]+(\d{1,2}:\d{2}(?::\d{2})?))?",
     re.I | re.M,
 )
 TIME_RE = re.compile(
