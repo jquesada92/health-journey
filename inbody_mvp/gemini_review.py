@@ -157,9 +157,9 @@ def check_gemini_models() -> str:
     current = _model_name()
     if not compatible:
         return "La API key no devolvió ningún modelo Flash con soporte generateContent."
-    lines = "\\n".join(f"- \\u0060{name}\\u0060" for name in compatible)
+    lines = chr(10).join(f"- `{name}`" for name in compatible)
     status = "Disponible" if current in compatible else "No aparece en la lista"
-    return f"Modelo configurado: \\u0060{current}\\u0060 ({status}).\\nModelos Flash accesibles:\\n{lines}"
+    return f"Modelo configurado: `{current}` ({status})." + chr(10) + "Modelos Flash accesibles:" + chr(10) + lines
 
 
 def extract_gemini(upload_state, consent=False):
