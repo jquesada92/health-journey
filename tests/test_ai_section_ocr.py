@@ -65,14 +65,18 @@ def test_ai_detection_precedes_cropped_ocr_and_maps_to_page():
         return regions
 
     def recognizer(crop):
+        assert crop.width > 0 and crop.height > 0
         sequence.append("ocr")
-        if crop.height < 350 and crop.width < 750:
-            # The first two regions have distinct aspect ratios.
-            if crop.height < 180:
-                return boxes(
-                    ("Body Composition Analysis", 15, 5, .98),
-                    ("Weight 73.3 kg", 110, 60, .94),
-                )
+        # The mocked detector returns ordered sections. Do not infer section
+        # identity from resized-crop dimensions: the pipeline scales narrow
+        # crops, and dimensions are not section labels.
+        read_count = sequence.count("ocr")
+        if read_count == 1:
+            return boxes(
+                ("Body Composition Analysis", 15, 5, .98),
+                ("Weight 73.3 kg", 110, 60, .94),
+            )
+        if read_count == 2:
             return boxes(
                 ("Body Composition History", 15, 5, .98),
                 ("Weight 67.2 kg", 100, 140, .99),
