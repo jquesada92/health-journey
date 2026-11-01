@@ -401,6 +401,7 @@ def review_status(table, snapshot):
 def audit_write_enabled() -> bool:
     """Never accept administrator credentials for consent-only audit writes."""
     from sqlalchemy.engine.url import make_url
+    from sqlalchemy.exc import ArgumentError
     flag = os.getenv("ENABLE_ANONYMOUS_AUDIT", "").lower().strip()
     if flag not in ("1", "true", "yes"):
         return False
@@ -410,7 +411,7 @@ def audit_write_enabled() -> bool:
         return (parsed.drivername in ("postgresql", "postgresql+psycopg")
                 and parsed.username == "health_journey_audit_submit"
                 and parsed.query.get("sslmode") == "require")
-    except (ValueError, TypeError, AttributeError):
+    except (ValueError, TypeError, AttributeError, ArgumentError):
         return False
 
 
