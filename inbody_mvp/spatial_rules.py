@@ -46,7 +46,10 @@ def match_spatial_pairs(
     tokens = [t for t in normalize_detections(detections,width,height)
               if x0 <= t.cx <= x1 and y0 <= t.cy <= y1]
     number = re.compile(r"^[+−-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)\s*(?:kg|%|°|Ω|ohm|L|cm)?$",re.I)
-    candidates = [t for t in tokens if number.fullmatch(t.text.strip())]
+    identifier = re.compile(r"^[A-Za-z0-9_-]{6,24}$")
+    candidates = [t for t in tokens if number.fullmatch(t.text.strip()) or
+                  (direction == "top_to_bottom" and identifier.fullmatch(t.text.strip())
+                   and any(key.casefold() == "id" for key in labels))]
     key_tokens = [t for t in tokens if t not in candidates and
                   (not labels or any(label.casefold() in t.text.casefold() for label in labels))]
     matches = []
