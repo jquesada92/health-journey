@@ -1,5 +1,17 @@
 # 07 — Manual de reconstrucción desde cero y operación
 
+## Contrato de infraestructura vigente — Gemini Flash por API
+
+La aplicación actual no necesita GPU: debe ejecutarse con **hardware CPU Basic**
+y SDK Gradio en Hugging Face Spaces. El Space existente puede conservar una
+asignación **ZeroGPU** de la arquitectura histórica con OCR local. Esto es
+incompatible con la ausencia de handlers `@spaces.GPU` y bloquea el arranque.
+Antes de desplegar Gemini, comprobar **Settings → Hardware → CPU Basic** en
+`jaqo/health-journey`; la modificación se realiza en Hugging Face, no en
+README.md ni en GitHub Actions. No reintroducir EasyOCR/PaddleOCR o ZeroGPU
+solo para superar la comprobación de arranque.
+
+
 ## Estado vigente — 1 de noviembre de 2026 (PR #38, pendiente de validación E2E)
 
 La interfaz activa de **InBody Hub** es Gradio y usa **Gemini Flash** mediante
