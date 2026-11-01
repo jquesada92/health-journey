@@ -10,7 +10,6 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import fitz
-import gradio as gr
 import pandas as pd
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
@@ -78,14 +77,23 @@ def _pages(name: str, data: bytes) -> list[Image.Image]:
     image.verify()
     return [Image.open(io.BytesIO(data)).convert("RGB")]
 
+def _ui_error(message: str):
+    # Gradio is a UI-only dependency; unit tests can import this module without it.
+    try:
+        import gradio as gr
+    except ImportError:
+        return ValueError(message)
+    return gr.Error(message)
+
+
 def extract_gemini(upload_state, consent=False):
     if not upload_state:
-        raise gr.Error("Primero carga un documento.")
+        raise _ui_error("Primero carga un documento.")
     if consent is not True:
-        raise gr.Error("Debes autorizar explícitamente el envío de este documento a Gemini.")
+        raise _ui_error("Debes autorizar explícitamente el envío de este documento a Gemini.")
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise gr.Error("Falta GEMINI_API_KEY en los secretos del Space.")
+        raise _ui_error("Falta GEMINI_API_KEY en los secretos del Space.")
     try:
         from google import genai
         from google.genai import types
@@ -128,7 +136,7 @@ def extract_gemini(upload_state, consent=False):
     except gr.Error:
         raise
     except Exception as exc:
-        raise gr.Error(f"No se pudo extraer el reporte ({type(exc).__name__}).") from exc
+        raise _ui_error(f"No se pudo extraer el reporte ({type(exc).__name__}).") from exc
 
 def _string(value):
     if value is None:
@@ -201,7 +209,7 @@ def review_status(table, snapshot):
 
 def save_audit(table, snapshot, consent, profile=None):
     if consent is not True:
-        raise gr.Error("Debes aceptar el almacenamiento privado.")
+        raise _ui_error("Debes aceptar el almacenamiento privado.")
     try:
         require_database_access(profile)
         rows = validate_review(table, snapshot)
@@ -238,6 +246,6 @@ def save_audit(table, snapshot, consent, profile=None):
         finally:
             engine.dispose()
     except (ValueError, PermissionError) as exc:
-        raise gr.Error(str(exc)) from exc
+        raise _ui_error(str(exc)) from exc
     except Exception as exc:
-        raise gr.Error("Error al guardar auditoría. Revisa migración 004 y la conexión privada.") from exc
+        raise _ui_error("Error al guardar auditoría. Revisa migración 004 y la conexión privada.") from exc
