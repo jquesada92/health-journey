@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from .extractor import MAX_UPLOAD_BYTES
-from .storage import _database_engine, require_database_access
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
@@ -24,40 +23,113 @@ DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 COLUMNS = ["exam_datetime", "filename", "person_id", "age", "section",
            "measurement", "value", "unit", "original_value", "was_corrected",
            "correction_comment", "reviewed"]
-PROMPT = """Analiza el reporte InBody proporcionado visualmente. Extrae EXCLUSIVAMENTE
-las mediciones del examen actual. Ignora Body Composition History, Historial de
-Composición Corporal y cualquier gráfico o tabla histórica, incluso si incluye
-el valor de la prueba actual. Usa el encabezado, no el nombre del archivo ni el
-historial, para ID, fecha/hora y edad. Asocia visualmente etiquetas encima de
-valores, etiquetas a la izquierda de valores, celdas y segmentos corporales.
-No confundas rangos, escalas o metas con resultados.
-Devuelve todas las mediciones numéricas legibles: composición corporal,
-músculo-grasa, obesidad, segmentales, agua, ángulo de fase, impedancia,
-control de peso, investigación y Puntaje InBody. El puntaje tiene sección
-'Puntaje InBody', medición 'Puntaje InBody' y unidad 'puntos'.
-Cada medición tiene section, measurement, value y unit. Section es solo la
-sección, sin segmento; measurement contiene el segmento cuando corresponda,
-por ejemplo 'Brazo derecho - Masa magra' o 'Brazo derecho - Frecuencia'.
-Representa frecuencias mostradas como filas independientes con unidad kHz;
-para impedancia conserva la frecuencia en el nombre, por ejemplo
-'Brazo derecho - Impedancia a 50 kHz'. Evita duplicados indistinguibles.
-Preserva todos los decimales impresos EXACTAMENTE como texto: 8.20
-debe seguir siendo '8.20'. No estimes ni calcules valores ausentes.
-No inventes mediciones o campos ilegibles. Devuelve campos ilegibles
-en missing_or_unreadable. La fecha va en YYYY-MM-DD HH:MM:SS.
-Devuelve solo JSON con header, measurements y missing_or_unreadable."""
+PROMPT = """You are an expert visual document parser for InBody body-composition reports.
+Your task is to extract ALL legible numeric measurements from the CURRENT examination
+and return the requested JSON only. Reports may be in Spanish, English or another
+language, and layouts differ by device model.
 
+LANGUAGE AND NORMALIZATION (MANDATORY)
+- ALL values of "section", "measurement", and "missing_or_unreadable" MUST be in
+  ENGLISH, regardless of the language printed in the report.
+- Translate labels by meaning into consistent English; do NOT use snake_case in
+  "section" or "measurement". Use Title Case for section names and readable
+  English measurement names. Never mix Spanish and English in these fields.
+- Standard section names, when present:
+  "Body Composition Analysis", "Muscle-Fat Analysis", "Obesity Analysis",
+  "Segmental Lean Analysis", "Segmental Fat Analysis", "Segmental ECW Analysis",
+  "ECW Ratio-Phase Angle", "Research Parameters", "Weight Control",
+  "InBody Score", and "Impedance".
+  For unfamiliar sections, translate their actual name into English instead
+  of forcing an incorrect known section.
+- Standard body segments are: "Right Arm", "Left Arm", "Trunk",
+  "Right Leg", "Left Leg". Determine left/right from anatomical labels
+  in the report, NOT from the side of the page.
+- For segmental measurements always use the name
+  "{English Body Segment} - {English Measurement}".
+  Examples: "Right Arm - Lean Mass", "Left Leg - Fat Mass",
+  "Trunk - Percent of Reference", "Right Arm - Phase Angle".
+  Do not mislabel lean mass as weight or fat mass as lean mass.
+- For whole-body measurements use the English name alone, e.g.
+  "Total Body Water", "Protein", "Minerals", "Weight",
+  "Skeletal Muscle Mass", "Body Fat Mass", "Body Fat Percentage",
+  "Body Mass Index", "Waist-Hip Ratio", "Basal Metabolic Rate".
+- Retain units as standard internationally recognized symbols
+  (kg, L, %, kcal, kHz, Ω, °, kg/m², cm) when applicable.
+  Do NOT translate numeric values or alter physical units; use null for
+  genuinely unitless measurements. The InBody Score uses "points".
+
+EXAM HEADER AND SPATIAL RELATIONSHIPS
+- Capture only the current person's ID, exam date/time and age from the
+  main header (header.person_id, header.exam_datetime, header.age).
+- A value can be BELOW its label (ID above the ID number, Test Date/Time
+  above its timestamp), or to the RIGHT of its label in a table row.
+- Use spatial alignment, rows, columns, borders, nearby units and segment
+  labels. Never read the report as one linear stream or swap neighboring
+  measurements. Keep leading zeros in person_id.
+- Format exam_datetime as YYYY-MM-DD HH:MM:SS. Do not infer an absent
+  timestamp or calculate an age. Set missing header fields to null.
+- Filename is supplied by Python, never guess the filename.
+
+CURRENT EXAM ONLY
+- NEVER extract values from "Body Composition History", "Historial de
+  Composición Corporal", history plots, trend graphs or past exams.
+  Even the most recent point in a historical chart is forbidden as a source.
+- Numeric tick labels, reference intervals, normal ranges, target values,
+  and percentage scales are NOT measured values. Explicitly reported
+  current-exam percentages ARE measurements.
+- Do not estimate anything from bar length, graph position or appearance.
+
+EXTRACTION RULES
+- Output ONE measurement JSON object per numeric result, including score,
+  segmental masses, segmental percentages, research parameters, ECW,
+  phase angle, weight control and all explicitly printed impedance values.
+- "section" must contain ONLY the English section name, without the body
+  region. "measurement" carries the English region if applicable.
+- Always capture the InBody Score if legible:
+  section="InBody Score", measurement="InBody Score", unit="points".
+- Frequencies printed under "Impedance" must have their OWN row:
+  section="Impedance", measurement="Right Arm - Frequency",
+  value="50", unit="kHz".
+  Store an associated impedance separately:
+  section="Impedance", measurement="Right Arm - Impedance at 50 kHz",
+  value="205.5", unit="Ω".
+  Do not create a frequency_khz column. Do not duplicate a frequency for
+  the same segment and value in the section.
+- Store every number in "value" as a STRING exactly as printed:
+  "8.20" stays "8.20", "0.370" stays "0.370", "75.0" stays "75.0".
+  Never round, trim trailing zeros, or calculate a replacement value.
+- If a measurement is illegible, omit it and describe the missing item
+  in English in missing_or_unreadable. Never invent results.
+- Do not emit nonnumeric descriptive labels as separate measurements.
+
+OUTPUT
+Return strictly valid JSON matching the supplied schema:
+{
+  "header": {"person_id": null, "exam_datetime": null, "age": null},
+  "measurements": [
+    {
+      "section": "Segmental Lean Analysis",
+      "measurement": "Right Arm - Lean Mass",
+      "value": "3.69",
+      "unit": "kg"
+    }
+  ],
+  "missing_or_unreadable": []
+}
+These values are examples only; use values actually printed on the report.
+Do not add extra JSON properties, comments, Markdown, or explanation.
+"""
 class Header(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    person_id: str | None = Field(description="ID literal con ceros iniciales")
-    exam_datetime: str | None = Field(description="YYYY-MM-DD HH:MM:SS, fecha del encabezado")
-    age: int | None = Field(description="Edad indicada en examen; null si no aparece")
+    person_id: str | None = Field(description="Person ID exactly as printed; preserve leading zeros")
+    exam_datetime: str | None = Field(description="Exam header timestamp, YYYY-MM-DD HH:MM:SS")
+    age: int | None = Field(description="Age printed in exam header, null when absent")
 
 class Measurement(BaseModel):
     model_config = ConfigDict(extra="forbid")
     section: str
     measurement: str
-    value: str = Field(description="Decimal original en texto, incluyendo ceros")
+    value: str = Field(description="Numeric measurement as exact printed text, including trailing zeros")
     unit: str | None
 
 class Extraction(BaseModel):
@@ -79,6 +151,26 @@ def _pages(name: str, data: bytes) -> list[Image.Image]:
     image = Image.open(io.BytesIO(data))
     image.verify()
     return [Image.open(io.BytesIO(data)).convert("RGB")]
+
+def render_document_preview(upload_state):
+    """Render a local, read-only PDF/image page viewer before Gemini consent.
+
+    Reuses the same validated pages as extraction. No external API call and
+    no modification of the original report. Only anonymized files should be
+    uploaded to a public Space, since Gradio caches images for the browser.
+    """
+    if not upload_state:
+        return [], "Carga un PDF o imagen para visualizarlo."
+    try:
+        name = upload_state["filename"]
+        pages = _pages(name, upload_state["data"])
+        if not pages:
+            raise ValueError("El documento no contiene páginas visibles.")
+        images = [(page, f"Página {i}") for i, page in enumerate(pages, start=1)]
+        return images, f"{len(images)} página(s). Selecciona una página y amplíala para comparar los resultados."
+    except Exception as exc:
+        raise _ui_error(f"No se pudo visualizar el documento ({type(exc).__name__}).") from None
+
 
 def _ui_error(message: str):
     # Gradio is a UI-only dependency; unit tests can import this module without it.
@@ -349,45 +441,83 @@ def review_status(table, snapshot):
     except ValueError as exc:
         return "Revisión pendiente: " + str(exc)
 
-def save_audit(table, snapshot, consent, profile=None):
-    if consent is not True:
-        raise _ui_error("Debes aceptar el almacenamiento privado.")
+def audit_write_enabled() -> bool:
+    """Never accept administrator credentials for consent-only audit writes."""
+    from sqlalchemy.engine.url import make_url
+    from sqlalchemy.exc import ArgumentError
+    flag = os.getenv("ENABLE_ANONYMOUS_AUDIT", "").lower().strip()
+    if flag not in ("1", "true", "yes"):
+        return False
+    url = os.getenv("AUDIT_DATABASE_URL", "")
     try:
-        require_database_access(profile)
+        parsed = make_url(url)
+        return (parsed.drivername in ("postgresql", "postgresql+psycopg")
+                and parsed.username == "health_journey_audit_submit"
+                and parsed.query.get("sslmode") == "require")
+    except (ValueError, TypeError, AttributeError, ArgumentError):
+        return False
+
+
+def _audit_write_engine():
+    from sqlalchemy import create_engine
+
+    if not audit_write_enabled():
+        raise PermissionError(
+            "El guardado por consentimiento no está configurado. "
+            "Define AUDIT_DATABASE_URL (rol health_journey_audit_submit) y "
+            "ENABLE_ANONYMOUS_AUDIT=1 en Hugging Face."
+        )
+    uri = os.environ["AUDIT_DATABASE_URL"]
+    if uri.startswith("postgresql://"):
+        uri = "postgresql+psycopg://" + uri[len("postgresql://"):]
+    return create_engine(uri, pool_pre_ping=True, pool_size=1, max_overflow=0)
+
+
+def save_audit(table, snapshot, consent, profile=None):
+    """Consent-based write-only submission; never grants private read access.
+
+    The anonymous database role has EXECUTE only on a validated stored
+    procedure; it cannot SELECT personal data from audit tables.
+    """
+    if consent is not True:
+        raise _ui_error("Debes autorizar el envío de las mediciones a Neon.")
+    try:
         rows = validate_review(table, snapshot)
-        engine = _database_engine()
+        if not audit_write_enabled():
+            raise PermissionError(
+                "La escritura por consentimiento no está configurada. "
+                "Solicita configurar AUDIT_DATABASE_URL con health_journey_audit_submit "
+                "y ENABLE_ANONYMOUS_AUDIT=1."
+            )
+        body = {
+            "source_sha256": snapshot["sha256"],
+            "filename": snapshot["filename"],
+            "person_id": snapshot["header"]["person_id"],
+            "exam_datetime": snapshot["header"]["exam_datetime"],
+            "age": snapshot["header"]["age"],
+            "model_name": snapshot["model"],
+            "raw_response": json.loads(snapshot["raw_response"]),
+            "measurements": rows,
+        }
+        engine = _audit_write_engine()
         try:
             with engine.begin() as con:
-                # Migration must be applied by an administrator before this action.
-                already = con.execute(text(
-                    "SELECT extraction_id FROM hj_extraction_audits "
-                    "WHERE source_sha256 = :sha"
-                ), {"sha": snapshot["sha256"]}).scalar_one_or_none()
-                if already:
-                    raise ValueError("El archivo ya tiene una auditoría guardada.")
-                audit_id = con.execute(text(
-                    "INSERT INTO hj_extraction_audits "
-                    "(source_sha256, filename, person_id, exam_datetime, age, model_name, raw_response) "
-                    "VALUES (:sha, :filename, :person_id, :dt, :age, :model, CAST(:raw AS jsonb)) "
-                    "RETURNING extraction_id"
-                ), {"sha": snapshot["sha256"], "filename": snapshot["filename"],
-                    "person_id": snapshot["header"]["person_id"],
-                    "dt": datetime.fromisoformat(snapshot["header"]["exam_datetime"]),
-                    "age": snapshot["header"]["age"], "model": snapshot["model"],
-                    "raw": snapshot["raw_response"]}).scalar_one()
-                con.execute(text(
-                    "INSERT INTO hj_measurement_audits "
-                    "(extraction_id, row_number, section, measurement, original_section, "
-                    "original_measurement, original_value, original_unit, final_value, "
-                    "final_unit, was_corrected, correction_comment, reviewed_at) "
-                    "VALUES (:extraction_id, :row_number, :section, :measurement, "
-                    ":original_section, :original_measurement, :original_value, :original_unit, "
-                    ":value, :unit, :was_corrected, :correction_comment, now())"
-                ), [{"extraction_id": audit_id, **r} for r in rows])
-            return f"Auditoría privada guardada: {len(rows)} mediciones; {sum(r['was_corrected'] for r in rows)} corregidas."
+                audit_id = con.execute(
+                    text("SELECT public.hj_submit_reviewed_audit(CAST(:payload AS jsonb))"),
+                    {"payload": json.dumps(body, ensure_ascii=False)},
+                ).scalar_one()
+            return (
+                f"Auditoría guardada en Neon ({audit_id}): "
+                f"{len(rows)} mediciones; "
+                f"{sum(r['was_corrected'] for r in rows)} corregidas."
+            )
         finally:
             engine.dispose()
     except (ValueError, PermissionError) as exc:
-        raise _ui_error(str(exc)) from exc
-    except Exception as exc:
-        raise _ui_error("Error al guardar auditoría. Revisa migración 004 y la conexión privada.") from exc
+        raise _ui_error(str(exc)) from None
+    except Exception:
+        # Do not expose SQL, credentials, identifiers or raw errors to clients.
+        raise _ui_error(
+            "Neon no pudo guardar la auditoría. Verifica el rol de solo escritura, "
+            "la migración 005 y si el archivo ya estaba registrado."
+        ) from None
