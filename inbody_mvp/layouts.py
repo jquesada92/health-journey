@@ -73,28 +73,40 @@ def extract_header_exam_timestamp(detections, width, height):
     the exam-date column in the TOP header: never inspect DOB or graph rows.
     """
     tokens = normalize_detections(detections, width, height)
-    # Locate the actual exam-date label, rather than assuming that it occupies
-    # a fixed horizontal column across all report designs.
+    # OCR can split "Fecha / Hora del test" into multiple boxes. Reconstruct
+    # only the label row, never the value row or a full-page text stream.
     top = [t for t in tokens if .015 <= t.cy <= .19]
     label_re = re.compile(
         r"(?:fecha\s*/\s*hora(?:\s+(?:del|de)\s+(?:test|examen|prueba))?"
         r"|test\s+date\s*/\s*time|date\s*/\s*time)", re.I
     )
-    labels = [t for t in top if label_re.search(t.text)]
-    if not labels:
-        # Some OCR engines split the printed title across neighboring boxes.
-        top_sorted = sorted(top, key=lambda t: (round(t.cy, 2), t.cx))
-        labels = [t for t in top_sorted
-                  if re.search(r"fecha\s*/\s*hora|test\s+date", t.text, re.I)]
-    if not labels:
+    label = None
+    label_row = [t for t in top if t.cy < .105]
+    for candidate in sorted(label_row, key=lambda t: (t.cy, t.cx)):
+        if label_re.search(candidate.text):
+            label = candidate
+            break
+    if label is None:
+        for candidate in sorted(label_row, key=lambda t: (t.cy, t.cx)):
+            if not re.search(r"^(fecha|test|date)$", candidate.text, re.I):
+                continue
+            nearby = sorted(
+                (t for t in label_row
+                 if abs(t.cy - candidate.cy) <= .008
+                 and candidate.x <= t.x <= candidate.x + .22),
+                key=lambda t: t.x,
+            )
+            if label_re.search(" ".join(t.text for t in nearby)):
+                label = candidate
+                break
+    if label is None:
         return None
-    label = max(labels, key=lambda t: t.cx)
-    # Match the value directly below the rightmost exam label. This excludes
-    # left-hand DOB/age fields and permits dates near the page's right edge.
+    # The date may begin left of the printed label. Exclude the DOB column,
+    # and never use values on an unrelated baseline.
+    min_x = max(.45, label.cx - .15)
     header = [t for t in top
-              if t.cx >= max(0, label.x - .035)
-              and t.cy >= label.cy - .015
-              and t.cy <= min(.22, label.cy + .085)]
+              if t.cx >= min_x
+              and label.cy + .008 <= t.cy <= min(.22, label.cy + .085)]
 
     date_re = re.compile(
         r"(?<!\d)(\d{4}[/.-]\d{1,2}[/.-]\d{1,2}|"
