@@ -38,3 +38,20 @@ def test_visual_debug_ai_detector(monkeypatch):
     assert len(pictures) == 1
     assert rows[0][1:4] == ["IA layout", "table", 0.93]
     assert "activada" in status
+
+
+def test_visual_debug_falls_back_when_layout_model_is_unavailable(monkeypatch):
+    from inbody_mvp import visual_debug
+
+    monkeypatch.setenv("ENABLE_AI_SECTION_OCR", "1")
+
+    def broken_layout(_image):
+        raise RuntimeError("model unavailable")
+
+    monkeypatch.setattr(visual_debug, "ai_detect_layout", broken_layout)
+    ocr = lambda _: [([[10, 10], [50, 10], [50, 20], [10, 20]], "20", .91)]
+    pictures, rows, status = render_debug("synthetic.png", _image_bytes(), ocr)
+    assert len(pictures) == 1
+    assert len(rows) == 1
+    assert rows[0][1] == "EasyOCR"
+    assert "no disponible" in status

@@ -384,10 +384,11 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None,
                 )
                 notices.extend(section_notices)
         except RuntimeError as exc:
+            # Failures in the baseline OCR are not section-model failures.
+            # Optional layout errors are handled separately above.
             raise DocumentError(
-                "Modelo de secciones IA no disponible. Instala las "
-                "dependencias de requirements-ai.txt o desactiva "
-                "ENABLE_AI_SECTION_OCR."
+                f"Falló el motor OCR en la página {page_number} (RuntimeError); "
+                "verifica el runtime y sus logs privados."
             ) from exc
         except DocumentError:
             raise
