@@ -52,13 +52,13 @@ def test_extraction_sends_json_schema_without_openapi_additional_properties(monk
                 "age": 34,
             },
             "measurements": [{
-                "section": "Puntaje InBody",
-                "measurement": "Puntaje InBody",
+                "section": "InBody Score",
+                "measurement": "InBody Score",
                 "value": "83",
-                "unit": "puntos",
+                "unit": "points",
             }, {
-                "section": "Análisis Magro Segmental",
-                "measurement": "Brazo derecho - Masa magra",
+                "section": "Segmental Lean Analysis",
+                "measurement": "Right Arm - Lean Mass",
                 "value": "8.20",
                 "unit": "kg",
             }],

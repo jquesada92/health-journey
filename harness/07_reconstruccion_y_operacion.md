@@ -1,5 +1,49 @@
 # 07 — Manual de reconstrucción desde cero y operación
 
+
+## Flujo actual: extracción inglés + PDF y consentimiento (noviembre 2026)
+
+**UI:** InBody Upload coloca, antes del archivo, dos consentimientos
+independientes (Gemini y Neon, ambos apagados). El PDF se renderiza
+localmente en una galería Gradio 6 junto a la tabla editable; se
+pueden inspeccionar páginas en pantalla completa. El visor no envía
+el documento a Gemini. Al cargar otro archivo se revocan ambos
+consentimientos y se limpian resultados anteriores.
+
+**Extracción:** Gemini traduce los nombres al inglés, incluso si el
+documento está en español: `Body Composition Analysis`,
+`Segmental Lean Analysis`, `Right Arm - Lean Mass`,
+`Right Arm - Frequency`, `InBody Score`. El número sigue como
+texto exacto (ej. `8.20`) y cada frecuencia ocupa su propia fila.
+No se extraen valores del historial. Se conserva la respuesta
+original, la corrección y su comentario.
+
+**Escritura sin OAuth:** la auditoría solo se guarda tras revisión
+y consentimiento Neon. Se ejecuta `hj_submit_reviewed_audit(jsonb)`
+usando una conexión **distinta** de `DATABASE_URL`:
+`AUDIT_DATABASE_URL` (Secret HF), usuario exacto
+`health_journey_audit_submit`, SSL y
+`ENABLE_ANONYMOUS_AUDIT=1` (Variable HF). El nuevo rol se crea en
+`migrations/005_consent_only_audit_writer.sql` como `NOLOGIN`
+para que un administrador establezca su contraseña por canal seguro
+y habilite el login **después** de aplicar la migración. No usar
+la creación automática de roles Neon: puede heredar
+`neon_superuser`.
+
+El rol solo puede ejecutar la función de inserción y no posee
+permisos SELECT/INSERT/UPDATE/DELETE directos sobre las tablas.
+La función valida límites de tamaño, metadatos, valores,
+correcciones y registra todas las filas en una sola transacción.
+El historial privado sigue requiriendo OAuth y no se expone al
+público. Esto no constituye autenticación del remitente: se
+necesitan protección antiabuso y hosting privado para datos
+identificables. El dashboard público continúa independiente.
+
+El cambio está preparado en rama y probado en una rama temporal
+de Neon con datos sintéticos; **no desplegado en Neon main**.
+No se modificaron tablas históricas ni usuarios existentes.
+
+
 ## Infraestructura actual: Gemini Flash sobre Space ZeroGPU existente (2026-11-01)
 
 El PR #38 ya fue fusionado en `main`. La extracción utiliza Gemini Flash

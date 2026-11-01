@@ -17,10 +17,13 @@ def test_no_legacy_demo_save_callback_in_gemini_flow():
 def test_consent_checked_before_private_access():
     node = next(n for n in ast.walk(ast.parse(MODULE))
                 if isinstance(n, ast.FunctionDef) and n.name == "save_audit")
-    assert isinstance(node.body[0], ast.If)
-    assert "consent" in ast.unparse(node.body[0].test)
-    assert "require_database_access(profile)" in ast.unparse(node)
+    first_guard = next(stmt for stmt in node.body if isinstance(stmt, ast.If))
+    assert "consent" in ast.unparse(first_guard.test)
+    assert node.body.index(first_guard) < next(i for i,stmt in enumerate(node.body) if "audit_write_enabled()" in ast.unparse(stmt))
+    assert "audit_write_enabled()" in ast.unparse(node)
 
-def test_private_auth_still_required_for_gemini_audit():
-    assert "require_database_access(profile)" in MODULE
-    assert "_database_engine()" in MODULE
+def test_audit_is_consent_only_but_private_reads_remain_protected():
+    assert "require_database_access(profile)" not in MODULE
+    assert "hj_submit_reviewed_audit" in MODULE
+    storage = (Path(__file__).resolve().parents[1] / "inbody_mvp/storage.py").read_text()
+    assert "require_database_access(oauth_profile)" in storage
