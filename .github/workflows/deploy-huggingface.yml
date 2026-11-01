@@ -58,6 +58,8 @@ jobs:
               'inbody_mvp/section_ai.py',
               'inbody_mvp/visual_debug.py',
               'inbody_mvp/section_review.py',
+              'inbody_mvp/visual_editor.py',
+              'inbody_mvp/visual_editor_ui.py',
               'inbody_mvp/review.py',
               'inbody_mvp/language.py',
               'inbody_mvp/storage.py',
