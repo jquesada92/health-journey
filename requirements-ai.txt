@@ -1,6 +1,5 @@
-# EXPERIMENT ONLY: install in a separate QA environment before enabling
-# ENABLE_AI_SECTION_OCR=1. The default Gradio Space uses requirements.txt
-# only and intentionally does not auto-install this heavier Paddle runtime.
-# Confirm platform compatibility before adding these to Space requirements.
+# Legacy optional dependencies for standalone OCR experiments only.
+# The Gradio InBody upload flow now uses Gemini Flash; no viewer switch or
+# ENABLE_AI_SECTION_OCR environment variable is used.
 paddlepaddle>=3.2,<4
 paddleocr>=3.3,<4
