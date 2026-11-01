@@ -151,4 +151,6 @@ def test_gemini_audit_does_not_use_demo_writer():
     assert "gemini_consent = gr.Checkbox(" in app
     assert "save_audit" in app
     assert "save_demo_exam" not in gemini
-    assert "require_database_access(profile)" in gemini
+    assert "hj_submit_reviewed_audit" in gemini
+    assert "AUDIT_DATABASE_URL" in gemini
+    assert "require_database_access(profile)" not in gemini
