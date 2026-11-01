@@ -25,19 +25,32 @@ def propose_regions(filename: str, data: bytes):
         raise DocumentError("Archivo mayor de 15 MB.")
     images = list(_pages(filename, data))
     rows = []
+    used_manual_fallback = False
     for page, image in images:
         # InBody headers are narrow rows, often ignored by generic layout models.
         # Provide a labeled, editable geometry proposal, not a claimed AI detection.
         rows.append([page, "header", 0, 0, image.width, round(image.height * .15), True, None])
-        for region in ai_detect_layout(image):
+        try:
+            detected = ai_detect_layout(image)
+        except Exception:
+            # An unavailable model must not block manual review or the baseline.
+            # Do not leak provider exception strings containing local paths.
+            detected = []
+        if not detected:
+            used_manual_fallback = True
+            # Editable full lower page proposal, initially NOT included.
+            rows.append([page, "other", 0, round(image.height * .15),
+                         image.width, image.height, False, None])
+        for region in detected:
             x0, y0, x1, y1 = region.box
             rows.append([page, "other", x0, y0, x1, y1, True,
                          round(region.score, 3)])
     if not rows:
-        raise DocumentError("La IA no detectó regiones: revisa el documento o el modelo.")
+        raise DocumentError("No se pudieron generar regiones para revisión.")
     return rows[:MAX_REGIONS], {
         "hash": hashlib.sha256(data).hexdigest(),
         "sizes": {str(page): list(image.size) for page, image in images},
+        "layout_mode": "manual" if used_manual_fallback else "paddle",
     }
 
 
