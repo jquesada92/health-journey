@@ -1,6 +1,6 @@
 # Arquitectura de extracción InBody: detección visual de secciones + OCR + validación
 
-> **Estado:** experimento implementado en la rama \`feature/ai-layout-first-inbody-ocr\`, no validado como mejora de precisión ni desplegado en el Space de producción. **No confundir pruebas unitarias con una evaluación del modelo sobre imágenes reales.** El modo IA está desactivado por defecto.
+> **Estado:** experimento implementado en la rama `feature/ai-layout-first-inbody-ocr`, no validado como mejora de precisión ni desplegado en el Space de producción. **No confundir pruebas unitarias con una evaluación del modelo sobre imágenes reales.** El modo IA está desactivado por defecto.
 
 ## 1. Problema que resolvemos
 
@@ -22,27 +22,27 @@ Un detector de layout (diseño de página) es un modelo de visión por computado
 
 Cuando recibe una imagen, devuelve predicciones del tipo:
 
-\`\`\`json
+```json
 {
   "label": "table",
   "score": 0.92,
   "coordinate": [140, 330, 780, 670]
 }
-\`\`\`
+```
 
-**Este es un ejemplo ficticio de formato de salida, no una predicción de nuestros JPG.** Las coordenadas delimitan un rectángulo de la imagen original y \`score\` indica la confianza de detección de la **región**, no la precisión de los valores médicos.
+**Este es un ejemplo ficticio de formato de salida, no una predicción de nuestros JPG.** Las coordenadas delimitan un rectángulo de la imagen original y `score` indica la confianza de detección de la **región**, no la precisión de los valores médicos.
 
 El modelo visual genérico **no sabe por sí solo** que esa tabla se llama «Análisis Músculo-Grasa». En la propuesta actual, EasyOCR lee el título de la región y un clasificador explícito de etiquetas lo asigna a una sección conocida. Por eso hay tres operaciones independientes:
 
 1. **Detección visual (IA):** «aquí hay una tabla».
 2. **OCR:** «en el título de esa tabla pone Muscle-Fat Analysis».
-3. **Interpretación semántica (reglas verificables):** «esta tabla pertenece a \`muscle_fat\`; interpreta sus celdas según ese contexto».
+3. **Interpretación semántica (reglas verificables):** «esta tabla pertenece a `muscle_fat`; interpreta sus celdas según ese contexto».
 
 Una probabilidad alta en el paso 1 **no certifica** que los pasos 2 y 3 sean correctos. La clasificación semántica actual sigue siendo por patrones de texto; **no es un VLM** ni un clasificador InBody entrenado específicamente.
 
 ## 3. Flujo técnico de extracción
 
-\`\`\`text
+```text
 JPG / PNG / PDF
         |
         +--> PDF digital legible --> PyMuPDF (texto nativo)
@@ -78,48 +78,48 @@ JPG / PNG / PDF
                    |
                    v
           CSV / Neon SOLO después de confirmación y consentimiento
-\`\`\`
+```
 
 **Comportamiento real del código actual:**
-- Con \`ENABLE_AI_SECTION_OCR=0\`, no se ejecuta PP-DocLayout-S; sigue el extractor original.
-- Con \`ENABLE_AI_SECTION_OCR=1\`, \`extract_document\` llama a \`inspect_sections\` **antes** del OCR global de la imagen y a \`merge_section_ocr\` para reconciliar candidatos. El resultado continúa pasando por \`parse_text\`, \`extract_inbody580\` y \`extract_spanish_silhouette\`.
+- Con `ENABLE_AI_SECTION_OCR=0`, no se ejecuta PP-DocLayout-S; sigue el extractor original.
+- Con `ENABLE_AI_SECTION_OCR=1`, `extract_document` llama a `inspect_sections` **antes** del OCR global de la imagen y a `merge_section_ocr` para reconciliar candidatos. El resultado continúa pasando por `parse_text`, `extract_inbody580` y `extract_spanish_silhouette`.
 - Las regiones reconocidas se recortan, pueden ampliarse para mejorar caracteres pequeños y se vuelven a leer con EasyOCR. Las bounding boxes regresan a coordenadas absolutas.
 - Se admiten como candidatos adicionales **solo regiones con un título de sección reconocible**. Los bloques que el detector encontró sin título reconocible no se interpretan como una sección médica.
 - Si una nueva detección OCR coincide espacialmente con una existente, la sustituye solo cuando su confianza OCR es sustancialmente mayor (actualmente **+0,10**). La confianza tampoco garantiza exactitud.
-- **Límite importante:** el filtro de historial impide añadir nuevos tokens OCR procedentes del recorte etiquetado como \`history\`, pero **aún no garantiza que el parser global elimine todas las cifras históricas**. Hace falta aislar los extractores por región antes de afirmar exclusión completa. Tampoco existe todavía un parser semántico independiente y exhaustivo por sección; por ahora se mejora la detección de tokens que consumen los parsers existentes.
+- **Límite importante:** el filtro de historial impide añadir nuevos tokens OCR procedentes del recorte etiquetado como `history`, pero **aún no garantiza que el parser global elimine todas las cifras históricas**. Hace falta aislar los extractores por región antes de afirmar exclusión completa. Tampoco existe todavía un parser semántico independiente y exhaustivo por sección; por ahora se mejora la detección de tokens que consumen los parsers existentes.
 
 ### Archivos responsables
 
 | Archivo | Responsabilidad |
 | --- | --- |
-| \`app.py\` | UI Gradio, llamada de extracción, tabla revisable y callbacks |
-| \`inbody_mvp/extractor.py\` | Orquestación PDF/imagen, OCR global, modelos de medición, fecha y combinación de resultados |
-| \`inbody_mvp/section_ai.py\` | Detección visual opcional, recortes, clasificación por título, OCR regional y reconciliación |
-| \`inbody_mvp/layouts.py\` | Coordenadas y celdas de InBody 580; fecha/hora del encabezado |
-| \`inbody_mvp/layouts_es.py\` | Coordenadas para la plantilla española con siluetas |
-| \`inbody_mvp/review.py\` | Tabla editable y validación del borrador CSV |
-| \`inbody_mvp/storage.py\` / \`demo_storage.py\` | Contratos de guardado privado y demostración, no extracción de imágenes |
-| \`tests/test_ai_section_ocr.py\` | Pruebas sintéticas del flujo con detector simulado |
-| \`requirements-ai.txt\` | Dependencias experimentales separadas de producción |
+| `app.py` | UI Gradio, llamada de extracción, tabla revisable y callbacks |
+| `inbody_mvp/extractor.py` | Orquestación PDF/imagen, OCR global, modelos de medición, fecha y combinación de resultados |
+| `inbody_mvp/section_ai.py` | Detección visual opcional, recortes, clasificación por título, OCR regional y reconciliación |
+| `inbody_mvp/layouts.py` | Coordenadas y celdas de InBody 580; fecha/hora del encabezado |
+| `inbody_mvp/layouts_es.py` | Coordenadas para la plantilla española con siluetas |
+| `inbody_mvp/review.py` | Tabla editable y validación del borrador CSV |
+| `inbody_mvp/storage.py` / `demo_storage.py` | Contratos de guardado privado y demostración, no extracción de imágenes |
+| `tests/test_ai_section_ocr.py` | Pruebas sintéticas del flujo con detector simulado |
+| `requirements-ai.txt` | Dependencias experimentales separadas de producción |
 
 ## 4. Cómo asignamos significado a las secciones
 
-El detector genérico devuelve clases visuales, no códigos de negocio. La función \`classify_section\` busca encabezados reconocidos en el texto extraído **dentro de cada región**.
+El detector genérico devuelve clases visuales, no códigos de negocio. La función `classify_section` busca encabezados reconocidos en el texto extraído **dentro de cada región**.
 
 | Título InBody (ejemplos) | Código de sección | Significado esperado |
 | --- | --- | --- |
-| Body Composition Analysis / Análisis de la Composición Corporal | \`body_composition\` | Agua corporal, proteínas, minerales, masa grasa |
-| Muscle-Fat Analysis / Análisis Músculo-Grasa | \`muscle_fat\` | Peso, masa muscular esquelética, masa grasa |
-| Obesity Analysis / Análisis de Obesidad | \`obesity\` | IMC, porcentaje de grasa corporal |
-| Segmental Lean Analysis / Análisis de Magro por Segmentos | \`segmental_lean\` | Masa magra por brazo, pierna y tronco |
-| Segmental Fat Analysis / Análisis de Grasa Segmental | \`segmental_fat\` | Grasa por segmento y porcentajes de referencia |
-| Research Parameters / Parámetros de investigación | \`research\` | Variables adicionales, cuando la plantilla las identifique |
-| Impedance / Impedancia | \`impedance\` | Impedancia según segmento y frecuencia |
-| Body Composition History / Historial de Composición Corporal | \`history\` | **No es el examen actual**: requiere extractor histórico separado |
+| Body Composition Analysis / Análisis de la Composición Corporal | `body_composition` | Agua corporal, proteínas, minerales, masa grasa |
+| Muscle-Fat Analysis / Análisis Músculo-Grasa | `muscle_fat` | Peso, masa muscular esquelética, masa grasa |
+| Obesity Analysis / Análisis de Obesidad | `obesity` | IMC, porcentaje de grasa corporal |
+| Segmental Lean Analysis / Análisis de Magro por Segmentos | `segmental_lean` | Masa magra por brazo, pierna y tronco |
+| Segmental Fat Analysis / Análisis de Grasa Segmental | `segmental_fat` | Grasa por segmento y porcentajes de referencia |
+| Research Parameters / Parámetros de investigación | `research` | Variables adicionales, cuando la plantilla las identifique |
+| Impedance / Impedancia | `impedance` | Impedancia según segmento y frecuencia |
+| Body Composition History / Historial de Composición Corporal | `history` | **No es el examen actual**: requiere extractor histórico separado |
 
-Los ejemplos muestran el **contrato deseado de negocio**. La lista de encabezados que reconoce de verdad el prototipo es la de \`OCR_SECTIONS\` en \`section_ai.py\`: aún no hay cobertura de todas las traducciones, variantes y modelos. Un título ausente o mal reconocido hace que la región quede sin clasificar.
+Los ejemplos muestran el **contrato deseado de negocio**. La lista de encabezados que reconoce de verdad el prototipo es la de `OCR_SECTIONS` en `section_ai.py`: aún no hay cobertura de todas las traducciones, variantes y modelos. Un título ausente o mal reconocido hace que la región quede sin clasificar.
 
-Para mejorar la precisión real se necesita asociar cada **medición** a: \`section\`, \`variable_medida\`, \`segmento\`, \`unidad_medida\`, \`valor_medida\`, \`source_bbox\` y evidencia OCR. Actualmente el modelo \`Measurement\` aún **no almacena todos esos campos de trazabilidad por sección**; es trabajo pendiente.
+Para mejorar la precisión real se necesita asociar cada **medición** a: `section`, `variable_medida`, `segmento`, `unidad_medida`, `valor_medida`, `source_bbox` y evidencia OCR. Actualmente el modelo `Measurement` aún **no almacena todos esos campos de trazabilidad por sección**; es trabajo pendiente.
 
 ## 5. Timestamp del encabezado: una regla independiente
 
@@ -127,17 +127,17 @@ La fecha y hora válidas pertenecen a **Test Date / Time** o **Fecha / Hora del 
 
 Ejemplos de formatos impresos:
 
-\`\`\`text
+```text
 Test Date / Time
 04.10.2026. 10:04
-\`\`\`
+```
 
-\`\`\`text
+```text
 Fecha / Hora del test
 26.01.2025. 14:20
-\`\`\`
+```
 
-El parser actual primero intenta leer etiquetas explícitas y usa las coordenadas del encabezado cuando la lectura lineal mezcla columnas. Si falta o no es fiable un campo, debe mostrarse como pendiente de revisión; nunca sustituirlo automáticamente por \`datetime.now()\`, la fecha del correo o la fecha de nacimiento.
+El parser actual primero intenta leer etiquetas explícitas y usa las coordenadas del encabezado cuando la lectura lineal mezcla columnas. Si falta o no es fiable un campo, debe mostrarse como pendiente de revisión; nunca sustituirlo automáticamente por `datetime.now()`, la fecha del correo o la fecha de nacimiento.
 
 La solicitud de **permitir fecha manual solamente cuando OCR falla** es una mejora independiente: debe mostrar cuándo y quién confirmó el timestamp, conservar su procedencia y seguir bloqueando sustituciones silenciosas de una fecha que sí se haya leído correctamente. **No está implementada por el módulo experimental de IA.**
 
@@ -166,16 +166,16 @@ Para cada examen real, registrar manualmente y cotejar con el JPG/PDF original:
 
 | Campo | Ejemplo de esquema (sintético) |
 | --- | --- |
-| \`sample_alias\` | \`case_001\` (sin identificación personal) |
-| \`template_family\` | \`inbody_580\` o \`spanish_silhouette\` |
-| \`section\` | \`muscle_fat\` |
-| \`metric\` | \`skeletal_muscle_mass\` |
-| \`segment\` | \`whole_body\` o nulo según métrica |
-| \`unit\` | \`kg\` |
-| \`expected_value\` | \`35.0\` (valor inventado para ilustrar) |
-| \`expected_exam_timestamp\` | \`2025-01-26T14:20:00\` (ejemplo de formato) |
-| \`source_bbox\` | \`[x0,y0,x1,y1]\` normalizado |
-| \`verified_by\` | Identificador interno del revisor |
+| `sample_alias` | `case_001` (sin identificación personal) |
+| `template_family` | `inbody_580` o `spanish_silhouette` |
+| `section` | `muscle_fat` |
+| `metric` | `skeletal_muscle_mass` |
+| `segment` | `whole_body` o nulo según métrica |
+| `unit` | `kg` |
+| `expected_value` | `35.0` (valor inventado para ilustrar) |
+| `expected_exam_timestamp` | `2025-01-26T14:20:00` (ejemplo de formato) |
+| `source_bbox` | `[x0,y0,x1,y1]` normalizado |
+| `verified_by` | Identificador interno del revisor |
 
 Los datos numéricos deben revisarse por persona antes de convertirse en verdad de referencia. Registrar qué medidas son ilegibles, qué modelos faltan y cuáles exigen tratamiento diferente; no completar faltantes por inferencia.
 
@@ -201,16 +201,16 @@ Medir por **plantilla, métrica y sección**:
 
 Modo experimental, deshabilitado por defecto:
 
-\`\`\`bash
+```bash
 python -m pip install -r requirements.txt
 python -m pip install -r requirements-ai.txt
 ENABLE_AI_SECTION_OCR=1 python app.py
-\`\`\`
+```
 
 **Condiciones:**
-- \`requirements-ai.txt\` incluye PaddlePaddle y PaddleOCR como dependencias **opcionales**. La instalación normal del Space no las contiene.
-- \`PP-DocLayout-S\` se inicializa localmente con \`device="cpu"\` en el prototipo, aun si EasyOCR usa una GPU disponible. No asumir aceleración ni compatibilidad con ZeroGPU.
-- \`app.py\` usa Gradio y EasyOCR; la inicialización y las limitaciones de CPU, GPU, memoria y tiempo deben medirse de forma real.
+- `requirements-ai.txt` incluye PaddlePaddle y PaddleOCR como dependencias **opcionales**. La instalación normal del Space no las contiene.
+- `PP-DocLayout-S` se inicializa localmente con `device="cpu"` en el prototipo, aun si EasyOCR usa una GPU disponible. No asumir aceleración ni compatibilidad con ZeroGPU.
+- `app.py` usa Gradio y EasyOCR; la inicialización y las limitaciones de CPU, GPU, memoria y tiempo deben medirse de forma real.
 - El modelo podrá necesitar descargar sus **pesos** del proveedor; esto no implica enviar imágenes del usuario a un servicio remoto de inferencia. No introducir APIs externas de salud sin evaluación explícita.
 - Con el flag activado y dependencias ausentes, el extractor debe informar error; no afirmar que ejecutó IA con éxito.
 - El modo y sus pruebas se prepararon en una rama; **no está demostrado que la versión publicada en Hugging Face ejecute este componente**.
@@ -233,7 +233,7 @@ Reglas:
 - Detección de regiones del modelo local bajo flag, recorte de imagen, OCR adicional y retorno de bounding boxes a coordenadas originales.
 - Clasificación semántica conservadora mediante los títulos OCR.
 - Exclusión de tokens **adicionales** de recortes de historial y descarte de regiones sin título reconocible.
-- Pruebas sintéticas en \`tests/test_ai_section_ocr.py\` con un detector **simulado**, no el modelo real.
+- Pruebas sintéticas en `tests/test_ai_section_ocr.py` con un detector **simulado**, no el modelo real.
 
 **Aún pendiente (no afirmar que ya funciona):**
 1. Ejecutar el modelo real en un entorno privado compatible con las dependencias y obtener logs de compatibilidad sin PII.
