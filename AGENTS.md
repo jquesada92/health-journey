@@ -1,5 +1,17 @@
 # AGENTS.md — Health Journey
 
+## Invariante de despliegue — arquitectura Gemini (noviembre de 2026)
+
+**IMPORTANTE:** el Space original usaba ZeroGPU y decoradores `@spaces.GPU`.
+La arquitectura actual Gemini Flash usa un servicio remoto, y Gradio no necesita
+GPU local. La asignación de hardware de un Space existente NO cambia al editar
+GitHub, `requirements.txt` o `README.md`. Se debe cambiar el hardware de
+`jaqo/health-journey` a **CPU Basic** mediante su Settings → Hardware antes de
+ejecutar la nueva aplicación. Si se omite, ZeroGPU arroja
+`No @spaces.GPU function detected during startup`. No restaurar decoradores
+GPU ficticios para solucionar esta incompatibilidad.
+
+
 ## Estado vigente — 1 de noviembre de 2026 (PR #38, pendiente de validación E2E)
 
 La interfaz activa de **InBody Hub** es Gradio y usa **Gemini Flash** mediante
