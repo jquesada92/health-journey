@@ -157,6 +157,25 @@ def verify_neon_session(profile: gr.OAuthProfile | None = None) -> str:
 
 OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
+def inspect_report_visual(file_path: str | None):
+    """Inspect only the uploaded report; no persistence or inferred row linkage."""
+    if not file_path:
+        raise gr.Error("Primero carga un reporte.")
+    from inbody_mvp.visual_debug import render_debug
+    try:
+        path = Path(file_path)
+        if not path.is_file() or path.stat().st_size > MAX_UPLOAD_BYTES:
+            raise DocumentError("Archivo inexistente o mayor de 15 MB.")
+        return render_debug(path.name, path.read_bytes(), _ocr_picture)
+    except (DocumentError, RuntimeError) as exc:
+        # Do not render arbitrary private exception details from model runtime.
+        if isinstance(exc, RuntimeError):
+            raise gr.Error("El detector IA no está disponible. Revisa las dependencias opcionales.") from exc
+        raise gr.Error(str(exc)) from exc
+    except Exception as exc:
+        raise gr.Error(f"No se pudo mostrar el diagnóstico ({type(exc).__name__}).") from exc
+
+
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
     if os.getenv("SPACE_ID") and OAUTH_URLS and not anonymous_demo_requested():
@@ -219,6 +238,25 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             label="Una fila por medición; valores sin confirmar",
         )
         gr.Markdown("Los valores, unidades, segmentos y frecuencias deben cotejarse con el documento original.")
+        with gr.Accordion("Visor de segmentación OCR / IA (diagnóstico)", open=False):
+            gr.Markdown(
+                "Visualiza cajas **naranjas** de EasyOCR y, cuando está habilitado el "
+                "modelo experimental, regiones **azules** de IA. "
+                "La tabla muestra evidencias, no asociaciones confirmadas con mediciones. "
+                "No subas documentos con información personal a un Space público."
+            )
+            debug_button = gr.Button("Visualizar regiones detectadas", variant="secondary")
+            debug_status = gr.Markdown("Sin diagnóstico.")
+            debug_gallery = gr.Gallery(label="Páginas con regiones reales", columns=1,
+                                      height=620, object_fit="contain", preview=True)
+            debug_table = gr.Dataframe(
+                headers=["pagina", "origen", "texto_o_region", "confianza", "coordenadas", "nota"],
+                datatype=["number", "str", "str", "number", "str", "str"],
+                interactive=False, label="Trazabilidad de cajas detectadas",
+            )
+            debug_button.click(fn=inspect_report_visual, inputs=[upload],
+                               outputs=[debug_gallery, debug_table, debug_status],
+                               concurrency_limit=1)
         with gr.Accordion("Advertencias y texto extraído", open=False):
             warnings = gr.Textbox(label="Advertencias", lines=5, interactive=False)
             raw = gr.Textbox(label="Texto OCR / PDF", lines=12, interactive=False)
@@ -386,7 +424,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, csv_file, extraction_state,
-                        publication_choice, storage_consent],
+                        publication_choice, storage_consent, debug_gallery, debug_table, debug_status],
                        value="Limpiar")
     with gr.Tab("Dashboard público"):
         gr.Markdown(
