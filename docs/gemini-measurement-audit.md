@@ -1,5 +1,29 @@
 # Gemini Flash: revisión y auditoría por medición
 
+
+## Modelos Gemini y error 404 (noviembre de 2026)
+
+La configuración anterior utilizaba `gemini-2.5-flash`. Google restringe
+el acceso a esa familia para proyectos que no la utilizaban previamente.
+El valor predeterminado nuevo es `gemini-3.8-flash`, compatible con
+imágenes y salidas estructuradas y sujeto al nivel de uso de la clave.
+Si existe `GEMINI_MODEL` como variable de Hugging Face, prevalece su valor
+sobre el predeterminado; revisar Settings → Variables and secrets.
+
+En la interfaz, el acordeón **Diagnóstico de la API de Gemini** ofrece
+**Comprobar modelos disponibles**: consulta `client.models.list()` y filtra
+los modelos Flash con `supported_actions` que incluyen `generateContent`.
+Esta consulta **no envía el documento InBody**. Si Gemini responde HTTP 404,
+la aplicación muestra el modelo solicitado y, si puede recuperarlos,
+los modelos Flash accesibles a esa API key, sin exponer secretos ni datos
+personales. No realiza cambios de modelo ni reintentos facturables de
+forma automática.
+
+La existencia de un modelo en la lista no garantiza cuota ni precio
+gratuito para una cuenta concreta. Revisar condiciones de retención de
+datos del nivel gratuito antes de usar informes identificables.
+
+
 ## Contrato API Gemini para JSON estructurado (corrección 400 INVALID_ARGUMENT)
 
 En `inbody_mvp/gemini_review.py`, `Extraction`, `Header` y `Measurement`
@@ -26,7 +50,7 @@ La pestaña InBody Upload sustituye el visor de secciones por extracción Gemini
 
 ## Configuración
 - Instalar requirements.txt.
-- GEMINI_API_KEY como secreto; GEMINI_MODEL opcional (gemini-2.5-flash por defecto).
+- GEMINI_API_KEY como secreto; GEMINI_MODEL opcional (gemini-3.8-flash por defecto).
 - En Neon privado aplicar migrations/004_gemini_measurement_audit.sql.
 - Configurar DATABASE_URL con SSL, ENABLE_PERSISTENCE=1 y HF_ALLOWED_USERS para Spaces.
 - Evitar cargar documentos identificables en Spaces públicos: Google recibe la imagen.
