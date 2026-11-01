@@ -1,6 +1,18 @@
 -- 005: Consent-based write-only audit endpoint. No private reads, no OAuth.
 -- Install with a privileged Neon migration role and configure a separate
--- health_journey_audit_writer login role (never use admin DATABASE_URL).
+-- health_journey_audit_submit restricted login (never admin DATABASE_URL).
+-- Neon create_postgres_role currently inherits neon_superuser privileges.
+-- Therefore create this role via SQL, without membership in neon_superuser.
+-- Login is disabled until a secure password is set privately (NOT in git).
+DO $role$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_journey_audit_submit') THEN
+        CREATE ROLE health_journey_audit_submit NOLOGIN
+          NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+    END IF;
+END
+$role$;
+
 CREATE OR REPLACE FUNCTION public.hj_submit_reviewed_audit(p_payload jsonb)
 RETURNS uuid
 LANGUAGE plpgsql
@@ -101,8 +113,8 @@ $$;
 
 -- PUBLIC must not be able to invoke the definer function.
 REVOKE ALL ON FUNCTION public.hj_submit_reviewed_audit(jsonb) FROM PUBLIC;
-GRANT USAGE ON SCHEMA public TO health_journey_audit_writer;
+GRANT USAGE ON SCHEMA public TO health_journey_audit_submit;
 GRANT EXECUTE ON FUNCTION public.hj_submit_reviewed_audit(jsonb)
-    TO health_journey_audit_writer;
+    TO health_journey_audit_submit;
 REVOKE ALL ON public.hj_extraction_audits, public.hj_measurement_audits
-    FROM health_journey_audit_writer;
+    FROM health_journey_audit_submit;
