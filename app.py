@@ -100,20 +100,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             fn=diagnose_zerogpu, outputs=[gpu_diagnostic_result], concurrency_limit=1
         )
 
-    if os.getenv("SPACE_ID") and OAUTH_URLS and not anonymous_demo_requested():
-        gr.HTML(
-            '<div style="padding:0.4rem 0">'
-            '¿Necesitas guardar en Neon? Evita la pantalla blanca del login incrustado: '
-            f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
-            'rel="noopener noreferrer">Iniciar sesión en pestaña nueva</a>. '
-            f'<a href="{OAUTH_URLS["app"]}" target="_blank" '
-            'rel="noopener noreferrer">Abrir aplicación independiente</a>.'
-            '</div>'
-        )
     with gr.Tab("InBody Upload"):
         from inbody_mvp.gemini_review import (
             COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
             save_audit, check_gemini_models, render_document_preview,
+            audit_write_enabled,
         )
         gr.Markdown(
             "### InBody Hub · Gemini Flash\n"
@@ -123,13 +114,27 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "**Privacidad:** en un Space público, utiliza únicamente reportes anonimizados. "
             "Gemini procesa la imagen en el servicio de Google."
         )
+        gr.Markdown(
+            "### Consentimientos del examen\n"
+            "Selecciona independientemente dónde autorizas enviar los datos. "
+            "No se necesita iniciar sesión para guardar una auditoría. "
+            "**En un Space público utiliza solo documentos anonimizados.**"
+        )
+        with gr.Row():
+            gemini_consent_remote = gr.Checkbox(
+                label="Autorizo enviar el documento a Google Gemini",
+                value=False,
+            )
+            gemini_consent = gr.Checkbox(
+                label="Autorizo guardar las mediciones revisadas en Neon",
+                value=False,
+            )
         gemini_upload = gr.File(
             label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
             type="filepath",
         )
         gemini_upload_state = gr.State(value=None)
         gemini_snapshot = gr.State(value=None)
-        gemini_consent_remote = gr.Checkbox(label="Autorizo enviar este documento a Google Gemini para su extracción", value=False, info="Google procesará el contenido del documento; usa solo archivos anonimizados en QA.")
         with gr.Accordion("Diagnóstico de la API de Gemini", open=False):
             gr.Markdown(
                 "Comprueba qué modelos Flash permite tu API key. "
@@ -191,15 +196,18 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         gr.Markdown(
             "### Guardar auditoría en Neon\n"
-            "El guardado requiere autenticación autorizada, consentimiento y la "
-            "migración SQL 004. Se conserva el valor original y el final, el "
-            "comentario y si hubo corrección. El historial/dashboard existente "
-            "no se modifica automáticamente en esta etapa."
+            "Se utiliza el consentimiento marcado al inicio y una conexión "
+            "restringida de solo escritura. No se requiere login para enviar, "
+            "pero el historial privado continúa protegido."
         )
-        gemini_consent = gr.Checkbox(label="Autorizo guardar la auditoría privada en Neon", value=False)
+        if not audit_write_enabled():
+            gr.Markdown(
+                "El guardado requiere configurar el Secret `AUDIT_DATABASE_URL` "
+                "y `ENABLE_ANONYMOUS_AUDIT=1`. No uses DATABASE_URL de administrador."
+            )
         gemini_save = gr.Button(
             "Guardar mediciones revisadas y auditoría",
-            interactive=database_enabled(), variant="primary",
+            interactive=audit_write_enabled(), variant="primary",
         )
         gemini_save_status = gr.Markdown()
         gemini_save.click(
@@ -330,6 +338,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             concurrency_limit=1,
         )
     with gr.Tab("Historial en Neon"):
+        if os.getenv("SPACE_ID") and OAUTH_URLS:
+            gr.HTML(
+                "El historial privado sí requiere una sesión autorizada. "
+                f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
+                'rel="noopener noreferrer">Iniciar sesión</a>.'
+            )
         if anonymous_demo_requested():
             gr.Markdown(
                 "**Historial privado deshabilitado en demostración.** "
