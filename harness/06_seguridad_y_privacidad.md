@@ -1,5 +1,22 @@
 # 06 — Seguridad, privacidad y control de acceso
 
+
+## Envío a Gemini y auditoría (actualizado)
+
+La carga a Google Gemini requiere consentimiento **por documento**, separado
+del consentimiento de guardar en Neon. El Space público solo puede usarse con
+documentos sintéticos o anonimizados. Nunca registrar imágenes, IDs,
+JSON bruto, textos extraídos ni credenciales en logs de CI. Verificar la
+política de retención y uso de datos del nivel de API elegido.
+
+Las nuevas tablas de auditoría contienen información identificable
+(`person_id`, `filename`, `raw_response`) y deben permanecer privadas.
+El método de guardado valida OAuth + `HF_ALLOWED_USERS`, pero también es
+necesario restringir en PostgreSQL los permisos efectivos del rol de aplicación;
+no conceder acceso al rol público ni al rol de demostración. El proyecto
+actual no tiene la opción HIPAA activada: no asumir certificación clínica.
+
+
 > **Categoría de información:** los exámenes de composición corporal y sus identificadores son datos personales de salud/bienestar potencialmente sensibles. El prototipo no debe interpretarse como una plataforma clínica aprobada.
 
 ## 1. Amenazas principales
