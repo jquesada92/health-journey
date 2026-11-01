@@ -100,3 +100,30 @@ Una historia se cierra solo si:
 7. Evidencia del PR y un responsable que confirma la salida.
 
 **Regla final:** el estado `PENDIENTE` de una prueba bloqueante no debe convertirse en `APROBADO` porque se creó un botón o una función.
+
+## 7. Criterios experimentales de IA por secciones
+
+**Importante:** el resultado de pruebas sintéticas confirma la lógica de
+integración, **no** la precisión de PaddleOCR sobre los JPG personales.
+Aplicar [el protocolo de evaluación](../docs/ocr-secciones-ia.md#7-evaluación-de-precisión-definir-primero-la-verdad-de-referencia).
+
+| ID | Condición para aprobar | Estado inicial |
+| --- | --- | --- |
+| IA-01 | Detector real produce cajas válidas en muestras anonimizadas de varios modelos InBody | PENDIENTE |
+| IA-02 | EasyOCR regional conserva coordenadas absolutas y etiqueta semántica con evidencia visual | PARCIAL — test sintético |
+| IA-03 | Métricas por sección: valor, unidad, segmento y frecuencia coinciden con ground truth | PENDIENTE |
+| IA-04 | Ningún eje ni punto del historial global es almacenado como examen actual | PENDIENTE |
+| IA-05 | Fecha/hora del encabezado no se confunden con DOB; no se inventan valores | PENDIENTE en conjunto real |
+| IA-06 | Layout + OCR supera baseline en exact match sin elevar falsos positivos críticos | PENDIENTE |
+| IA-07 | Recursos de CPU/GPU, latencia p95 y compatibilidad de ZeroGPU verificados | PENDIENTE |
+| IA-08 | Revisión humana, permisos, consentimiento y protección de datos no se degradan | PENDIENTE E2E |
+
+Para comprobar IA-03 e IA-06 construir un ground truth privado para cada
+uno de los 22 reportes de referencia: alias interno, modelo, sección, código,
+unidad, valor, segmento, timestamp y posición. Revisar cifras directamente
+de la imagen original; no utilizar resultados OCR como verdad de referencia.
+Comparar baseline, modelo visual y un posible VLM **solo si éste se implementa**.
+Registrar errores por sección y modelos incompatibles, además de promedios.
+
+**No activar el modo experimental en producción ni considerar exactos los datos
+de Neon hasta satisfacer los criterios de calidad y privacidad.**

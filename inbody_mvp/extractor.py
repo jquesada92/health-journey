@@ -22,6 +22,9 @@ from .language import ReportLanguage, detect_report_language
 from .layouts import (extract_header_exam_timestamp, extract_inbody580,
                       normalize_detections, tokens_to_text)
 from .layouts_es import extract_spanish_silhouette
+from .section_ai import (
+    ai_sections_requested, inspect_sections, merge_section_ocr,
+)
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_PAGES = 8
@@ -340,7 +343,26 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
 
     def read_ocr(image: Image.Image, page_number: int) -> str:
         try:
+            # The optional pretrained layout model detects table/chart regions
+            # before OCR. A second OCR pass sees each labeled section separately.
+            # The legacy page OCR remains the baseline, and never trusts history
+            # chart values as an exam's current measurement.
+            section_results = (
+                inspect_sections(image, ocr_engine)
+                if ai_sections_requested() else []
+            )
             answer = ocr_engine(image)
+            if section_results and isinstance(answer, list):
+                answer, section_notices = merge_section_ocr(
+                    answer, section_results,
+                )
+                notices.extend(section_notices)
+        except RuntimeError as exc:
+            raise DocumentError(
+                "Modelo de secciones IA no disponible. Instala las "
+                "dependencias de requirements-ai.txt o desactiva "
+                "ENABLE_AI_SECTION_OCR."
+            ) from exc
         except DocumentError:
             raise
         except Exception as exc:
