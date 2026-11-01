@@ -6,7 +6,7 @@ from pathlib import Path
 def test_capture_button_is_explicit_and_before_validate():
     source = Path("app.py").read_text(encoding="utf-8")
     ast.parse(source)
-    assert 'capture_sections_button = gr.Button("Capturar nuevas secciones y correcciones"' in source
+    assert 'capture_sections_button = gr.Button("Actualizar secciones"' in source
     assert source.index("capture_sections_button.click(") < source.index("validate_sections_button.click(")
     assert "outputs=[regions_table, approved_state, region_status]" in source
 
