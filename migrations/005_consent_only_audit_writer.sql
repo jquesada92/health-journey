@@ -1,26 +1,25 @@
--- 005: Consent-based write-only audit endpoint. No private reads, no OAuth.
--- Install with a privileged Neon migration role and configure a separate
--- health_journey_audit_submit restricted login (never admin DATABASE_URL).
--- Neon create_postgres_role currently inherits neon_superuser privileges.
--- Therefore create this role via SQL, without membership in neon_superuser.
--- Login is disabled until a secure password is set privately (NOT in git).
-DO $role$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_journey_audit_submit') THEN
-        CREATE ROLE health_journey_audit_submit NOLOGIN
-          NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
-    END IF;
-END
-$role$;
+-- 005: Consent-only Gemini audit using existing DEMO_DATABASE_URL role.
+-- The report ID is private and different separators for the same numeric
+-- ID map to a stable random UUID alias. No raw IDs are published.
+CREATE TABLE IF NOT EXISTS public.hj_person_aliases (
+    normalized_person_id text PRIMARY KEY,
+    anonymous_id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.hj_extraction_audits
+    ADD COLUMN IF NOT EXISTS anonymous_id uuid
+    REFERENCES public.hj_person_aliases(anonymous_id);
 
 CREATE OR REPLACE FUNCTION public.hj_submit_reviewed_audit(p_payload jsonb)
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public
+SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
     v_id uuid;
+    v_anonymous_id uuid;
+    v_person_key text;
     v_row jsonb;
     v_items jsonb;
     v_count integer;
@@ -51,12 +50,28 @@ BEGIN
         RAISE EXCEPTION 'Invalid age';
     END IF;
 
+    -- Keep the original label for private audit, normalize only for linkage.
+    -- 88571257 and 8-857-1257 must reference the same random alias.
+    IF btrim(p_payload->>'person_id') ~ '^[0-9[:space:]-]+$' THEN
+        v_person_key := regexp_replace(p_payload->>'person_id', '[^0-9]', '', 'g');
+    ELSE
+        v_person_key := upper(btrim(p_payload->>'person_id'));
+    END IF;
+    IF length(v_person_key) NOT BETWEEN 1 AND 128 THEN
+        RAISE EXCEPTION 'Invalid normalized person ID';
+    END IF;
+    INSERT INTO public.hj_person_aliases(normalized_person_id)
+    VALUES (v_person_key)
+    ON CONFLICT (normalized_person_id)
+      DO UPDATE SET normalized_person_id = excluded.normalized_person_id
+    RETURNING anonymous_id INTO v_anonymous_id;
+
     INSERT INTO public.hj_extraction_audits
-        (source_sha256, filename, person_id, exam_datetime, age,
+        (source_sha256, filename, person_id, anonymous_id, exam_datetime, age,
          model_name, raw_response)
     VALUES
         (p_payload->>'source_sha256', p_payload->>'filename',
-         p_payload->>'person_id', (p_payload->>'exam_datetime')::timestamp,
+         p_payload->>'person_id', v_anonymous_id, (p_payload->>'exam_datetime')::timestamp,
          (p_payload->>'age')::integer, p_payload->>'model_name',
          p_payload->'raw_response')
     RETURNING extraction_id INTO v_id;
@@ -113,8 +128,30 @@ $$;
 
 -- PUBLIC must not be able to invoke the definer function.
 REVOKE ALL ON FUNCTION public.hj_submit_reviewed_audit(jsonb) FROM PUBLIC;
-GRANT USAGE ON SCHEMA public TO health_journey_audit_submit;
+GRANT USAGE ON SCHEMA public TO health_journey_demo_writer;
 GRANT EXECUTE ON FUNCTION public.hj_submit_reviewed_audit(jsonb)
-    TO health_journey_audit_submit;
-REVOKE ALL ON public.hj_extraction_audits, public.hj_measurement_audits
-    FROM health_journey_audit_submit;
+    TO health_journey_demo_writer;
+
+REVOKE ALL ON public.hj_extraction_audits, public.hj_measurement_audits,
+    public.hj_person_aliases FROM health_journey_demo_writer;
+
+-- Private pseudonymous view: never grant to PUBLIC or public dashboard role.
+-- Storing an exam does not authorize publishing personal health records.
+CREATE OR REPLACE VIEW public.hj_audit_reviewed_private
+WITH (security_barrier=true) AS
+SELECT e.anonymous_id,
+       e.exam_datetime::date AS exam_date,
+       m.section, m.measurement, m.final_value AS value,
+       m.final_unit AS unit, m.was_corrected
+FROM public.hj_extraction_audits e
+JOIN public.hj_measurement_audits m USING (extraction_id)
+WHERE e.anonymous_id IS NOT NULL;
+REVOKE ALL ON public.hj_audit_reviewed_private FROM PUBLIC;
+REVOKE ALL ON public.hj_audit_reviewed_private FROM health_journey_demo_writer;
+-- Only existing private application roles, which enforce user authorization,
+-- can resolve the alias and query individual review history.
+GRANT SELECT ON public.hj_person_aliases,
+    public.hj_audit_reviewed_private
+    TO health_journey_app, health_journey_runtime;
+
+

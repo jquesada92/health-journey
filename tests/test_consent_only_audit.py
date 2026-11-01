@@ -42,13 +42,13 @@ def sample():
 def test_no_anonymous_write_without_restricted_role(monkeypatch):
     monkeypatch.setenv("ENABLE_ANONYMOUS_AUDIT", "1")
     monkeypatch.setenv(
-        "AUDIT_DATABASE_URL",
+        "DEMO_DATABASE_URL",
         "postgresql://admin:fake@localhost/health_journey?sslmode=require",
     )
     assert not audit.audit_write_enabled()
     monkeypatch.setenv(
-        "AUDIT_DATABASE_URL",
-        "postgresql://health_journey_audit_submit:fake@localhost/health_journey?sslmode=require",
+        "DEMO_DATABASE_URL",
+        "postgresql://health_journey_demo_writer:fake@localhost/health_journey?sslmode=require",
     )
     assert audit.audit_write_enabled()
     monkeypatch.delenv("ENABLE_ANONYMOUS_AUDIT")
@@ -64,8 +64,8 @@ def test_consent_rejected_before_database_connection(monkeypatch, sample):
 def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sample):
     monkeypatch.setenv("ENABLE_ANONYMOUS_AUDIT", "1")
     monkeypatch.setenv(
-        "AUDIT_DATABASE_URL",
-        "postgresql://health_journey_audit_submit:synthetic@host/health_journey?sslmode=require",
+        "DEMO_DATABASE_URL",
+        "postgresql://health_journey_demo_writer:synthetic@host/health_journey?sslmode=require",
     )
     table, snapshot = sample
     table.at[0, "value"] = "8.02"
@@ -104,15 +104,20 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
     assert payload["model_name"] == "synthetic-flash"
 
 
-def test_migration_uses_sql_created_non_admin_role_and_no_table_grants():
+def test_migration_reuses_existing_demo_role_without_private_table_grants():
     content = (ROOT / "migrations/005_consent_only_audit_writer.sql").read_text()
-    assert "CREATE ROLE health_journey_audit_submit NOLOGIN" in content
-    assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT" in content
+    assert "CREATE ROLE " not in content
     assert "SECURITY DEFINER" in content
     assert "REVOKE ALL ON FUNCTION public.hj_submit_reviewed_audit(jsonb) FROM PUBLIC" in content
     assert "GRANT EXECUTE ON FUNCTION public.hj_submit_reviewed_audit(jsonb)" in content
+    assert "TO health_journey_demo_writer;" in content
     assert "REVOKE ALL ON public.hj_extraction_audits" in content
-    assert "GRANT SELECT" not in content
+    assert "GRANT SELECT ON public.hj_person_aliases" in content
+    assert "TO health_journey_app, health_journey_runtime;" in content
+    assert "TO health_journey_demo_writer;" in content  # function EXECUTE only
+    assert "GRANT SELECT ON public.hj_person_aliases TO health_journey_demo_writer" not in content
+    assert "GRANT SELECT ON public.hj_audit_reviewed_private TO health_journey_public" not in content
+    assert "REVOKE ALL ON public.hj_audit_reviewed_private FROM PUBLIC" in content
 
 
 def test_both_consents_at_start_and_login_only_for_history():

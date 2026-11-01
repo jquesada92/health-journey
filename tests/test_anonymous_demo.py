@@ -145,12 +145,12 @@ def test_public_demo_view_and_database_role_are_restricted():
     assert "FROM public.hj_measurements" not in migration
 
 
-def test_gemini_audit_does_not_use_demo_writer():
+def test_gemini_audit_uses_restricted_demo_writer_without_legacy_demo_callback():
     app = (ROOT / "app.py").read_text()
     gemini = (ROOT / "inbody_mvp/gemini_review.py").read_text()
     assert "gemini_consent = gr.Checkbox(" in app
     assert "save_audit" in app
     assert "save_demo_exam" not in gemini
     assert "hj_submit_reviewed_audit" in gemini
-    assert "AUDIT_DATABASE_URL" in gemini
+    assert "DEMO_DATABASE_URL" in gemini
     assert "require_database_access(profile)" not in gemini
