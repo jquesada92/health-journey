@@ -80,8 +80,11 @@ def _measurement_key(row: ReviewedRow) -> str:
         name = f"sin_clasificar__{suffix or 'medicion_desconocida'}"
     if row.segmento:
         name += "__" + re.sub(r"[^a-zA-Z0-9_]+", "_", row.segmento.strip().lower()).strip("_")
-    if row.frecuencia_khz is not None:
-        name += f"__{row.frecuencia_khz:g}khz"
+    # Frequency already embedded in the variable name in the review table.
+    # Keep it after the segment for backwards-compatible export keys.
+    match = re.search(r"__(\\d+(?:\\.\\d+)?)khz$", name)
+    if match and row.segmento:
+        name = name[:match.start()] + name[match.end():] + f"__{match.group(1)}khz"
     return name
 
 
