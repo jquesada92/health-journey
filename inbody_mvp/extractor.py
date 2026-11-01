@@ -347,10 +347,17 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
             # before OCR. A second OCR pass sees each labeled section separately.
             # The legacy page OCR remains the baseline, and never trusts history
             # chart values as an exam's current measurement.
-            section_results = (
-                inspect_sections(image, ocr_engine)
-                if ai_sections_requested() else []
-            )
+            section_results = []
+            if ai_sections_requested():
+                try:
+                    section_results = inspect_sections(image, ocr_engine)
+                except Exception:
+                    # Optional experimental layout failure must not block baseline OCR.
+                    # Do not include private model exceptions in user-visible messages.
+                    notices.append(
+                        "Detector de secciones IA no disponible en esta ejecución; "
+                        "se utilizó únicamente OCR convencional. Revisa el entorno experimental."
+                    )
             answer = ocr_engine(image)
             if section_results and isinstance(answer, list):
                 answer, section_notices = merge_section_ocr(
