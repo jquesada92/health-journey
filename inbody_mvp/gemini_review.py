@@ -123,7 +123,6 @@ def extract_gemini(upload_state, consent=False):
     try:
         from google import genai
         from google.genai import types
-        from google.genai.errors import ClientError, ServerError
         name, data = upload_state["filename"], upload_state["data"]
         pages = _pages(name, data)
         client = genai.Client(api_key=api_key)
@@ -160,11 +159,16 @@ def extract_gemini(upload_state, consent=False):
         if result.missing_or_unreadable:
             message += " Campos ilegibles: " + ", ".join(result.missing_or_unreadable)
         return frame, snapshot, message
-    except (ClientError, ServerError) as exc:
-        # The HTTP code is sufficient for safe troubleshooting. Do not expose
-        # exc.message / exc.details; they may contain request information.
-        raise _ui_error(gemini_api_error_message(exc.code)) from None
     except Exception as exc:
+        # Identify errors from the SDK without importing it at module load.
+        # This also handles a missing SDK dependency cleanly.
+        kind = type(exc)
+        if kind.__module__.startswith("google.genai") and kind.__name__ in (
+            "ClientError", "ServerError"
+        ):
+            # Avoid surfacing exc.message or exc.details, which may include
+            # raw request information or document content.
+            raise _ui_error(gemini_api_error_message(getattr(exc, "code", None))) from None
         raise _ui_error(f"No se pudo extraer el reporte ({type(exc).__name__}).") from None
 
 def _string(value):
