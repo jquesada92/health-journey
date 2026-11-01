@@ -87,3 +87,18 @@ def preview_regions(filename, data, table, metadata):
             draw.text((box[0], max(0, box[1]-14)), entry["section"], fill="#16a34a")
         output.append(image)
     return output
+
+
+def preview_proposals(filename, data, rows):
+    """Draw all raw AI proposals, including ones not yet classified."""
+    output = []
+    for page, image in _pages(filename, data):
+        draw = ImageDraw.Draw(image)
+        for index, row in enumerate(rows, start=1):
+            if int(row[0]) != page:
+                continue
+            box = tuple(int(v) for v in row[2:6])
+            draw.rectangle(box, outline="#2563eb", width=4)
+            draw.text((box[0], max(0, box[1]-14)), f"Region {index}", fill="#2563eb")
+        output.append(image)
+    return output
