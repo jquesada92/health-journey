@@ -113,7 +113,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
     with gr.Tab("InBody Upload"):
         from inbody_mvp.gemini_review import (
             COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
-            save_audit,
+            save_audit, check_gemini_models,
         )
         gr.Markdown(
             "### InBody Hub · Gemini Flash\n"
@@ -132,6 +132,16 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gemini_upload.change(
             fn=snapshot_upload, inputs=[gemini_upload], outputs=[gemini_upload_state],
         ).then(fn=lambda: (None, False), outputs=[gemini_snapshot, gemini_consent_remote])
+        with gr.Accordion("Diagnóstico de la API de Gemini", open=False):
+            gr.Markdown(
+                "Comprueba qué modelos Flash permite tu API key. "
+                "No se envían imágenes ni reportes en esta consulta."
+            )
+            gemini_models_button = gr.Button("Comprobar modelos disponibles")
+            gemini_models_status = gr.Markdown()
+            gemini_models_button.click(
+                fn=check_gemini_models, outputs=[gemini_models_status],
+            )
         gemini_extract = gr.Button("Extraer mediciones con Gemini Flash", variant="primary")
         gemini_status = gr.Markdown("Pendiente de extracción.")
         gr.Markdown(
