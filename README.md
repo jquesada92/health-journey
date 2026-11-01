@@ -8,6 +8,27 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Configuración de Hugging Face Spaces
+
+Las cinco **Variables** y los cuatro **Secrets** utilizados por Health Journey
+están explicados en la [guía de Variables y Secrets](docs/hugging-face-variables-y-secrets.md).
+Incluye propósito, formatos, dependencias, roles SQL, consentimiento,
+privacidad y diagnóstico de errores, sin publicar valores confidenciales.
+
+**Resumen:** `ENABLE_PERSISTENCE` habilita el camino privado heredado;
+`HF_ALLOWED_USERS` restringe usuarios OAuth; `ENABLE_PUBLIC_DASHBOARD`
+habilita lecturas desde vistas públicas; `ENABLE_ANONYMOUS_DEMO` habilita
+tanto el demo como las auditorías Gemini consentidas mediante el rol
+restringido de `DEMO_DATABASE_URL`. `GEMINI_MODEL` selecciona el
+modelo principal, mientras que `GEMINI_API_KEY` permanece en Secrets.
+
+Los cuatro Secrets son `DATABASE_URL` (privado),
+`PUBLIC_DATABASE_URL` (solo lectura pública), `DEMO_DATABASE_URL`
+(escritura limitada) y `GEMINI_API_KEY` (API de Google).
+**No guardar credenciales reales en GitHub.**
+
+
+
 ## Identidad InBody: vinculación privada y seudónimo en consultas
 
 Un ID numérico con separadores, por ejemplo `88571257` y
