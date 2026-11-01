@@ -568,11 +568,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 lambda item: (
                     str(item["device_group"])
                     + " · " + str(item["segmento"] or "Cuerpo completo")
-                    + " · " + (
-                        f'{item["frecuencia_khz"]:g} kHz'
-                        if pd.notna(item["frecuencia_khz"])
-                        else "Frecuencia no indicada"
-                    )
+                    + " · " + str(item["variable_medida"])
                 ),
                 axis=1,
             )
