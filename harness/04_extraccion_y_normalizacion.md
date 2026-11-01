@@ -85,3 +85,32 @@ El usuario puede corregir el idioma antes de guardar. Persistir la selección re
 5. Probar que **no** detecta otras plantillas por error.
 6. Realizar prueba manual en entorno privado con consentimiento y anonimización, anotar límites y crear regresiones **sintéticas**.
 7. Mantener soporte previo y no degradar los tests existentes.
+
+## 9. Detección visual de secciones antes de OCR (experimento)
+
+**Documento de referencia obligatorio:** [Arquitectura de IA por secciones](../docs/ocr-secciones-ia.md).
+
+La visión por computador no interpreta automáticamente las mediciones de
+salud. El prototipo `inbody_mvp/section_ai.py` usa un modelo preentrenado
+`PP-DocLayout-S` para proponer **rectángulos genéricos de tabla/texto/gráfico**
+y después vuelve a aplicar EasyOCR en recortes. La **clasificación semántica**
+actual utiliza los títulos textuales de las regiones, no un VLM ni un
+clasificador InBody entrenado con nuestros reportes.
+
+**Contrato de salida:** conservar por medición la sección de origen, etiqueta,
+posición y confianza OCR; antes de cerrar la implementación, extender los
+modelos para evidenciar `section`, `source_bbox` y `extraction_method`.
+No confundir probabilidad de detección de una región con certeza de un valor.
+
+**Estado real:** la IA es opcional (flag `ENABLE_AI_SECTION_OCR`
+desactivado). La reconciliación agrega o mejora tokens por posición y confianza,
+pero la extracción de métricas sigue dependiendo de parsers preexistentes.
+La exclusión del OCR regional de `history` aún **no elimina de manera
+exhaustiva las cifras históricas del OCR global**. No declarar este criterio
+cumplido sin pruebas específicas.
+
+**Próximo diseño:** convertir los parsers a entradas explícitas por sección,
+separar encabezado y cada tabla, y bloquear cualquier valor que dependa de ejes
+históricos o corresponda a una unidad/segmento diferente. Evaluar un VLM
+documental solamente después de comparar el baseline con layout + OCR.
+Nunca publicar ni guardar sin revisión y consentimiento.
