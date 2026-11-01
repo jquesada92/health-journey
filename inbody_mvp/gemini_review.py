@@ -86,6 +86,32 @@ def _ui_error(message: str):
     return gr.Error(message)
 
 
+def gemini_api_error_message(code: int | None) -> str:
+    """Provide actionable HTTP diagnostics without exposing remote error payloads.
+
+    Google error messages can contain request details, so never display
+    exception.message, exception.details, API keys or document content.
+    """
+    try:
+        http_code = int(code) if code is not None else 0
+    except (ValueError, TypeError):
+        http_code = 0
+    advice = {
+        400: "Solicitud rechazada. Comprueba el modelo y la compatibilidad del esquema JSON.",
+        401: "Credenciales no autorizadas. Comprueba GEMINI_API_KEY en los secretos de Hugging Face.",
+        403: "Acceso denegado. Comprueba permisos, restricciones de la clave y disponibilidad regional.",
+        404: "Modelo no encontrado o no accesible. Revisa GEMINI_MODEL y los modelos habilitados.",
+        413: "Documento demasiado grande para la API. Prueba una imagen o PDF más pequeño.",
+        429: "Cuota o límite de solicitudes alcanzado. Revisa los límites en Google AI Studio.",
+        500: "Error interno temporal de la API de Gemini. Reintenta más adelante.",
+        502: "Error temporal de comunicación con Gemini. Reintenta más adelante.",
+        503: "Servicio Gemini temporalmente no disponible. Reintenta más adelante.",
+        504: "Gemini agotó el tiempo de respuesta. Prueba menos páginas.",
+    }.get(http_code, "La API rechazó o no pudo completar la solicitud. Revisa el servicio y su configuración.")
+    code_label = f"HTTP {http_code}" if http_code else "HTTP desconocido"
+    return f"Gemini ({code_label}): {advice}"
+
+
 def extract_gemini(upload_state, consent=False):
     if not upload_state:
         raise _ui_error("Primero carga un documento.")
@@ -105,7 +131,10 @@ def extract_gemini(upload_state, consent=False):
             contents=[PROMPT, *pages],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=Extraction,
+                # Use JSON Schema instead of OpenAPI response_schema.
+                # Pydantic extra="forbid" emits additionalProperties=false;
+                # the OpenAPI endpoint rejects it as "additional_properties".
+                response_json_schema=Extraction.model_json_schema(),
                 temperature=0,
             ),
         )
@@ -134,7 +163,16 @@ def extract_gemini(upload_state, consent=False):
             message += " Campos ilegibles: " + ", ".join(result.missing_or_unreadable)
         return frame, snapshot, message
     except Exception as exc:
-        raise _ui_error(f"No se pudo extraer el reporte ({type(exc).__name__}).") from exc
+        # Identify errors from the SDK without importing it at module load.
+        # This also handles a missing SDK dependency cleanly.
+        kind = type(exc)
+        if kind.__module__.startswith("google.genai") and kind.__name__ in (
+            "ClientError", "ServerError"
+        ):
+            # Avoid surfacing exc.message or exc.details, which may include
+            # raw request information or document content.
+            raise _ui_error(gemini_api_error_message(getattr(exc, "code", None))) from None
+        raise _ui_error(f"No se pudo extraer el reporte ({type(exc).__name__}).") from None
 
 def _string(value):
     if value is None:
