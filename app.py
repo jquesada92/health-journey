@@ -182,16 +182,14 @@ def verify_neon_session(profile: gr.OAuthProfile | None = None) -> str:
 
 OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
-def inspect_report_visual(file_path: str | None):
+def inspect_report_visual(upload_state):
     """Inspect only the uploaded report; no persistence or inferred row linkage."""
-    if not file_path:
+    if not upload_state:
         raise gr.Error("Primero carga un reporte.")
     from inbody_mvp.visual_debug import render_debug
     try:
-        path = Path(file_path)
-        if not path.is_file() or path.stat().st_size > MAX_UPLOAD_BYTES:
-            raise DocumentError("Archivo inexistente o mayor de 15 MB.")
-        return render_debug(path.name, path.read_bytes(), _ocr_picture)
+        filename, data = report_from_snapshot(upload_state)
+        return render_debug(filename, data, _ocr_picture)
     except (DocumentError, RuntimeError) as exc:
         # Do not render arbitrary private exception details from model runtime.
         if isinstance(exc, RuntimeError):
@@ -349,7 +347,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 datatype=["number", "str", "str", "number", "str", "str"],
                 interactive=False, label="Trazabilidad de cajas detectadas",
             )
-            debug_button.click(fn=inspect_report_visual, inputs=[upload],
+            debug_button.click(fn=inspect_report_visual, inputs=[upload_snapshot],
                                outputs=[debug_gallery, debug_table, debug_status],
                                concurrency_limit=1)
         with gr.Accordion("Advertencias y texto extraído", open=False):
