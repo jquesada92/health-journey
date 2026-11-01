@@ -26,6 +26,9 @@ from inbody_mvp.extractor import (
     DocumentError, MAX_UPLOAD_BYTES, extract_document,
 )
 from inbody_mvp.review import REVIEW_COLUMNS, export_draft_csv, review_table
+from inbody_mvp.gemini_review import (
+    SUGGESTION_COLUMNS, gemini_review_enabled, review_with_gemini,
+)
 from inbody_mvp.public_dashboard import (
     PUBLIC_METRICS, public_dashboard_enabled,
     load_public_monthly_summary, load_public_person_series,
@@ -255,6 +258,21 @@ def approve_report_sections(upload_state, editor_value, metadata):
         raise gr.Error(str(exc)) from exc
 
 
+def compare_gemini_suggestions(upload_state, consent, selected_model):
+    """External review of ANONYMIZED reports only; never writes to Neon."""
+    try:
+        filename, data = report_from_snapshot(upload_state)
+        suggestions = review_with_gemini(
+            filename, data, consent=consent, model=selected_model,
+        )
+        return suggestions, (
+            f"Gemini devolvió {len(suggestions)} candidatos sin confirmar. "
+            "Compáralos con el documento. No se agregan automáticamente a las medidas."
+        )
+    except (DocumentError, PermissionError, ValueError, RuntimeError) as exc:
+        raise gr.Error(str(exc)) from exc
+
+
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
     if os.getenv("SPACE_ID") and OAUTH_URLS and not anonymous_demo_requested():
@@ -387,6 +405,41 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                      table, raw, warnings, extraction_state],
             concurrency_limit=1,
         )
+        if gemini_review_enabled():
+            with gr.Accordion("Comparación opcional con Gemini (servicio externo)", open=False):
+                gr.Markdown(
+                    "**Solo para PDF/JPG/PNG anonimizados.** Este botón enviará "
+                    "el documento a Google, nunca de manera automática. El nivel "
+                    "gratuito de Gemini puede utilizar los datos para mejorar "
+                    "productos de Google y está sujeto a cuotas. Los resultados "
+                    "son candidatos: no se guardan ni reemplazan la extracción local."
+                )
+                gemini_consent = gr.Checkbox(
+                    label="Confirmo que eliminé nombres, identificadores y datos personales, y autorizo enviar este archivo a Google",
+                    value=False,
+                )
+                gemini_model = gr.Dropdown(
+                    choices=["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+                    value="gemini-2.5-flash", label="Modelo de comparación",
+                )
+                gemini_button = gr.Button("Comparar mediciones con Gemini", variant="secondary")
+                gemini_comparison_status = gr.Markdown("No se ha solicitado una comparación.")
+                gemini_suggestions = gr.Dataframe(
+                    headers=SUGGESTION_COLUMNS,
+                    datatype=["str", "str", "str", "str", "str", "number", "str"],
+                    interactive=False,
+                    label="Sugerencias independientes (valor_original conserva decimales)",
+                )
+                gemini_button.click(
+                    fn=compare_gemini_suggestions,
+                    inputs=[upload_snapshot, gemini_consent, gemini_model],
+                    outputs=[gemini_suggestions, gemini_comparison_status],
+                    concurrency_limit=1,
+                )
+                upload.change(
+                    fn=lambda: (False, [], "No se ha solicitado una comparación."),
+                    outputs=[gemini_consent, gemini_suggestions, gemini_comparison_status],
+                )
         gr.Markdown("### 5. Guardar en Neon PostgreSQL")
         storage_consent = gr.Checkbox(
             label="Acepto almacenar las mediciones revisadas en Neon",
