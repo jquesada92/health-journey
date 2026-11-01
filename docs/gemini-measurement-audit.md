@@ -34,11 +34,15 @@ tendencias individuales requeriría un consentimiento separado
 y una revisión del riesgo de reidentificación. Un UUID es
 *seudonimización*, no garantía de anonimato absoluto.
 
-El esquema se probó en rama temporal de Neon con **IDs sintéticos**
-equivalentes: dos exámenes → un mismo UUID; sin acceso SELECT para
-roles públicos o de demostración. La migración 005 de `main` de
-Neon permanece pendiente de aprobación, así que el guardado y la
-consulta de esta vista no están activos aún en producción.
+La migración 005 fue **aplicada a la rama main de Neon health_journey el
+1 de noviembre de 2026** tras probarla en una rama temporal con IDs
+sintéticos equivalentes. Se confirmó que dos formatos del mismo ID se
+vinculan al mismo UUID aleatorio, el rol `health_journey_demo_writer`
+puede ejecutar la función de escritura y los roles de demostración
+y público **no** pueden leer las auditorías ni los IDs privados.
+La instalación SQL quedó verificada; la aplicación todavía requiere
+variables y Secrets correctos, consentimiento, revisión completa y
+comprobación funcional end-to-end en Hugging Face.
 
 
 
