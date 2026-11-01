@@ -131,7 +131,10 @@ def extract_gemini(upload_state, consent=False):
             contents=[PROMPT, *pages],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=Extraction,
+                # Use JSON Schema instead of OpenAPI response_schema.
+                # Pydantic extra="forbid" emits additionalProperties=false;
+                # the OpenAPI endpoint rejects it as "additional_properties".
+                response_json_schema=Extraction.model_json_schema(),
                 temperature=0,
             ),
         )
