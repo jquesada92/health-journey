@@ -25,6 +25,7 @@ from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
     database_enabled, require_database_access, load_measurement_history,
+    load_reviewed_audit_history,
 )
 
 README_PATH = Path(__file__).resolve().with_name("README.md")
@@ -356,7 +357,83 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 "Selecciona el ID exacto que aparece en el reporte. "
                 "Las tendencias son exploratorias y no prueban mejoría clínica."
             )
-        history_id = gr.Textbox(label="ID de persona en InBody", placeholder="ID exacto")
+        history_id = gr.Textbox(
+            label="ID del reporte (búsqueda privada; nunca se muestra en resultados)",
+            placeholder="Introduce el ID del reporte", type="password",
+        )
+        with gr.Accordion("Auditoría Gemini — identificador seudónimo", open=True):
+            gr.Markdown(
+                "El ID original se usa únicamente para buscar en Neon. "
+                "En la tabla y el gráfico se muestra un alias aleatorio "
+                "estable, sin archivo, edad ni hora exacta. "
+                "Solo usuarios autorizados pueden consultar estas auditorías."
+            )
+            audit_metric = gr.Textbox(
+                value="Weight", label="Measurement (English, para la gráfica)"
+            )
+            audit_button = gr.Button(
+                "Consultar mediciones Gemini revisadas",
+                interactive=not anonymous_demo_requested(),
+            )
+            audit_status = gr.Markdown("Sin consulta.")
+            audit_chart = gr.Plot(label="Evolución de mediciones revisadas")
+            audit_table = gr.Dataframe(
+                label="Auditorías (solo alias)", type="pandas",
+                interactive=False,
+            )
+
+            def display_audit_history(
+                person_id, metric,
+                profile: gr.OAuthProfile | None = None,
+            ):
+                try:
+                    records = load_reviewed_audit_history(
+                        person_id, oauth_profile=profile, limit=500
+                    )
+                except (ValueError, PermissionError) as exc:
+                    raise gr.Error(str(exc)) from None
+                except Exception:
+                    raise gr.Error(
+                        "No se pudo consultar la auditoría privada. "
+                        "Revisa el acceso autorizado y la migración 005."
+                    ) from None
+                fig = go.Figure()
+                frame = pd.DataFrame(records)
+                if frame.empty:
+                    return "No se encontraron auditorías.", fig, frame
+                alias = "Persona " + frame.iloc[0]["anonymous_id"][:8]
+                frame["Persona"] = alias
+                visible = frame[
+                    ["Persona", "exam_date", "section", "measurement",
+                     "value", "unit", "was_corrected"]
+                ].copy()
+                visible.columns = [
+                    "Persona", "Fecha", "Section", "Measurement",
+                    "Value", "Unit", "Corrected",
+                ]
+                values = frame[frame["measurement"] == str(metric).strip()].copy()
+                if not values.empty:
+                    values["numeric_value"] = pd.to_numeric(
+                        values["value"].astype(str).str.replace(",", ".", regex=False),
+                        errors="coerce",
+                    )
+                    values = values.dropna(subset=["numeric_value"])
+                    if not values.empty:
+                        fig = px.line(
+                            values.sort_values("exam_date"),
+                            x="exam_date", y="numeric_value",
+                            color="unit", markers=True,
+                            title=f"{alias} — {metric}",
+                            labels={"exam_date": "Fecha", "numeric_value": "Valor"},
+                        )
+                return f"{alias}: {len(visible)} mediciones revisadas.", fig, visible
+
+            audit_button.click(
+                fn=display_audit_history,
+                inputs=[history_id, audit_metric],
+                outputs=[audit_status, audit_chart, audit_table],
+                concurrency_limit=1,
+            )
         with gr.Row():
             metric_filter = gr.Dropdown(
                 choices=[
