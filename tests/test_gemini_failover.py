@@ -92,19 +92,18 @@ def test_non_503_does_not_failover(monkeypatch):
 
 
 def test_disabled_fallback_does_not_send_second_request(monkeypatch):
-    monkeypatch.setenv("GEMINI_FALLBACK_MODEL", "off")
     calls = []
     def generate_content(**kwargs):
         calls.append(kwargs["model"])
         raise api_error(503)
     fake_sdk(monkeypatch, generate_content)
+    monkeypatch.setenv("GEMINI_FALLBACK_MODEL", "off")
     with pytest.raises(Exception, match="HTTP 503"):
         extract_gemini(sample_upload(), consent=True)
     assert calls == ["gemini-3.8-flash"]
 
 
 def test_custom_fallback_is_used(monkeypatch):
-    monkeypatch.setenv("GEMINI_FALLBACK_MODEL", "gemini-3.6-flash")
     calls = []
     def generate_content(**kwargs):
         calls.append(kwargs["model"])
@@ -112,6 +111,7 @@ def test_custom_fallback_is_used(monkeypatch):
             raise api_error(503)
         return response()
     fake_sdk(monkeypatch, generate_content)
+    monkeypatch.setenv("GEMINI_FALLBACK_MODEL", "gemini-3.6-flash")
     _, audit, _ = extract_gemini(sample_upload(), consent=True)
     assert calls == ["gemini-3.8-flash", "gemini-3.6-flash"]
     assert audit["model"] == "gemini-3.6-flash"
