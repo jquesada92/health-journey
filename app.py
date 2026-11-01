@@ -239,6 +239,45 @@ def approve_report_sections(upload_state, editor_value, metadata):
         raise gr.Error(str(exc)) from exc
 
 
+def table_from_visual_editor(editor_value):
+    """Reflect visual create/move/resize/delete into the editable region table."""
+    import json
+    try:
+        payload = json.loads(editor_value or "{}")
+        rows = payload.get("rows", [])
+        if not isinstance(rows, list) or len(rows) > 50 or any(
+            not isinstance(row, list) or len(row) != 8 for row in rows
+        ):
+            raise ValueError("Invalid region rows")
+        return rows, None
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise gr.Error("No se pudieron sincronizar las regiones visuales.") from exc
+
+
+def visual_editor_from_table(table, editor_value):
+    """Update canvas proposals without changing the uploaded image or metadata."""
+    import json
+    try:
+        import pandas as pd
+        payload = json.loads(editor_value or "{}")
+        if not isinstance(payload.get("pages"), list):
+            raise ValueError("Missing image")
+        rows = table.values.tolist() if isinstance(table, pd.DataFrame) else table
+        if not isinstance(rows, list) or len(rows) > 50 or any(len(row) != 8 for row in rows):
+            raise ValueError("Invalid region rows")
+        cleaned = []
+        for row in rows:
+            # pandas can deliver numpy scalar types and NaN for edited cells.
+            import math
+            values = [v.item() if hasattr(v, "item") else v for v in row]
+            values = [None if isinstance(v, float) and not math.isfinite(v) else v for v in values]
+            cleaned.append(values)
+        payload["rows"] = cleaned
+        return json.dumps(payload, ensure_ascii=False, allow_nan=False), None
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:
+        raise gr.Error("No se pudieron reflejar los cambios de la tabla en el visor.") from exc
+
+
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
     if os.getenv("SPACE_ID") and OAUTH_URLS and not anonymous_demo_requested():
@@ -301,7 +340,18 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[approved_state, region_status],
         )
         upload.change(fn=lambda: (None, None), outputs=[sections_state, approved_state])
-        visual_editor.input(fn=lambda: None, outputs=[approved_state])
+        visual_editor.input(
+            fn=table_from_visual_editor,
+            inputs=[visual_editor],
+            outputs=[regions_table, approved_state],
+            show_progress="hidden",
+        )
+        regions_table.input(
+            fn=visual_editor_from_table,
+            inputs=[regions_table, visual_editor],
+            outputs=[visual_editor, approved_state],
+            show_progress="hidden",
+        )
         gr.Markdown("### 3. Extraer mediciones de secciones validadas")
         extract_button = gr.Button("Extraer mediciones", variant="primary")
         status = gr.Markdown("Sube un archivo y pulsa «Extraer mediciones».")
