@@ -35,6 +35,12 @@ dashboard público: estos tienen permisos y consentimientos independientes.
 El dashboard público no publica automáticamente el contenido de auditorías
 Gemini. Autorizar almacenamiento **no equivale** a autorizar publicación.
 
+**Interacción importante de la interfaz:** cuando `ENABLE_ANONYMOUS_DEMO=1`,
+la pestaña «Historial en Neon» deshabilita sus botones de consulta privada.
+Por eso no es posible habilitar simultáneamente en esa interfaz el guardado
+anónimo de auditorías y la lectura privada del historial solo cambiando
+`ENABLE_PERSISTENCE`. Son dos modos distintos de operación del Space actual.
+
 ## Secrets (Private)
 
 | Secret | Formato esperado | Propósito / rol PostgreSQL | Restricciones |
@@ -75,8 +81,8 @@ correctamente para una URL.
 | Guardar mediciones revisadas sin login | `ENABLE_ANONYMOUS_DEMO=1` | `DEMO_DATABASE_URL` | Consentimiento Neon, revisión completa, rol `health_journey_demo_writer` y función SQL `hj_submit_reviewed_audit(jsonb)` (migración 005). |
 | Guardar demo con publicación opcional | `ENABLE_ANONYMOUS_DEMO=1` | `DEMO_DATABASE_URL` | Validaciones/consentimientos separados y función `hj_submit_demo_report` (migración demo 004). |
 | Consultar dashboard público | `ENABLE_PUBLIC_DASHBOARD=1` | `PUBLIC_DATABASE_URL` | Solo vistas publicadas/autorizadas; consentimiento de almacenamiento no publica auditorías. |
-| Consultar historial privado | `ENABLE_PERSISTENCE=1`, `HF_ALLOWED_USERS` | `DATABASE_URL` | Sesión OAuth de Hugging Face autorizada. |
-| Consultar auditorías privadas por ID del InBody | `ENABLE_PERSISTENCE=1`, `HF_ALLOWED_USERS` | `DATABASE_URL` | OAuth y migración 005; normaliza `88571257` / `8-857-1257`, muestra un alias aleatorio persistente, no la cédula ni el archivo. |
+| Consultar historial privado | `ENABLE_PERSISTENCE=1`, `HF_ALLOWED_USERS` y `ENABLE_ANONYMOUS_DEMO=0` | `DATABASE_URL` | Sesión OAuth de Hugging Face autorizada. En modo demo la interfaz actual deshabilita estos controles. |
+| Consultar auditorías privadas por ID del InBody | `ENABLE_PERSISTENCE=1`, `HF_ALLOWED_USERS` y `ENABLE_ANONYMOUS_DEMO=0` | `DATABASE_URL` | OAuth y migración 005; normaliza `88571257` / `8-857-1257`, muestra un alias aleatorio persistente, no la cédula ni el archivo. |
 
 ## Variables complementarias (no aparecen en la captura)
 
