@@ -55,6 +55,31 @@ def test_no_anonymous_write_without_restricted_role(monkeypatch):
     assert not audit.audit_write_enabled()
 
 
+def test_removed_audit_flag_cannot_enable_anonymous_writes(monkeypatch):
+    """The retired flag must not override ENABLE_ANONYMOUS_DEMO."""
+    monkeypatch.delenv("ENABLE_ANONYMOUS_DEMO", raising=False)
+    monkeypatch.setenv("ENABLE_ANONYMOUS_AUDIT", "1")
+    monkeypatch.setenv(
+        "DEMO_DATABASE_URL",
+        "postgresql://health_journey_demo_writer:fake@localhost/health_journey?sslmode=require",
+    )
+    assert not audit.audit_write_enabled()
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "1")
+    assert audit.audit_write_enabled()
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "0")
+    assert not audit.audit_write_enabled()
+
+
+def test_single_documented_feature_flag():
+    example = (ROOT / ".env.example").read_text()
+    module = (ROOT / "inbody_mvp/gemini_review.py").read_text()
+    app = (ROOT / "app.py").read_text()
+    assert "ENABLE_ANONYMOUS_AUDIT" not in example + module + app
+    assert example.count("ENABLE_ANONYMOUS_DEMO=0") == 1
+    assert "ENABLE_ANONYMOUS_DEMO" in module
+    assert "ENABLE_ANONYMOUS_DEMO" in app
+
+
 def test_consent_rejected_before_database_connection(monkeypatch, sample):
     monkeypatch.setattr(audit, "_audit_write_engine", lambda: pytest.fail("unexpected SQL"))
     with pytest.raises(Exception, match="autorizar"):
