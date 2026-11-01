@@ -19,8 +19,10 @@ def test_consent_checked_before_private_access():
                 if isinstance(n, ast.FunctionDef) and n.name == "save_audit")
     assert isinstance(node.body[0], ast.If)
     assert "consent" in ast.unparse(node.body[0].test)
-    assert "require_database_access(profile)" in ast.unparse(node)
+    assert "audit_write_enabled()" in ast.unparse(node)
 
-def test_private_auth_still_required_for_gemini_audit():
-    assert "require_database_access(profile)" in MODULE
-    assert "_database_engine()" in MODULE
+def test_audit_is_consent_only_but_private_reads_remain_protected():
+    assert "require_database_access(profile)" not in MODULE
+    assert "hj_submit_reviewed_audit" in MODULE
+    storage = (Path(__file__).resolve().parents[1] / "inbody_mvp/storage.py").read_text()
+    assert "require_database_access(oauth_profile)" in storage
