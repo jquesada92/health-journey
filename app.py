@@ -171,14 +171,14 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 )
             with gr.Column(scale=7, min_width=550):
                 gr.Markdown("**Valores extraídos** — contrasta cada fila con el documento antes de guardarla.")
-            gemini_table = gr.Dataframe(
-                headers=GEMINI_COLUMNS,
-                datatype=["str","str","str","number","str","str","str","str",
-                          "str","bool","str","bool"],
-                type="pandas", interactive=True,
-                static_columns=[0,1,2,3,8,9],
-                label="Revisión de mediciones; una fila por valor",
-            )
+                gemini_table = gr.Dataframe(
+                    headers=GEMINI_COLUMNS,
+                    datatype=["str","str","str","number","str","str","str","str",
+                              "str","bool","str","bool"],
+                    type="pandas", interactive=True,
+                    static_columns=[0,1,2,3,8,9],
+                    label="Revisión de mediciones; una fila por valor",
+                )
         gemini_extract.click(
             fn=extract_gemini, inputs=[gemini_upload_state, gemini_consent_remote],
             outputs=[gemini_table, gemini_snapshot, gemini_status],
