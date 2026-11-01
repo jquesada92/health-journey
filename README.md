@@ -8,6 +8,28 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Infraestructura actual: Gemini Flash sobre Space ZeroGPU existente (2026-11-01)
+
+El PR #38 ya fue fusionado en `main`. La extracción utiliza Gemini Flash
+por API y **no necesita GPU** para procesar los InBody. Sin embargo, el Space
+`jaqo/health-journey` sigue asignado a hardware **ZeroGPU** y el usuario
+no dispone de CPU Basic en sus opciones de hardware. ZeroGPU exige una
+función `@spaces.GPU` conectada a un evento de Gradio para superar el
+control de arranque. La solución de compatibilidad es un **diagnóstico CUDA
+opcional** asociado a un botón en un acordeón cerrado; no se usa en
+`extract_gemini` ni en `save_audit`. Solo al pulsar el diagnóstico se
+solicita GPU y se consume la cuota correspondiente.
+
+`app.py` importa `spaces` y registra la función decorada antes de
+construir la interfaz. `requirements.txt` mantiene `gradio[oauth]` y
+`spaces`. No reinstalar EasyOCR/PaddleOCR para este workaround ni eliminar
+el soporte ZeroGPU de la infraestructura hasta que haya otro hardware
+disponible. Tras fusionar este PR, verificar el nuevo build del Space y
+los flujos de extracción, revisión y consentimiento. Esta compatibilidad
+no constituye una validación end-to-end.
+
+
+
 ## Estado vigente — 1 de noviembre de 2026 (PR #38, pendiente de validación E2E)
 
 La interfaz activa de **InBody Hub** es Gradio y usa **Gemini Flash** mediante
@@ -27,7 +49,7 @@ separada de las tablas de historial y requiere OAuth, consentimiento y
 despliegue E2E ni ejecutada esa migración.
 
 **Componentes retirados del runtime/despliegue:** visor y editor de secciones,
-EasyOCR, PaddleOCR y ZeroGPU. Los módulos y pruebas de OCR heredados permanecen
+EasyOCR y PaddleOCR. Los módulos y pruebas de OCR heredados permanecen
 en el repositorio como material legacy; no se distribuyen en el Space. La
 demostración anónima y el CSV antiguo no son parte del flujo activo de carga,
 aunque subsisten módulos de compatibilidad y el dashboard público/historial.
