@@ -98,17 +98,22 @@ correctamente para una URL.
 
 ## Verificación de Neon y solución de problemas
 
-El código puede estar correctamente configurado mientras que el esquema SQL
-todavía no ha sido desplegado. En la comprobación de Neon `health_journey`
-rama `main` del 1 de noviembre de 2026:
+La migración 005 fue **aplicada y verificada** en Neon
+`health_journey`, rama `main`, el **1 de noviembre de 2026**, tras
+validación en una rama temporal con documentos e IDs sintéticos:
 
-- `hj_submit_demo_report`: **instalada**.
-- `hj_submit_reviewed_audit(jsonb)`: **pendiente**.
-- `hj_audit_reviewed_private`: **pendiente**.
+- `hj_submit_demo_report`: **instalada** (migración 004).
+- `hj_submit_reviewed_audit(jsonb)`: **instalada** (migración 005).
+- `hj_person_aliases`: **instalada**, alias UUID aleatorio por ID normalizado.
+- `hj_audit_reviewed_private`: **instalada**, lectura solo para roles privados.
 
-No ejecutar una migración ni conceder permisos por el simple hecho de leer
-esta guía. La migración 005 requiere despliegue autorizado. Evita tratar un
-error de función inexistente como problema de contraseña o de modelo Gemini.
+Se confirmó que el rol `health_journey_demo_writer` puede ejecutar
+ambas funciones sin permisos SELECT sobre IDs ni auditorías privadas;
+`health_journey_public` tampoco puede leer la vista de auditoría.
+La instalación SQL **no garantiza** que el flujo de Hugging Face ya
+funcione end-to-end: se necesitan los valores correctos de las Variables,
+los Secrets, los consentimientos y la validación de la aplicación.
+No es necesario repetir la migración si estos objetos siguen presentes.
 
 Síntomas típicos:
 
