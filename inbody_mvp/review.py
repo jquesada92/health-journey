@@ -78,7 +78,7 @@ def _measurement_key(row: ReviewedRow) -> str:
     if name == "sin_clasificar":
         suffix = re.sub(r"[^a-zA-Z0-9]+", "_", row.original_label).strip("_").lower()
         name = f"sin_clasificar__{suffix or 'medicion_desconocida'}"
-    suffix = re.search(r"__(\\d+(?:\\.\\d+)?)khz$", name)
+    suffix = re.search(r"__(\d+(?:\.\d+)?)khz$", name)
     if suffix:
         name = name[:suffix.start()]
     if row.segmento and not name.endswith("__" + row.segmento):
