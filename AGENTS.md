@@ -108,3 +108,7 @@ Para operaciones privadas de Neon, el Space presenta un enlace de login en pesta
 ## Contrato de fecha de examen automática
 
 El timestamp siempre procede del documento original vía `ExtractionResult.timestamp`. `app.py` presenta fecha/hora solo lectura, pero **CSV y guardado no deben aceptar el Textbox como entrada de confianza**: recuperan `source_exam_timestamp(extraction_state)`. `prepare_confirmed_exam` verifica que el valor recibido coincida con el extraído. Admitir etiquetas «Fecha», «Fecha de examen/medición», «Test Date», «Measurement Date» y «Date of Test» con hora explícita, sin confundir fecha de nacimiento o usar la fecha actual. Si falta fecha u hora, no inventar ni admitir edición manual: informar al usuario y bloquear exportación/guardado, sin alterar métricas. Mantener regresiones en `tests/test_exam_timestamp.py`.
+
+## Regresión de encabezados de fecha/hora en dos líneas
+
+Requisitos comprobables adicionales: aceptar `Test Date / Time\n04.10.2026. 10:04` y `Fecha / Hora del test\n26.01.2025. 14:20` del encabezado InBody (etiqueta y fecha/hora en líneas distintas, punto de cierre después del año). No utilizar una fecha de nacimiento, un gráfico histórico, una fecha sin hora, un reloj inválido ni la fecha actual como sustitutos. Mantener pruebas en `tests/test_exam_timestamp.py`. En un reporte con OCR posicional, la fecha extraída de la región de encabezado debe seguir teniendo precedencia.
