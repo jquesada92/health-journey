@@ -342,27 +342,26 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
     positional_pages: list[tuple[int, list, int, int]] = []
 
     def read_ocr(image: Image.Image, page_number: int) -> str:
+        # An unavailable optional layout model has its own diagnostic.
+        # Do NOT treat a RuntimeError from the standard EasyOCR engine as a
+        # missing Paddle model: those failures require a different message.
+        section_results = []
+        if ai_sections_requested():
+            try:
+                section_results = inspect_sections(image, ocr_engine)
+            except (RuntimeError, ImportError) as exc:
+                raise DocumentError(
+                    "Modelo de secciones IA no disponible o incompatible. "
+                    "Comprueba requirements-ai.txt o desactiva "
+                    "ENABLE_AI_SECTION_OCR."
+                ) from exc
         try:
-            # The optional pretrained layout model detects table/chart regions
-            # before OCR. A second OCR pass sees each labeled section separately.
-            # The legacy page OCR remains the baseline, and never trusts history
-            # chart values as an exam's current measurement.
-            section_results = (
-                inspect_sections(image, ocr_engine)
-                if ai_sections_requested() else []
-            )
             answer = ocr_engine(image)
             if section_results and isinstance(answer, list):
                 answer, section_notices = merge_section_ocr(
                     answer, section_results,
                 )
                 notices.extend(section_notices)
-        except RuntimeError as exc:
-            raise DocumentError(
-                "Modelo de secciones IA no disponible. Instala las "
-                "dependencias de requirements-ai.txt o desactiva "
-                "ENABLE_AI_SECTION_OCR."
-            ) from exc
         except DocumentError:
             raise
         except Exception as exc:
