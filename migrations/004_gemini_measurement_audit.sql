@@ -5,14 +5,14 @@ CREATE TABLE IF NOT EXISTS hj_extraction_audits (
   filename text NOT NULL,
   person_id text NOT NULL,
   exam_datetime timestamp NOT NULL,
-  age integer,
+  age integer CHECK (age BETWEEN 0 AND 120),
   model_name text NOT NULL,
   raw_response jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS hj_measurement_audits (
   extraction_id uuid NOT NULL REFERENCES hj_extraction_audits(extraction_id) ON DELETE RESTRICT,
-  row_number integer NOT NULL,
+  row_number integer NOT NULL CHECK (row_number > 0),
   section text NOT NULL,
   measurement text NOT NULL,
   original_section text NOT NULL,
