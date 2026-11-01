@@ -19,6 +19,7 @@ from .extractor import MAX_UPLOAD_BYTES
 from .storage import _database_engine, require_database_access
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 
 COLUMNS = ["exam_datetime", "filename", "person_id", "age", "section",
            "measurement", "value", "unit", "original_value", "was_corrected",
@@ -162,6 +163,28 @@ def check_gemini_models() -> str:
     return f"Modelo configurado: `{current}` ({status})." + chr(10) + "Modelos Flash accesibles:" + chr(10) + lines
 
 
+def _fallback_model(primary_model: str) -> str | None:
+    """One alternate model only; disable with GEMINI_FALLBACK_MODEL=off."""
+    configured = os.getenv("GEMINI_FALLBACK_MODEL")
+    candidate = (
+        DEFAULT_GEMINI_FALLBACK_MODEL if configured is None
+        else configured.strip()
+    )
+    if candidate.lower() in ("", "off", "disabled", "none") or candidate == primary_model:
+        return None
+    return candidate
+
+
+def _is_gemini_overloaded(exc: Exception) -> bool:
+    """Do not retry malformed requests, 429 rate limits or auth errors."""
+    kind = type(exc)
+    return (
+        kind.__module__.startswith("google.genai")
+        and kind.__name__ in ("ClientError", "ServerError")
+        and getattr(exc, "code", None) == 503
+    )
+
+
 def extract_gemini(upload_state, consent=False):
     if not upload_state:
         raise _ui_error("Primero carga un documento.")
@@ -172,24 +195,40 @@ def extract_gemini(upload_state, consent=False):
         raise _ui_error("Falta GEMINI_API_KEY en los secretos del Space.")
     client = None
     selected_model = _model_name()
+    active_model = selected_model
+    failover_used = False
     try:
         from google import genai
         from google.genai import types
         name, data = upload_state["filename"], upload_state["data"]
         pages = _pages(name, data)
         client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model=selected_model,
-            contents=[PROMPT, *pages],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                # Use JSON Schema instead of OpenAPI response_schema.
-                # Pydantic extra="forbid" emits additionalProperties=false;
-                # the OpenAPI endpoint rejects it as "additional_properties".
-                response_json_schema=Extraction.model_json_schema(),
-                temperature=0,
-            ),
+        # The official Gemini SDK already retries transient errors with
+        # exponential backoff. Do not add another retry loop to the same model.
+        # After its retries exhaust, attempt ONE alternate model on HTTP 503.
+        generation_config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_json_schema=Extraction.model_json_schema(),
+            # Gemini 3.6+ models ignore explicit temperature values.
         )
+        try:
+            response = client.models.generate_content(
+                model=selected_model,
+                contents=[PROMPT, *pages],
+                config=generation_config,
+            )
+        except Exception as primary_exc:
+            alternate = _fallback_model(selected_model)
+            if not alternate or not _is_gemini_overloaded(primary_exc):
+                raise
+            active_model = alternate
+            # Only one alternate request after SDK's own retry handling.
+            response = client.models.generate_content(
+                model=alternate,
+                contents=[PROMPT, *pages],
+                config=generation_config,
+            )
+            failover_used = True
         result = Extraction.model_validate_json(response.text)
         if not result.header.exam_datetime or not result.header.person_id:
             raise ValueError("No se identificó el ID o la fecha/hora del encabezado.")
@@ -208,9 +247,13 @@ def extract_gemini(upload_state, consent=False):
                     "header": result.header.model_dump(),
                     "raw_response": response.text,
                     "rows": rows, "filename": name,
-                    "model": selected_model}
+                    "model": active_model,
+                    "primary_model": selected_model,
+                    "fallback_used": failover_used}
         frame = pd.DataFrame(rows, columns=COLUMNS)
         message = f"{len(rows)} mediciones extraídas; pendientes de revisión."
+        if failover_used:
+            message += f" Modelo principal sin capacidad (503); extracción con {active_model}."
         if result.missing_or_unreadable:
             message += " Campos ilegibles: " + ", ".join(result.missing_or_unreadable)
         return frame, snapshot, message
@@ -226,7 +269,7 @@ def extract_gemini(upload_state, consent=False):
             if code == 404 and client is not None:
                 try:
                     accessible = available_flash_models(client)
-                    message += f" Modelo solicitado: {selected_model}."
+                    message += f" Modelo solicitado: {active_model}."
                     if accessible:
                         message += " Flash accesibles para tu API key: " + ", ".join(accessible[:12]) + "."
                     else:
