@@ -1,14 +1,12 @@
-"""Health Journey: Gradio + Pydantic for InBody upload, review and CSV drafts.
+"""Health Journey: Gemini InBody extraction, human review and private audit.
 
-Runs inside the existing Gradio/ZeroGPU Space. No database or user authentication:
-use only synthetic or anonymized InBody reports during QA.
+In public QA Spaces use only synthetic or anonymized reports. Private Neon
+operations require explicitly authorized Hugging Face OAuth sessions.
 """
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
-from uuid import uuid4
 
 import gradio as gr
 import pandas as pd
@@ -20,16 +18,12 @@ load_dotenv(override=False)  # Local-only .env; do not commit credentials.
 
 from inbody_mvp.extractor import DocumentError, MAX_UPLOAD_BYTES
 from inbody_mvp.public_dashboard import (
-    PUBLIC_METRICS, public_dashboard_enabled,
-    load_public_monthly_summary, load_public_person_series,
+    PUBLIC_METRICS, public_dashboard_enabled, load_public_person_series,
 )
 from inbody_mvp.oauth_ui import standalone_oauth_urls
-from inbody_mvp.demo_storage import (
-    anonymous_demo_enabled, anonymous_demo_requested, save_demo_exam,
-)
+from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
-    database_enabled, require_report_access, require_database_access, load_measurement_history,
-    prepare_confirmed_exam, save_confirmed_exam, source_exam_timestamp,
+    database_enabled, require_database_access, load_measurement_history,
 )
 
 README_PATH = Path(__file__).resolve().with_name("README.md")
@@ -58,16 +52,6 @@ def snapshot_upload(file_path):
         return {"filename": path.name, "data": path.read_bytes()}
     except OSError as exc:
         raise gr.Error("No se pudo recibir el archivo. Vuelve a cargarlo.") from exc
-
-
-def report_from_snapshot(upload_state):
-    """Read only the in-session snapshot; never rely on /tmp/gradio later."""
-    if not upload_state or not isinstance(upload_state, dict):
-        raise DocumentError("Carga nuevamente el reporte para continuar.")
-    name, data = upload_state.get("filename"), upload_state.get("data")
-    if not name or not isinstance(data, bytes) or len(data) > MAX_UPLOAD_BYTES:
-        raise DocumentError("La copia temporal del reporte no está disponible. Vuelve a cargarlo.")
-    return name, data
 
 
 def verify_neon_session(profile: gr.OAuthProfile | None = None) -> str:
