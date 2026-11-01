@@ -121,6 +121,13 @@ def prepare_confirmed_exam(
             if isinstance(row.get(key), str):
                 row[key] = row[key].replace(",", ".")
         reviewed = ReviewedRow.model_validate(row)
+        # Backward-compatible DB column: derive frequency from the metric name
+        # without exposing an independent numeric frequency in the UI.
+        import re
+        frequency_match = re.search(r"__(\\d+(?:\\.\\d+)?)khz$", reviewed.variable_medida)
+        measured_frequency = (
+            float(frequency_match.group(1)) if frequency_match else reviewed.frecuencia_khz
+        )
         if reviewed.valor_medida is None:
             raise ValueError(f"Fila {index}: valor ambiguo. Corrige o elimina la fila antes de guardar.")
         if not reviewed.original_label.strip():
