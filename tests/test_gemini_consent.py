@@ -14,7 +14,8 @@ def test_gemini_consent_checked_before_provider_key_or_api_call():
     lines = fn.body
     assert "if not upload_state" in ast.unparse(lines[0])
     assert "if consent is not True" in ast.unparse(lines[1])
-    assert source.index("if consent is not True:") < source.index("api_key =")
+    callback_source = ast.get_source_segment(source, fn)
+    assert callback_source.index("if consent is not True:") < callback_source.index("api_key =")
 
     # Test guard independently of heavy Gradio runtime in CI.
     fn.decorator_list = []
