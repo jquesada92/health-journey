@@ -76,47 +76,34 @@ def test_both_layouts_accept_structured_ocr_without_false_success():
     assert "Body Composition Analysis" in result.texto_por_pagina[0]
     assert result.tipo_archivo == "jpg"
 
-def test_missing_upload_is_reported_before_hugging_face_authentication():
-    """Evaluate the actual Gradio callback without importing OCR/torch weights.
+def test_gemini_missing_upload_is_rejected_before_api_or_authentication():
+    """Verify the callback's guard without importing Gradio or API dependencies.
 
-    The decorated callback is extracted via AST. This checks the runtime
-    error ordering, not merely the existence of both checks.
+    CI deliberately installs lightweight parsing dependencies only.
     """
     import ast
     from pathlib import Path
     from types import SimpleNamespace
 
-    source = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
-    module = ast.parse(source)
+    source = (Path(__file__).resolve().parents[1]
+              / "inbody_mvp" / "gemini_review.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
     callback = next(
-        node for node in module.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.name == "process_report"
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "extract_gemini"
     )
     callback.decorator_list = []
-    isolated = ast.fix_missing_locations(ast.Module(body=[callback], type_ignores=[]))
+    callback.returns = None
+    for arg in callback.args.args:
+        arg.annotation = None
 
     class UiError(Exception):
         pass
 
-    access_calls = []
-    def deny_access(profile):
-        access_calls.append(profile)
-        raise PermissionError("Se necesita autenticación")
+    scope = {"_ui_error": UiError}
+    exec(compile(ast.fix_missing_locations(
+        ast.Module(body=[callback], type_ignores=[])
+    ), "<gemini extraction guard>", "exec"), scope)
 
-    scope = {
-        "gr": SimpleNamespace(Error=UiError),
-        "require_report_access": deny_access,
-        "DocumentError": ValueError,
-    }
-    exec(compile(isolated, "<Gradio process_report test>", "exec"), scope)
-    fn = scope["process_report"]
-
-    for absent in (None, ""):
-        with pytest.raises(UiError, match="Primero carga"):
-            fn(absent)
-    assert access_calls == [], "No debe exigir login cuando no hay archivo."
-
-    with pytest.raises(UiError, match="Se necesita autenticación"):
-        fn("/tmp/reporte_sintetico.jpg")
-    assert len(access_calls) == 1
+    with pytest.raises(UiError, match="Primero carga"):
+        scope["extract_gemini"](None)

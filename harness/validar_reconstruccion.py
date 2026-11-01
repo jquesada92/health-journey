@@ -135,10 +135,19 @@ def main() -> int:
             errores.append(f"Falta objeto SQL en db/schema.sql: {objeto}")
 
     workflow = contenido(".github/workflows/deploy-huggingface.yml")
-    for module in sorted((ROOT / "inbody_mvp").glob("*.py")):
-        rel = module.relative_to(ROOT).as_posix()
+    # Solo módulos efectivamente requeridos por el flujo de ejecución actual.
+    # Los módulos legacy de OCR/editor se conservan para pruebas antiguas,
+    # pero no deben formar parte del paquete activo en Hugging Face.
+    activos = ['inbody_mvp/__init__.py','inbody_mvp/extractor.py','inbody_mvp/layouts.py','inbody_mvp/layouts_es.py','inbody_mvp/gemini_review.py','inbody_mvp/review.py','inbody_mvp/language.py','inbody_mvp/storage.py','inbody_mvp/public_dashboard.py','inbody_mvp/oauth_ui.py','inbody_mvp/demo_storage.py']
+    obsoletos = ["inbody_mvp/visual_debug.py", "inbody_mvp/section_review.py",
+                 "inbody_mvp/visual_editor.py", "inbody_mvp/visual_editor_ui.py",
+                 "inbody_mvp/section_ai.py"]
+    for rel in activos:
         if rel not in workflow:
-            errores.append(f"El workflow no incluye el módulo de ejecución: {rel}")
+            errores.append(f"Falta módulo activo en despliegue: {rel}")
+    for rel in obsoletos:
+        if f"\x27{rel}\x27" in workflow:
+            errores.append(f"Módulo obsoleto incluido en despliegue: {rel}")
 
     errores.extend(comprobar_documentacion())
 
@@ -149,7 +158,7 @@ def main() -> int:
 
     objetivos = {
         "Exportación CSV existente": "export_draft_csv" in review,
-        "Guardar en Neon (código)": "save_confirmed_exam" in app,
+        "Guardar auditoría Gemini en Neon (código)": "save_audit" in app,
         "Consultar Neon (código)": "load_measurement_history" in app,
         "CSV con nombre hash+UTC (objetivo)": (
             "sha256" in app.lower() and "export" in app.lower()

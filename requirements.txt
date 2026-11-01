@@ -5,10 +5,8 @@ psycopg[binary]>=3.2,<4.0
 SQLAlchemy>=2.0,<3.0
 alembic>=1.14,<2.0
 gradio[oauth]>=6.0,<7.0
-spaces
-easyocr>=1.7.2,<2.0
 
-# Gradio + Plotly: InBody upload/review and historical charts
+# Gradio + Plotly: Gemini measurement review and dashboards
 plotly>=6.0,<7.0
 pandas>=2.2,<4.0
 
@@ -19,6 +17,7 @@ numpy>=1.26,<3.0
 rapidfuzz>=3.10,<4.0
 python-dateutil>=2.9,<3.0
 
-# Hugging Face Space: experimental CPU document layout model
-paddlepaddle==3.2.2
-paddleocr>=3.3,<4
+# Legacy OCR model dependencies moved out of the active runtime
+
+# Gemini Flash structured image extraction
+google-genai>=1.0,<2.0

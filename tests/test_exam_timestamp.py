@@ -92,38 +92,8 @@ def test_no_invented_time_or_date(header):
         source_exam_timestamp(result.model_dump(mode="json"))
 
 
-def test_gradio_datetime_is_display_only_and_callbacks_take_extraction_state():
-    source = (ROOT / "app.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    widgets = [
-        n for n in ast.walk(tree)
-        if isinstance(n, ast.Assign)
-        and any(isinstance(t, ast.Name) and t.id == "timestamp" for t in n.targets)
-    ]
-    assert len(widgets) == 1
-    call = widgets[0].value
-    assert isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
-    assert call.func.attr == "Textbox"
-    interactive = next(k.value for k in call.keywords if k.arg == "interactive")
-    assert isinstance(interactive, ast.Constant) and interactive.value is False
-
-    def bound_inputs(callback):
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
-                continue
-            if node.func.attr != "click":
-                continue
-            fn = next((k.value for k in node.keywords if k.arg == "fn"), None)
-            if not isinstance(fn, ast.Name) or fn.id != callback:
-                continue
-            inputs = next((k.value for k in node.keywords if k.arg == "inputs"), None)
-            assert isinstance(inputs, ast.List)
-            return [x.id for x in inputs.elts if isinstance(x, ast.Name)]
-        raise AssertionError(f"No se encontró el callback {callback}")
-
-    for callback in ("save_reviewed",):
-        names = bound_inputs(callback)
-        assert "extraction_state" in names
-        assert "timestamp" not in names
-    assert source.count("source_exam_timestamp(state)") >= 2
-    assert "source_exam_timestamp(extracted_state)" in source
+def test_gemini_exam_datetime_is_from_extraction_snapshot_only():
+    source = (ROOT / "inbody_mvp/gemini_review.py").read_text()
+    assert 'result.header.exam_datetime' in source
+    assert 'datetime.fromisoformat(result.header.exam_datetime)' in source
+    assert '"exam_datetime": base["exam_datetime"]' in source

@@ -63,9 +63,8 @@ class SectionOCR:
 
 
 def ai_sections_requested() -> bool:
-    return os.getenv("ENABLE_AI_SECTION_OCR", "").strip().lower() in (
-        "1", "true", "yes",
-    )
+    """Legacy section OCR is retired; Gemini handles document extraction."""
+    return False
 
 
 @lru_cache(maxsize=1)
