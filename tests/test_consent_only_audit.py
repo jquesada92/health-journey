@@ -40,7 +40,7 @@ def sample():
 
 
 def test_no_anonymous_write_without_restricted_role(monkeypatch):
-    monkeypatch.setenv("ENABLE_ANONYMOUS_AUDIT", "1")
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "1")
     monkeypatch.setenv(
         "DEMO_DATABASE_URL",
         "postgresql://admin:fake@localhost/health_journey?sslmode=require",
@@ -51,7 +51,7 @@ def test_no_anonymous_write_without_restricted_role(monkeypatch):
         "postgresql://health_journey_demo_writer:fake@localhost/health_journey?sslmode=require",
     )
     assert audit.audit_write_enabled()
-    monkeypatch.delenv("ENABLE_ANONYMOUS_AUDIT")
+    monkeypatch.delenv("ENABLE_ANONYMOUS_DEMO")
     assert not audit.audit_write_enabled()
 
 
@@ -62,7 +62,7 @@ def test_consent_rejected_before_database_connection(monkeypatch, sample):
 
 
 def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sample):
-    monkeypatch.setenv("ENABLE_ANONYMOUS_AUDIT", "1")
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "1")
     monkeypatch.setenv(
         "DEMO_DATABASE_URL",
         "postgresql://health_journey_demo_writer:synthetic@host/health_journey?sslmode=require",
