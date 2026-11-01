@@ -108,3 +108,24 @@ Repositorio: `jquesada92/health-journey`. Rama por defecto: `main`. El código c
 - Mantener `harness/` y `AGENTS.md` sincronizados con decisiones nuevas.
 - Las credenciales no forman parte de un «backup» de código; deben recrearse/rotarse por canales privados.
 - Los reportes originales no están almacenados en Neon: reconstruir tablas no reconstruye automáticamente los archivos fuente.
+
+## 6. Decisión experimental: detector de layout antes de OCR
+
+**ADR experimental, no aceptación de producción.** Se propone reducir errores
+de clasificación en documentos multicolumna colocando detección visual de
+regiones antes de un segundo OCR por sección. La implementación de
+`inbody_mvp/section_ai.py` y sus dependencias separadas
+(`requirements-ai.txt`) residen inicialmente en una rama de evaluación;
+**el flag `ENABLE_AI_SECTION_OCR` permanece desactivado por defecto**.
+
+Razón: la extracción plana puede intercalar columnas, ejes gráficos y
+mediciones históricas; el layout añade localización espacial. Alternativas:
+continuar solo Regex + geometría (baseline) o estudiar un VLM documental
+(opción futura, no implementada). Los costos de inferencia, la precisión real,
+la seguridad y la compatibilidad de ZeroGPU no han sido evaluados.
+
+**Decisión pendiente:** no fusionar/desplegar/activar el modelo solo porque
+sus tests sintéticos estén verdes. Requiere benchmark privado con 22 reportes,
+revisión manual de valores y reducción demostrable de falsos positivos.
+El filtro actual de historial no cubre todo el flujo de OCR global.
+Referencia: [Guía IA por secciones](../docs/ocr-secciones-ia.md).
