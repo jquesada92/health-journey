@@ -77,8 +77,8 @@ def extract_header_exam_timestamp(detections, width, height):
     # only the label row, never the value row or a full-page text stream.
     top = [t for t in tokens if .015 <= t.cy <= .19]
     label_re = re.compile(
-        r"(?:fecha\\s*/\\s*hora(?:\\s+(?:del|de)\\s+(?:test|examen|prueba))?"
-        r"|test\\s+date\\s*/\\s*time|date\\s*/\\s*time)", re.I
+        r"(?:fecha\s*/\s*hora(?:\s+(?:del|de)\s+(?:test|examen|prueba))?"
+        r"|test\s+date\s*/\s*time|date\s*/\s*time)", re.I
     )
     label = None
     label_row = [t for t in top if t.cy < .105]
