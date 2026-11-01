@@ -7,6 +7,7 @@ in source control or send medical reports to a public Space.
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime
 from typing import Literal
 
@@ -201,6 +202,64 @@ def require_database_access(oauth_profile=None) -> None:
                 "Para guardar o consultar datos privados en Neon, inicia sesión "
                 "con un usuario autorizado de Hugging Face."
             )
+
+
+def canonical_person_id(person_id: str) -> str:
+    """Canonical lookup key, never a public ID or pseudonym.
+
+    Numeric 88571257 and 8-857-1257 represent the same key. Alphanumeric
+    report identifiers retain internal punctuation to avoid false matches.
+    """
+    original = str(person_id or "").strip()
+    if not original or len(original) > 128:
+        raise ValueError("ID de InBody inválido.")
+    if re.fullmatch(r"[0-9\\s-]+", original):
+        result = re.sub(r"[^0-9]", "", original)
+    else:
+        result = original.upper()
+    if not result or len(result) > 128:
+        raise ValueError("ID de InBody inválido.")
+    return result
+
+
+def load_reviewed_audit_history(
+    person_id: str, oauth_profile=None, limit: int = 500
+) -> list[dict]:
+    """Authorized history, never returns the original ID, file or raw JSON.
+
+    The public dashboard must NOT query this table without a separate
+    publication decision; storage consent is not publication consent.
+    """
+    require_database_access(oauth_profile)
+    person_key = canonical_person_id(person_id)
+    row_limit = min(max(int(limit), 1), 500)
+    engine = _database_engine()
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(text("""
+                SELECT v.anonymous_id, v.exam_date, v.section,
+                       v.measurement, v.value, v.unit, v.was_corrected
+                FROM public.hj_audit_reviewed_private v
+                JOIN public.hj_person_aliases p
+                  ON p.anonymous_id = v.anonymous_id
+                WHERE p.normalized_person_id = :key
+                ORDER BY v.exam_date DESC, v.measurement
+                LIMIT :row_limit
+            """), {"key": person_key, "row_limit": row_limit}).mappings().all()
+            return [
+                {
+                    "anonymous_id": str(row["anonymous_id"]),
+                    "exam_date": row["exam_date"].isoformat(),
+                    "section": row["section"],
+                    "measurement": row["measurement"],
+                    "value": row["value"],
+                    "unit": row["unit"],
+                    "was_corrected": bool(row["was_corrected"]),
+                }
+                for row in rows
+            ]
+    finally:
+        engine.dispose()
 
 
 def load_measurement_history(
