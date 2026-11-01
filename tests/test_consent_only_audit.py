@@ -112,7 +112,12 @@ def test_migration_reuses_existing_demo_role_without_private_table_grants():
     assert "GRANT EXECUTE ON FUNCTION public.hj_submit_reviewed_audit(jsonb)" in content
     assert "TO health_journey_demo_writer;" in content
     assert "REVOKE ALL ON public.hj_extraction_audits" in content
-    assert "GRANT SELECT" not in content
+    assert "GRANT SELECT ON public.hj_person_aliases" in content
+    assert "TO health_journey_app, health_journey_runtime;" in content
+    assert "TO health_journey_demo_writer;" in content  # function EXECUTE only
+    assert "GRANT SELECT ON public.hj_person_aliases TO health_journey_demo_writer" not in content
+    assert "GRANT SELECT ON public.hj_audit_reviewed_private TO health_journey_public" not in content
+    assert "REVOKE ALL ON public.hj_audit_reviewed_private FROM PUBLIC" in content
 
 
 def test_both_consents_at_start_and_login_only_for_history():
