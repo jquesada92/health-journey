@@ -8,6 +8,54 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Extracción en inglés y vista local del documento (flujo actual)
+
+El modelo Gemini interpreta informes InBody en español o inglés y devuelve
+`section`, `measurement` y `missing_or_unreadable` **siempre en inglés**.
+Se utilizan nombres consistentes: `Body Composition Analysis`,
+`Muscle-Fat Analysis`, `Obesity Analysis`, `Segmental Lean Analysis`,
+`Segmental Fat Analysis`, `InBody Score` e `Impedance`.
+En mediciones segmentales, el nombre sigue
+`Right Arm - Lean Mass`, `Left Leg - Fat Mass` o
+`Right Arm - Frequency` (frecuencia por fila, en `kHz`).
+El valor de impedancia se registra aparte:
+`Right Arm - Impedance at 50 kHz`, en `Ω`.
+La unidad de puntaje es `points`, no `puntos`.
+
+Los identificadores, marcas de tiempo, nombres de archivo y números
+**no** se traducen ni alteran. `value` sigue siendo cadena textual,
+preservando exactamente `8.20`, `0.370` y ceros a la izquierda del ID.
+Se excluyen completamente las gráficas y valores históricos. El usuario
+puede corregir `section`, `measurement`, `value` y `unit`, pero
+debe mantener los nombres de mediciones corregidos en inglés.
+El comentario libre de auditoría se conserva en el idioma escrito por
+la persona para no modificar evidencia original. El JSON original de
+Gemini permanece disponible para auditoría.
+
+La pestaña **InBody Upload** ahora coloca una **vista de PDF/imagen
+junto a la tabla editable**. PyMuPDF y Pillow rasterizan localmente
+cada página (máximo 10 y 15 MB por archivo, aplicando los controles del
+extractor). Gradio `Gallery` muestra miniaturas y ofrece ampliación
+al pulsar una página. No requiere `gradio_pdf`, OCR ni GPU; la
+vista aparece después de cargar, antes de cualquier envío remoto a Gemini.
+Se desactivan los botones de compartir y descargar la previsualización.
+Al cambiar o limpiar el archivo se resetean resultados, comentarios
+y consentimiento de envío/almacenamiento anteriores.
+
+La previsualización utiliza el caché de medios de Gradio para el navegador
+y **no supone aislamiento de archivos personales en un Space público**.
+Utilizar únicamente reportes sintéticos/anonimizados en QA; un despliegue
+para datos identificables requiere control de acceso privado efectivo.
+El visor no interpreta ni extrae contenido histórico; solo muestra
+el documento original para comparación humana.
+
+Tests sintéticos: `tests/test_inbody_document_preview.py`
+(verificación de multipágina PDF, PNG, límite de páginas,
+limpieza de estados, prompt inglés). No se envían archivos a Gemini
+ni se modifica Neon por el hecho de mostrar un PDF.
+
+
+
 ## Infraestructura actual: Gemini Flash sobre Space ZeroGPU existente (2026-11-01)
 
 El PR #38 ya fue fusionado en `main`. La extracción utiliza Gemini Flash
