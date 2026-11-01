@@ -1,5 +1,24 @@
 # Gemini Flash: revisión y auditoría por medición
 
+## Recuperación controlada ante HTTP 503
+
+El SDK de Google ya utiliza reintentos exponenciales para errores
+temporales. Si el modelo principal (`GEMINI_MODEL`, normalmente
+`gemini-3.8-flash`) termina con **HTTP 503**, se intenta una sola vez
+`GEMINI_FALLBACK_MODEL` (por defecto `gemini-3.5-flash-lite`).
+No se reintenta la alternativa desde nuestra aplicación y no se
+aplica el fallback ante HTTP 429, 400, 401, 403 o 404.
+
+Usar `GEMINI_FALLBACK_MODEL=off` para desactivar el fallback. La
+extracción con un segundo modelo puede variar de precisión y consumir
+más solicitudes; todos los resultados requieren revisión humana.
+La auditoría almacena el modelo que realmente produjo la extracción,
+el modelo principal y un indicador de fallback en el estado de sesión.
+
+Las pruebas sintéticas `tests/test_gemini_failover.py` no utilizan
+la API real ni documentos privados.
+
+
 
 ## Modelos Gemini y error 404 (noviembre de 2026)
 
