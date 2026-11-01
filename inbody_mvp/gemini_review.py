@@ -78,9 +78,11 @@ def _pages(name: str, data: bytes) -> list[Image.Image]:
     image.verify()
     return [Image.open(io.BytesIO(data)).convert("RGB")]
 
-def extract_gemini(upload_state):
+def extract_gemini(upload_state, consent=False):
     if not upload_state:
         raise gr.Error("Primero carga un documento.")
+    if consent is not True:
+        raise gr.Error("Debes autorizar explícitamente el envío de este documento a Gemini.")
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise gr.Error("Falta GEMINI_API_KEY en los secretos del Space.")
