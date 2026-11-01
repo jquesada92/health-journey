@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from .extractor import MAX_UPLOAD_BYTES
-from .storage import _database_engine, require_database_access
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 
@@ -399,45 +398,75 @@ def review_status(table, snapshot):
     except ValueError as exc:
         return "Revisión pendiente: " + str(exc)
 
+def audit_write_enabled() -> bool:
+    """Anonymous audit requires a restricted, write-only Neon credential."""
+    url = os.getenv("AUDIT_DATABASE_URL", "")
+    flag = os.getenv("ENABLE_ANONYMOUS_AUDIT", "").lower().strip()
+    return (flag in ("1", "true", "yes")
+            and (url.startswith("postgresql://") or url.startswith("postgresql+psycopg://"))
+            and "sslmode=require" in url)
+
+
+def _audit_write_engine():
+    from sqlalchemy import create_engine
+
+    if not audit_write_enabled():
+        raise PermissionError(
+            "El guardado por consentimiento no está configurado. "
+            "Define AUDIT_DATABASE_URL (rol de solo escritura) y "
+            "ENABLE_ANONYMOUS_AUDIT=1 en Hugging Face."
+        )
+    uri = os.environ["AUDIT_DATABASE_URL"]
+    if uri.startswith("postgresql://"):
+        uri = "postgresql+psycopg://" + uri[len("postgresql://"):]
+    return create_engine(uri, pool_pre_ping=True, pool_size=1, max_overflow=0)
+
+
 def save_audit(table, snapshot, consent, profile=None):
+    """Consent-based write-only submission; never grants private read access.
+
+    The anonymous database role has EXECUTE only on a validated stored
+    procedure; it cannot SELECT personal data from audit tables.
+    """
     if consent is not True:
-        raise _ui_error("Debes aceptar el almacenamiento privado.")
+        raise _ui_error("Debes autorizar el envío de las mediciones a Neon.")
     try:
-        require_database_access(profile)
         rows = validate_review(table, snapshot)
-        engine = _database_engine()
+        if not audit_write_enabled():
+            raise PermissionError(
+                "La escritura por consentimiento no está configurada. "
+                "Solicita configurar AUDIT_DATABASE_URL con el rol restringido "
+                "y ENABLE_ANONYMOUS_AUDIT=1."
+            )
+        body = {
+            "source_sha256": snapshot["sha256"],
+            "filename": snapshot["filename"],
+            "person_id": snapshot["header"]["person_id"],
+            "exam_datetime": snapshot["header"]["exam_datetime"],
+            "age": snapshot["header"]["age"],
+            "model_name": snapshot["model"],
+            "raw_response": json.loads(snapshot["raw_response"]),
+            "measurements": rows,
+        }
+        engine = _audit_write_engine()
         try:
             with engine.begin() as con:
-                # Migration must be applied by an administrator before this action.
-                already = con.execute(text(
-                    "SELECT extraction_id FROM hj_extraction_audits "
-                    "WHERE source_sha256 = :sha"
-                ), {"sha": snapshot["sha256"]}).scalar_one_or_none()
-                if already:
-                    raise ValueError("El archivo ya tiene una auditoría guardada.")
-                audit_id = con.execute(text(
-                    "INSERT INTO hj_extraction_audits "
-                    "(source_sha256, filename, person_id, exam_datetime, age, model_name, raw_response) "
-                    "VALUES (:sha, :filename, :person_id, :dt, :age, :model, CAST(:raw AS jsonb)) "
-                    "RETURNING extraction_id"
-                ), {"sha": snapshot["sha256"], "filename": snapshot["filename"],
-                    "person_id": snapshot["header"]["person_id"],
-                    "dt": datetime.fromisoformat(snapshot["header"]["exam_datetime"]),
-                    "age": snapshot["header"]["age"], "model": snapshot["model"],
-                    "raw": snapshot["raw_response"]}).scalar_one()
-                con.execute(text(
-                    "INSERT INTO hj_measurement_audits "
-                    "(extraction_id, row_number, section, measurement, original_section, "
-                    "original_measurement, original_value, original_unit, final_value, "
-                    "final_unit, was_corrected, correction_comment, reviewed_at) "
-                    "VALUES (:extraction_id, :row_number, :section, :measurement, "
-                    ":original_section, :original_measurement, :original_value, :original_unit, "
-                    ":value, :unit, :was_corrected, :correction_comment, now())"
-                ), [{"extraction_id": audit_id, **r} for r in rows])
-            return f"Auditoría privada guardada: {len(rows)} mediciones; {sum(r['was_corrected'] for r in rows)} corregidas."
+                audit_id = con.execute(
+                    text("SELECT public.hj_submit_reviewed_audit(CAST(:payload AS jsonb))"),
+                    {"payload": json.dumps(body, ensure_ascii=False)},
+                ).scalar_one()
+            return (
+                f"Auditoría guardada en Neon ({audit_id}): "
+                f"{len(rows)} mediciones; "
+                f"{sum(r['was_corrected'] for r in rows)} corregidas."
+            )
         finally:
             engine.dispose()
     except (ValueError, PermissionError) as exc:
-        raise _ui_error(str(exc)) from exc
-    except Exception as exc:
-        raise _ui_error("Error al guardar auditoría. Revisa migración 004 y la conexión privada.") from exc
+        raise _ui_error(str(exc)) from None
+    except Exception:
+        # Do not expose SQL, credentials, identifiers or raw errors to clients.
+        raise _ui_error(
+            "Neon no pudo guardar la auditoría. Verifica el rol de solo escritura, "
+            "la migración 005 y si el archivo ya estaba registrado."
+        ) from None
