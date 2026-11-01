@@ -57,26 +57,23 @@ def anonymized_measurements(report: ConfirmedExam) -> list[dict]:
     """Strict allowlist; discard all free text, labels and source metadata."""
     filtered = []
     for measure in report.measurements:
-        if measure.variable_medida not in PUBLIC_METRICS:
+        base_metric = measure.variable_medida.split("__", 1)[0]
+        if base_metric not in PUBLIC_METRICS:
             continue
-        if measure.unidad_medida != _ALLOWED_UNITS.get(measure.variable_medida):
+        if measure.unidad_medida != _ALLOWED_UNITS.get(base_metric):
             continue
         if measure.segmento and measure.segmento not in _ALLOWED_SEGMENTS:
             continue
-        if measure.frecuencia_khz is not None and not (
-            0 <= measure.frecuencia_khz <= 1000
-        ):
-            continue
         if not (-1000 <= measure.valor_medida <= 1000):
             continue
-        if (measure.variable_medida == "body_fat_percentage"
+        if (base_metric == "body_fat_percentage"
                 and not 0 <= measure.valor_medida <= 100):
             continue
         filtered.append({
-            "metric": measure.variable_medida,
+            "metric": base_metric,
             "unit": measure.unidad_medida,
             "segment": measure.segmento,
-            "frequency_khz": measure.frecuencia_khz,
+            "frequency_khz": None,
             "value": measure.valor_medida,
         })
     if not filtered:
