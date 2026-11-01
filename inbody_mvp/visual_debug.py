@@ -89,8 +89,7 @@ def render_debug(filename: str, payload: bytes, ocr):
                              str([(round(x), round(y)) for x, y in points]),
                              "Texto detectado; aún sin vinculación validada a una medida"])
         pictures.append(annotated)
-    mode = ("Detector IA no disponible en este entorno: se muestran las cajas OCR en naranja. "
-            "Para habilitar regiones azules, verifica PaddleOCR/PaddlePaddle y PP-DocLayout-S."
+    mode = ("Detector IA no disponible: se muestran solamente las cajas de EasyOCR."
             if ai_failed else "IA de layout activada: azul = regiones del detector; naranja = OCR."
             if requested else
             "IA de layout desactivada: naranja = OCR real. Para ver regiones azules, "

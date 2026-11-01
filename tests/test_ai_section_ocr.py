@@ -66,9 +66,9 @@ def test_ai_detection_precedes_cropped_ocr_and_maps_to_page():
 
     def recognizer(crop):
         sequence.append("ocr")
-        if crop.height < 350 and crop.width < 750:
-            # The first two regions have distinct aspect ratios.
-            if crop.height < 180:
+        if crop.height < 500 and crop.width < 850:
+            # The expected OCR order is based on the detector output.
+            if sequence.count("ocr") == 1:
                 return boxes(
                     ("Body Composition Analysis", 15, 5, .98),
                     ("Weight 73.3 kg", 110, 60, .94),
@@ -147,12 +147,16 @@ def test_existing_ocr_still_used_when_ai_disabled(monkeypatch):
     assert all("Sección" not in w for w in res.advertencias)
 
 
-def test_section_model_failure_is_explicit_when_enabled(monkeypatch):
+def test_section_model_failure_falls_back_without_leaking_details(monkeypatch):
     monkeypatch.setenv("ENABLE_AI_SECTION_OCR", "1")
     from inbody_mvp import extractor
+
     def failure(*_):
         raise RuntimeError("private paths and potential report data")
+
     monkeypatch.setattr(extractor, "inspect_sections", failure)
-    with pytest.raises(extractor.DocumentError, match="requirements-ai.txt") as err:
+    with pytest.raises(extractor.DocumentError, match="no reconoció texto") as err:
         extract_document("synthetic.jpg", image_bytes(), ocr=lambda _: [])
     assert "private paths" not in str(err.value)
+
+

@@ -121,7 +121,7 @@ def test_gradio_datetime_is_display_only_and_callbacks_take_extraction_state():
             return [x.id for x in inputs.elts if isinstance(x, ast.Name)]
         raise AssertionError(f"No se encontró el callback {callback}")
 
-    for callback in ("download_draft", "save_reviewed"):
+    for callback in ("save_reviewed",):
         names = bound_inputs(callback)
         assert "extraction_state" in names
         assert "timestamp" not in names

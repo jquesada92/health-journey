@@ -73,23 +73,40 @@ def extract_header_exam_timestamp(detections, width, height):
     the exam-date column in the TOP header: never inspect DOB or graph rows.
     """
     tokens = normalize_detections(detections, width, height)
-    header = [
-        t for t in tokens
-        if .045 <= t.cy <= .145 and .42 <= t.cx <= .82
-    ]
-    label_text = " ".join(
-        t.text for t in sorted(
-            (t for t in header if t.cy < .105), key=lambda t: (round(t.cy, 2), t.cx)
-        )
+    # OCR can split "Fecha / Hora del test" into multiple boxes. Reconstruct
+    # only the label row, never the value row or a full-page text stream.
+    top = [t for t in tokens if .015 <= t.cy <= .19]
+    label_re = re.compile(
+        r"(?:fecha\s*/\s*hora(?:\s+(?:del|de)\s+(?:test|examen|prueba))?"
+        r"|test\s+date\s*/\s*time|date\s*/\s*time)", re.I
     )
-    has_exam_label = re.search(
-        r"(?:test\s+date\s*/\s*time|fecha\s*/\s*hora"
-        r"(?:\s+(?:del|de)\s+(?:test|examen|prueba))?|"
-        r"fecha\s+y\s+hora|measurement\s+date|date\s*/\s*time)",
-        label_text, re.I,
-    )
-    if not has_exam_label:
+    label = None
+    label_row = [t for t in top if t.cy < .105]
+    for candidate in sorted(label_row, key=lambda t: (t.cy, t.cx)):
+        if label_re.search(candidate.text):
+            label = candidate
+            break
+    if label is None:
+        for candidate in sorted(label_row, key=lambda t: (t.cy, t.cx)):
+            if not re.search(r"^(fecha|test|date)$", candidate.text, re.I):
+                continue
+            nearby = sorted(
+                (t for t in label_row
+                 if abs(t.cy - candidate.cy) <= .008
+                 and candidate.x <= t.x <= candidate.x + .22),
+                key=lambda t: t.x,
+            )
+            if label_re.search(" ".join(t.text for t in nearby)):
+                label = candidate
+                break
+    if label is None:
         return None
+    # The date may begin left of the printed label. Exclude the DOB column,
+    # and never use values on an unrelated baseline.
+    min_x = max(.45, label.cx - .15)
+    header = [t for t in top
+              if t.cx >= min_x
+              and label.cy + .008 <= t.cy <= min(.22, label.cy + .085)]
 
     date_re = re.compile(
         r"(?<!\d)(\d{4}[/.-]\d{1,2}[/.-]\d{1,2}|"
@@ -102,8 +119,6 @@ def extract_header_exam_timestamp(detections, width, height):
     # The DOB column ends to the left of this ROI. The exam column starts
     # near 0.47 x and the time can extend to roughly 0.70 x.
     for token in header:
-        if not (.46 <= token.cx <= .77 and .075 <= token.cy <= .135):
-            continue
         date_match = date_re.search(token.text)
         if date_match:
             dates.append((token, date_match.group(1)))
