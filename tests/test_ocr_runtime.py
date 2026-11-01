@@ -100,7 +100,7 @@ def test_gemini_missing_upload_is_rejected_before_api_or_authentication():
     class UiError(Exception):
         pass
 
-    scope = {"gr": SimpleNamespace(Error=UiError)}
+    scope = {"_ui_error": UiError}
     exec(compile(ast.fix_missing_locations(
         ast.Module(body=[callback], type_ignores=[])
     ), "<gemini extraction guard>", "exec"), scope)
