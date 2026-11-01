@@ -51,11 +51,17 @@ def render_debug(filename: str, payload: bytes, ocr):
         raise DocumentError("Archivo mayor de 15 MB.")
     pictures, rows = [], []
     requested = ai_sections_requested()
+    ai_failed = False
     for number, image in _pages(filename, payload):
         annotated = image.copy()
         draw = ImageDraw.Draw(annotated)
-        if requested:
-            for reg in ai_detect_layout(image):
+        if requested and not ai_failed:
+            try:
+                detected = ai_detect_layout(image)
+            except Exception:
+                ai_failed = True
+                detected = []
+            for reg in detected:
                 x0, y0, x1, y1 = reg.box
                 draw.rectangle((x0, y0, x1, y1), outline=COLORS["layout"], width=4)
                 draw.text((x0, max(0, y0 - 13)), f"IA: {reg.label} ({reg.score:.2f})",
@@ -83,7 +89,8 @@ def render_debug(filename: str, payload: bytes, ocr):
                              str([(round(x), round(y)) for x, y in points]),
                              "Texto detectado; aún sin vinculación validada a una medida"])
         pictures.append(annotated)
-    mode = ("IA de layout activada: azul = regiones del detector; naranja = OCR."
+    mode = ("Detector IA no disponible: se muestran solamente las cajas de EasyOCR."
+            if ai_failed else "IA de layout activada: azul = regiones del detector; naranja = OCR."
             if requested else
             "IA de layout desactivada: naranja = OCR real. Para ver regiones azules, "
             "instala requirements-ai.txt y activa ENABLE_AI_SECTION_OCR=1 antes de iniciar la app.")
