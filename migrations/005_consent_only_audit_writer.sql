@@ -148,4 +148,10 @@ JOIN public.hj_measurement_audits m USING (extraction_id)
 WHERE e.anonymous_id IS NOT NULL;
 REVOKE ALL ON public.hj_audit_reviewed_private FROM PUBLIC;
 REVOKE ALL ON public.hj_audit_reviewed_private FROM health_journey_demo_writer;
+-- Only existing private application roles, which enforce user authorization,
+-- can resolve the alias and query individual review history.
+GRANT SELECT ON public.hj_person_aliases,
+    public.hj_audit_reviewed_private
+    TO health_journey_app, health_journey_runtime;
+
 
