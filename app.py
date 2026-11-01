@@ -166,8 +166,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     preview=True,
                     allow_preview=True,
                     object_fit="contain",
-                    show_download_button=False,
-                    show_share_button=False,
+                    buttons=["fullscreen"],
                     interactive=False,
                     format="png",
                 )
