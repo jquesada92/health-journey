@@ -22,3 +22,6 @@ python-dateutil>=2.9,<3.0
 # Hugging Face Space: experimental CPU document layout model
 paddlepaddle==3.2.2
 paddleocr>=3.3,<4
+
+# Gemini Flash structured image extraction
+google-genai>=1.0,<2.0
