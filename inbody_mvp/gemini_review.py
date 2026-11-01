@@ -448,11 +448,11 @@ def audit_write_enabled() -> bool:
     flag = os.getenv("ENABLE_ANONYMOUS_AUDIT", "").lower().strip()
     if flag not in ("1", "true", "yes"):
         return False
-    url = os.getenv("AUDIT_DATABASE_URL", "")
+    url = os.getenv("DEMO_DATABASE_URL", "")
     try:
         parsed = make_url(url)
         return (parsed.drivername in ("postgresql", "postgresql+psycopg")
-                and parsed.username == "health_journey_audit_submit"
+                and parsed.username == "health_journey_demo_writer"
                 and parsed.query.get("sslmode") == "require")
     except (ValueError, TypeError, AttributeError, ArgumentError):
         return False
@@ -464,10 +464,10 @@ def _audit_write_engine():
     if not audit_write_enabled():
         raise PermissionError(
             "El guardado por consentimiento no está configurado. "
-            "Define AUDIT_DATABASE_URL (rol health_journey_audit_submit) y "
+            "Define DEMO_DATABASE_URL (rol health_journey_demo_writer) y "
             "ENABLE_ANONYMOUS_AUDIT=1 en Hugging Face."
         )
-    uri = os.environ["AUDIT_DATABASE_URL"]
+    uri = os.environ["DEMO_DATABASE_URL"]
     if uri.startswith("postgresql://"):
         uri = "postgresql+psycopg://" + uri[len("postgresql://"):]
     return create_engine(uri, pool_pre_ping=True, pool_size=1, max_overflow=0)
@@ -486,7 +486,7 @@ def save_audit(table, snapshot, consent, profile=None):
         if not audit_write_enabled():
             raise PermissionError(
                 "La escritura por consentimiento no está configurada. "
-                "Solicita configurar AUDIT_DATABASE_URL con health_journey_audit_submit "
+                "Solicita configurar DEMO_DATABASE_URL con health_journey_demo_writer "
                 "y ENABLE_ANONYMOUS_AUDIT=1."
             )
         body = {
