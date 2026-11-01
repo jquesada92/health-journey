@@ -1,5 +1,31 @@
 # 09 — Estado verificado, decisiones técnicas y deuda pendiente
 
+## Estado vigente — 1 de noviembre de 2026 (PR #38, pendiente de validación E2E)
+
+La interfaz activa de **InBody Hub** es Gradio y usa **Gemini Flash** mediante
+`inbody_mvp/gemini_review.py` para extraer el examen actual de PDF/JPG/PNG.
+El envío a Google exige consentimiento separado por documento. No se capturan
+gráficos de historial. El encabezado (fecha/hora, archivo, ID y edad) se repite
+en cada fila; `section`, `measurement`, `value`, `unit` forman el contrato
+de mediciones. El nombre de la medición incluye el segmento corporal cuando
+corresponde. Frecuencia es una medición por fila, y Puntaje InBody también.
+
+La tabla permite revisar cada fila y corregir sección, nombre, valor y unidad.
+Se conservan el valor original de Gemini, indicador calculado de corrección,
+comentario obligatorio al corregir y estado revisado. Los decimales se
+preservan como texto (ej. `8.20`). El guardado en Neon es una **auditoría privada**
+separada de las tablas de historial y requiere OAuth, consentimiento y
+`migrations/004_gemini_measurement_audit.sql`. No está comprobado el
+despliegue E2E ni ejecutada esa migración.
+
+**Componentes retirados del runtime/despliegue:** visor y editor de secciones,
+EasyOCR, PaddleOCR y ZeroGPU. Los módulos y pruebas de OCR heredados permanecen
+en el repositorio como material legacy; no se distribuyen en el Space. La
+demostración anónima y el CSV antiguo no son parte del flujo activo de carga,
+aunque subsisten módulos de compatibilidad y el dashboard público/historial.
+No confundir documentación histórica del MVP con su estado operativo actual.
+
+
 **Fecha de corte documental:** 31/10/2026. El estado debe volver a verificarse contra el commit, Neon y los logs del Space en toda reconstrucción.
 
 ## 1. Inventario técnico confirmado
