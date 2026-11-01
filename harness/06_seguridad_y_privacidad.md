@@ -1,6 +1,47 @@
 # 06 — Seguridad, privacidad y control de acceso
 
 
+## Identidad InBody: vinculación privada y seudónimo en consultas
+
+Un ID numérico con separadores, por ejemplo `88571257` y
+`8-857-1257`, se normaliza a la misma clave interna `88571257`
+(sin espacios ni guiones; **sin quitar ceros iniciales**).
+Para IDs alfanuméricos se conservan los separadores y se estandariza
+el uso de mayúsculas. Nunca se utiliza el número del reporte, ni su
+hash determinístico, como alias visible.
+
+La migración 005 crea `hj_person_aliases`: clave canónica **privada**
+y un UUID aleatorio persistente `anonymous_id`. Al insertar cada
+auditoría, la función asigna el UUID de la persona; dos informes con
+el mismo ID normalizado comparten alias. El ID tal como aparece en
+el PDF sigue conservado solo en `hj_extraction_audits.person_id`
+y en el JSON original de auditoría, sin acceso público.
+
+La vista `hj_audit_reviewed_private` devuelve solamente UUID,
+**fecha sin hora**, sección, medición, valor, unidad y estado de
+corrección. Excluye `person_id`, `filename`, edad, hora exacta y
+`raw_response`. Su acceso se limita a roles privados; en Gradio,
+`load_reviewed_audit_history` exige OAuth antes de consultar.
+El formulario recibe el ID real en un campo visualmente oculto
+y muestra únicamente `Persona <alias>` en tabla/gráfica.
+
+El rol `health_journey_demo_writer` conserva permiso de **ejecución
+de la función de inserción**, pero ninguno de lectura de alias,
+mapa de IDs o auditorías. El dashboard público **no** consulta
+auditorías privadas automáticamente: consentir almacenamiento en
+Neon no constituye consentimiento de publicación. Exponer
+tendencias individuales requeriría un consentimiento separado
+y una revisión del riesgo de reidentificación. Un UUID es
+*seudonimización*, no garantía de anonimato absoluto.
+
+El esquema se probó en rama temporal de Neon con **IDs sintéticos**
+equivalentes: dos exámenes → un mismo UUID; sin acceso SELECT para
+roles públicos o de demostración. La migración 005 de `main` de
+Neon permanece pendiente de aprobación, así que el guardado y la
+consulta de esta vista no están activos aún en producción.
+
+
+
 ## Flujo actual: extracción inglés + PDF y consentimiento (noviembre 2026)
 
 **UI:** InBody Upload coloca, antes del archivo, dos consentimientos
