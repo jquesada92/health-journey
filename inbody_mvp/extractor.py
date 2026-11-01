@@ -332,7 +332,7 @@ def _load_image(data: bytes) -> Image.Image:
         raise DocumentError("La imagen está corrupta o no se puede abrir.") from ex
 
 
-def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None) -> ExtractionResult:
+def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None, *, approved_regions: dict | None = None) -> ExtractionResult:
     """Extract text from PDFs/JPEGs/PNGs and parse candidates without persistence."""
     kind = validate_file(filename, data)
     digest = hashlib.sha256(data).hexdigest()
@@ -348,7 +348,7 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
             # The legacy page OCR remains the baseline, and never trusts history
             # chart values as an exam's current measurement.
             section_results = []
-            if ai_sections_requested():
+            if approved_regions is None and ai_sections_requested():
                 try:
                     section_results = inspect_sections(image, ocr_engine)
                 except Exception:
@@ -357,6 +357,27 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
                         "se utilizó EasyOCR convencional."
                     )
             answer = ocr_engine(image)
+            if approved_regions is not None and isinstance(answer, list):
+                # Only OCR boxes within human-approved sections can supply
+                # measurements. Keep page header tokens for exam metadata.
+                permitted = approved_regions.get(page_number, [])
+                def included(token):
+                    try:
+                        coordinates = token[0]
+                        center_x = sum(float(p[0]) for p in coordinates) / len(coordinates) / image.width
+                        center_y = sum(float(p[1]) for p in coordinates) / len(coordinates) / image.height
+                    except (TypeError, ValueError, IndexError, ZeroDivisionError):
+                        return False
+                    # Header is needed for timestamp and patient metadata; do
+                    # not use an unreviewed entire page for measurements.
+                    if center_y < .16:
+                        return True
+                    return any(
+                        reg["box"][0] <= center_x <= reg["box"][2]
+                        and reg["box"][1] <= center_y <= reg["box"][3]
+                        for reg in permitted
+                    )
+                answer = [token for token in answer if included(token)]
             if section_results and isinstance(answer, list):
                 answer, section_notices = merge_section_ocr(
                     answer, section_results,
@@ -402,7 +423,7 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
                     raise DocumentError(f"Máximo {MAX_PAGES} páginas por archivo.")
                 for n, page in enumerate(pdf):
                     native = page.get_text("text", sort=True).strip()
-                    if len(native) >= 70:
+                    if approved_regions is None and len(native) >= 70:
                         texts.append((native, "pdf_text"))
                         continue
                     if page.rect.width * page.rect.height * (OCR_DPI / 72)**2 > MAX_PIXELS:
