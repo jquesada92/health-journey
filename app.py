@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import spaces  # ZeroGPU startup requires a registered GPU handler.
 import gradio as gr
 import pandas as pd
 import plotly.express as px
@@ -70,10 +71,35 @@ def verify_neon_session(profile: gr.OAuthProfile | None = None) -> str:
     )
 
 
+@spaces.GPU(duration=15)
+def diagnose_zerogpu() -> str:
+    """Optional real CUDA diagnostic. Normal Gemini extraction does not use GPU."""
+    import torch
+
+    if not torch.cuda.is_available():
+        return "No hay GPU CUDA disponible para el diagnóstico."
+    tensor = torch.ones(8, device="cuda")
+    result = float(tensor.sum().item())
+    return f"ZeroGPU disponible: {torch.cuda.get_device_name(0)} (prueba CUDA: {result:g})."
+
+
 OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
+    # The optional GPU callback keeps an existing ZeroGPU Space compatible.
+    # It is NEVER invoked by the Gemini API or Neon audit workflows.
+    with gr.Accordion("Diagnóstico ZeroGPU (opcional)", open=False):
+        gr.Markdown(
+            "Solo para verificar el hardware de Hugging Face. "
+            "Ejecutarlo consume cuota GPU; las extracciones con Gemini no la utilizan."
+        )
+        gpu_diagnostic_button = gr.Button("Probar GPU disponible")
+        gpu_diagnostic_result = gr.Textbox(label="Resultado", interactive=False)
+        gpu_diagnostic_button.click(
+            fn=diagnose_zerogpu, outputs=[gpu_diagnostic_result], concurrency_limit=1
+        )
+
     if os.getenv("SPACE_ID") and OAUTH_URLS and not anonymous_demo_requested():
         gr.HTML(
             '<div style="padding:0.4rem 0">'

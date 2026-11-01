@@ -5,6 +5,7 @@ psycopg[binary]>=3.2,<4.0
 SQLAlchemy>=2.0,<3.0
 alembic>=1.14,<2.0
 gradio[oauth]>=6.0,<7.0
+spaces  # Hugging Face ZeroGPU decorator (no-op on CPU)
 
 # Gradio + Plotly: Gemini measurement review and dashboards
 plotly>=6.0,<7.0
