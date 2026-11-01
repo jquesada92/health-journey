@@ -213,7 +213,7 @@ def canonical_person_id(person_id: str) -> str:
     original = str(person_id or "").strip()
     if not original or len(original) > 128:
         raise ValueError("ID de InBody inválido.")
-    if re.fullmatch(r"[0-9\\s-]+", original):
+    if re.fullmatch(r"[0-9\s-]+", original):
         result = re.sub(r"[^0-9]", "", original)
     else:
         result = original.upper()
