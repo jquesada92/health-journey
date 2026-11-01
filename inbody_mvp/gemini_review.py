@@ -399,12 +399,19 @@ def review_status(table, snapshot):
         return "Revisión pendiente: " + str(exc)
 
 def audit_write_enabled() -> bool:
-    """Anonymous audit requires a restricted, write-only Neon credential."""
-    url = os.getenv("AUDIT_DATABASE_URL", "")
+    """Never accept administrator credentials for consent-only audit writes."""
+    from sqlalchemy.engine.url import make_url
     flag = os.getenv("ENABLE_ANONYMOUS_AUDIT", "").lower().strip()
-    return (flag in ("1", "true", "yes")
-            and (url.startswith("postgresql://") or url.startswith("postgresql+psycopg://"))
-            and "sslmode=require" in url)
+    if flag not in ("1", "true", "yes"):
+        return False
+    url = os.getenv("AUDIT_DATABASE_URL", "")
+    try:
+        parsed = make_url(url)
+        return (parsed.drivername in ("postgresql", "postgresql+psycopg")
+                and parsed.username == "health_journey_audit_submit"
+                and parsed.query.get("sslmode") == "require")
+    except (ValueError, TypeError, AttributeError):
+        return False
 
 
 def _audit_write_engine():
@@ -413,7 +420,7 @@ def _audit_write_engine():
     if not audit_write_enabled():
         raise PermissionError(
             "El guardado por consentimiento no está configurado. "
-            "Define AUDIT_DATABASE_URL (rol de solo escritura) y "
+            "Define AUDIT_DATABASE_URL (rol health_journey_audit_submit) y "
             "ENABLE_ANONYMOUS_AUDIT=1 en Hugging Face."
         )
     uri = os.environ["AUDIT_DATABASE_URL"]
@@ -435,7 +442,7 @@ def save_audit(table, snapshot, consent, profile=None):
         if not audit_write_enabled():
             raise PermissionError(
                 "La escritura por consentimiento no está configurada. "
-                "Solicita configurar AUDIT_DATABASE_URL con el rol restringido "
+                "Solicita configurar AUDIT_DATABASE_URL con health_journey_audit_submit "
                 "y ENABLE_ANONYMOUS_AUDIT=1."
             )
         body = {
