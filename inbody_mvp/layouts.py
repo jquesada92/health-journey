@@ -77,15 +77,15 @@ def extract_header_exam_timestamp(detections, width, height):
     # a fixed horizontal column across all report designs.
     top = [t for t in tokens if .015 <= t.cy <= .19]
     label_re = re.compile(
-        r"(?:fecha\\s*/\\s*hora(?:\\s+(?:del|de)\\s+(?:test|examen|prueba))?"
-        r"|test\\s+date\\s*/\\s*time|date\\s*/\\s*time)", re.I
+        r"(?:fecha\s*/\s*hora(?:\s+(?:del|de)\s+(?:test|examen|prueba))?"
+        r"|test\s+date\s*/\s*time|date\s*/\s*time)", re.I
     )
     labels = [t for t in top if label_re.search(t.text)]
     if not labels:
         # Some OCR engines split the printed title across neighboring boxes.
         top_sorted = sorted(top, key=lambda t: (round(t.cy, 2), t.cx))
         labels = [t for t in top_sorted
-                  if re.search(r"fecha\\s*/\\s*hora|test\\s+date", t.text, re.I)]
+                  if re.search(r"fecha\s*/\s*hora|test\s+date", t.text, re.I)]
     if not labels:
         return None
     label = max(labels, key=lambda t: t.cx)
