@@ -133,8 +133,6 @@ def extract_gemini(upload_state, consent=False):
         if result.missing_or_unreadable:
             message += " Campos ilegibles: " + ", ".join(result.missing_or_unreadable)
         return frame, snapshot, message
-    except gr.Error:
-        raise
     except Exception as exc:
         raise _ui_error(f"No se pudo extraer el reporte ({type(exc).__name__}).") from exc
 
