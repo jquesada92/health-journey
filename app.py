@@ -203,7 +203,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         if not audit_write_enabled():
             gr.Markdown(
                 "El guardado requiere configurar el Secret `DEMO_DATABASE_URL` "
-                "y `ENABLE_ANONYMOUS_AUDIT=1`. No uses DATABASE_URL de administrador."
+                "y `ENABLE_ANONYMOUS_DEMO=1`. No uses DATABASE_URL de administrador."
             )
         gemini_save = gr.Button(
             "Guardar mediciones revisadas y auditoría",

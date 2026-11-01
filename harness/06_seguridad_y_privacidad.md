@@ -64,7 +64,7 @@ y consentimiento Neon. Se ejecuta `hj_submit_reviewed_audit(jsonb)`
 usando una conexión **distinta** de `DATABASE_URL`:
 `DEMO_DATABASE_URL` (Secret HF), usuario exacto
 `health_journey_demo_writer`, SSL y
-`ENABLE_ANONYMOUS_AUDIT=1` (Variable HF). La migración
+`ENABLE_ANONYMOUS_DEMO=1` (Variable HF). La migración
 `migrations/005_consent_only_audit_writer.sql` **reutiliza** el rol
 `health_journey_demo_writer` y no crea usuarios ni modifica contraseñas.
 Solo concede permiso EXECUTE sobre la función de auditoría; el rol sigue
