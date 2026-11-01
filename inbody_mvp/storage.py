@@ -32,7 +32,6 @@ class StoredMeasurement(BaseModel):
     categoria: str | None = None
     dimension: str | None = None
     segmento: str | None = None
-    frecuencia_khz: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     unidad_medida: str | None = None
     valor_medida: float = Field(allow_inf_nan=False)
     pagina: int | None = Field(default=None, ge=1)
@@ -118,7 +117,7 @@ def prepare_confirmed_exam(
                 pass
             return value
         row = {key: clean(raw.get(key)) for key in ReviewedRow.model_fields}
-        for key in ("valor_medida", "frecuencia_khz"):
+        for key in ("valor_medida",):
             if isinstance(row.get(key), str):
                 row[key] = row[key].replace(",", ".")
         reviewed = ReviewedRow.model_validate(row)
@@ -139,7 +138,6 @@ def prepare_confirmed_exam(
             categoria=clean(raw.get("categoria")),
             dimension=clean(raw.get("dimension")),
             segmento=reviewed.segmento,
-            frecuencia_khz=measured_frequency,
             unidad_medida=reviewed.unidad_medida,
             valor_medida=reviewed.valor_medida,
             pagina=clean(raw.get("pagina")),
@@ -231,7 +229,7 @@ def load_measurement_history(
             rows = connection.execute(text("""
                 SELECT e.exam_timestamp, e.modelo_inbody, e.idioma_reporte,
                        m.variable_medida, m.original_label, m.unidad_medida,
-                       m.valor_medida, m.segmento, m.frecuencia_khz, e.edad
+                       m.valor_medida, m.segmento, e.edad
                 FROM hj_measurements m
                 JOIN hj_exams e ON e.exam_uuid = m.exam_uuid
                 JOIN hj_persons p ON p.person_uuid = e.person_uuid
@@ -249,10 +247,6 @@ def load_measurement_history(
                     "valor_medida": (
                         float(row["valor_medida"])
                         if row["valor_medida"] is not None else None
-                    ),
-                    "frecuencia_khz": (
-                        float(row["frecuencia_khz"])
-                        if row["frecuencia_khz"] is not None else None
                     ),
                 } for row in rows
             ]
@@ -318,11 +312,11 @@ def save_confirmed_exam(report: ConfirmedExam, oauth_profile=None, publish: bool
             connection.execute(text("""
                 INSERT INTO hj_measurements (
                     exam_uuid, row_number, variable_medida, original_label,
-                    categoria, dimension, segmento, frecuencia_khz,
+                    categoria, dimension, segmento,
                     unidad_medida, valor_medida, pagina, extraction_source
                 ) VALUES (
                     :exam_uuid, :row_number, :variable_medida, :original_label,
-                    :categoria, :dimension, :segmento, :frecuencia_khz,
+                    :categoria, :dimension, :segmento,
                     :unidad_medida, :valor_medida, :pagina, :fuente
                 )
             """), [

@@ -34,7 +34,7 @@ PUBLIC_METRICS: dict[str, str] = {
 
 PUBLIC_COLUMNS = (
     "period_month", "device_group", "variable_medida",
-    "unidad_medida", "segmento", "frecuencia_khz",
+    "unidad_medida", "segmento",
     "participantes", "valor_promedio",
 )
 
@@ -67,11 +67,11 @@ def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -
         with engine.connect() as connection:
             rows = connection.execute(text("""
                 SELECT period_month, device_group, variable_medida,
-                       unidad_medida, segmento, frecuencia_khz,
+                       unidad_medida, segmento,
                        participantes, valor_promedio
                 FROM hj_public_monthly_summary
-                WHERE variable_medida = :variable
-                ORDER BY period_month, device_group, segmento, frecuencia_khz
+                WHERE split_part(variable_medida, '__', 1) = :variable
+                ORDER BY period_month, device_group, segmento
                 LIMIT :row_limit
             """), {"variable": variable, "row_limit": max_rows}).mappings().all()
         result = []
@@ -83,8 +83,6 @@ def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -
             record["period_month"] = record["period_month"].isoformat()
             record["participantes"] = int(record["participantes"])
             record["valor_promedio"] = float(record["valor_promedio"])
-            if record["frecuencia_khz"] is not None:
-                record["frecuencia_khz"] = float(record["frecuencia_khz"])
             result.append(record)
         return result
     finally:
@@ -96,7 +94,7 @@ def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -
 # inside PostgreSQL and is NOT a hash of the real InBody identifier.
 PUBLIC_SERIES_COLUMNS = (
     "anonymous_id", "exam_date", "device_group", "variable_medida",
-    "unidad_medida", "segmento", "frecuencia_khz", "valor_medida",
+    "unidad_medida", "segmento", "valor_medida",
 )
 
 
@@ -118,17 +116,17 @@ def load_public_person_series(
     if os.getenv("ENABLE_ANONYMOUS_DEMO", "").strip().lower() in ("1", "true", "yes"):
         source_sql = """
             SELECT anonymous_id, exam_date, device_group, variable_medida,
-                   unidad_medida, segmento, frecuencia_khz, valor_medida
+                   unidad_medida, segmento, valor_medida
             FROM hj_public_person_series
             UNION ALL
             SELECT anonymous_id, exam_date, device_group, variable_medida,
-                   unidad_medida, segmento, frecuencia_khz, valor_medida
+                   unidad_medida, segmento, valor_medida
             FROM hj_demo_public_series
         """
     else:
         source_sql = """
             SELECT anonymous_id, exam_date, device_group, variable_medida,
-                   unidad_medida, segmento, frecuencia_khz, valor_medida
+                   unidad_medida, segmento, valor_medida
             FROM hj_public_person_series
         """
     engine = _public_database_engine()
@@ -136,11 +134,11 @@ def load_public_person_series(
         with engine.connect() as conn:
             rows = conn.execute(text("""
                 SELECT anonymous_id, exam_date, device_group, variable_medida,
-                       unidad_medida, segmento, frecuencia_khz, valor_medida
+                       unidad_medida, segmento, valor_medida
                 FROM (
             """ + source_sql + """
                 ) AS published
-                WHERE variable_medida = :metric
+                WHERE split_part(variable_medida, '__', 1) = :metric
                 ORDER BY exam_date, anonymous_id
                 LIMIT :row_limit
             """), {"metric": variable, "row_limit": limit}).mappings().all()
@@ -152,8 +150,6 @@ def load_public_person_series(
             record["anonymous_id"] = str(record["anonymous_id"])
             record["exam_date"] = record["exam_date"].isoformat()
             record["valor_medida"] = float(record["valor_medida"])
-            if record["frecuencia_khz"] is not None:
-                record["frecuencia_khz"] = float(record["frecuencia_khz"])
             answer.append(record)
         return answer
     finally:

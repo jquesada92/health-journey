@@ -52,7 +52,9 @@ def test_language_saved_as_exam_metadata():
     assert payload.source_sha256 == "a" * 64
     assert len(payload.measurements) == 2
     assert payload.measurements[1].segmento == "left_leg"
-    assert payload.measurements[1].frecuencia_khz == 50.0
+    assert payload.measurements[1].variable_medida == "phase_angle__50khz"
+    assert payload.measurements[1].unidad_medida == "°"
+    assert payload.measurements[1].valor_medida == 6.1
 
 
 def test_missing_timestamp_rejected():
