@@ -568,11 +568,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 lambda item: (
                     str(item["device_group"])
                     + " · " + str(item["segmento"] or "Cuerpo completo")
-                    + " · " + (
-                        f'{item["frecuencia_khz"]:g} kHz'
-                        if pd.notna(item["frecuencia_khz"])
-                        else "Frecuencia no indicada"
-                    )
+                    + " · " + str(item["variable_medida"])
                 ),
                 axis=1,
             )
@@ -680,11 +676,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 selected["series_name"] = selected.apply(
                     lambda item: (
                         str(item["modelo_inbody"] or "Modelo desconocido")
-                        + " | " + (
-                            f'{item["frecuencia_khz"]:g} kHz'
-                            if pd.notna(item["frecuencia_khz"])
-                            else "Frecuencia no indicada"
-                        )
+                        + " | " + str(item["variable_medida"])
                     ),
                     axis=1,
                 )
@@ -693,12 +685,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     selected, x="exam_timestamp", y="valor_medida",
                     color="series_name", markers=True,
                     labels={"exam_timestamp": "Fecha del examen",
-                            "valor_medida": unit, "series_name": "Modelo/frecuencia"},
+                            "valor_medida": unit, "series_name": "Modelo y medición"},
                     title=f"{metric} — {unit}",
                 )
             return (
                 f"{len(frame)} mediciones encontradas (máximo 500 por consulta). "
-                "Separadas por modelo y frecuencia para evitar series incompatibles.",
+                "Separadas por modelo y variable para evitar series incompatibles.",
                 fig, frame
             )
 
