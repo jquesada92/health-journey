@@ -6,6 +6,7 @@ HTML_TEMPLATE = """
     <label>Sección <select id="hj-kind"></select></label>
     <button id="hj-add" type="button">Dibujar nueva</button>
     <button id="hj-delete" type="button">Eliminar</button>
+    <label>Vista <select id="hj-zoom"><option value="fit">Página completa</option><option value="width">Ancho</option><option value="100">100%</option></select></label>
     <label><input id="hj-include" type="checkbox" checked /> Incluir</label>
     <span id="hj-help">Selecciona una caja o dibuja una nueva.</span>
   </div>
@@ -15,10 +16,10 @@ HTML_TEMPLATE = """
 """
 CSS_TEMPLATE = """
 .hj-editor {font-family:system-ui,sans-serif;color:var(--body-text-color,#222)}
-.hj-toolbar {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.hj-toolbar {display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;font-size:13px}
 .hj-toolbar select,.hj-toolbar button {padding:6px;border:1px solid #999;border-radius:6px;background:var(--body-background-fill,#fff);color:inherit}
-.hj-stage {overflow:auto;max-height:740px;background:#555;padding:8px}
-#hj-canvas {display:block;max-width:100%;height:auto;margin:auto;touch-action:none;cursor:crosshair}
+.hj-stage {display:flex;justify-content:center;align-items:flex-start;overflow:auto;max-height:75vh;min-height:220px;background:#555;padding:4px;border-radius:6px}
+#hj-canvas {display:block;width:auto;height:auto;max-width:none;max-height:none;touch-action:none;cursor:crosshair}
 .hj-foot {font-size:12px;color:#888;margin-top:8px}
 """
 JS_ON_LOAD = """
@@ -28,6 +29,8 @@ const pageSelect = element.querySelector('#hj-page');
 const kindSelect = element.querySelector('#hj-kind');
 const include = element.querySelector('#hj-include');
 const help = element.querySelector('#hj-help');
+const zoom = element.querySelector('#hj-zoom');
+const stage = element.querySelector('.hj-stage');
 const kinds = ['header','body_composition','muscle_fat','obesity','segmental_lean',
                'segmental_fat','research','impedance','history','other'];
 for (const k of kinds) { const option=document.createElement('option'); option.value=k; option.textContent=k; kindSelect.append(option); }
@@ -42,9 +45,21 @@ function setPage(n) {
   image.src=p.url;
   pageSelect.value=String(n);
 }
+function fitCanvas() {
+  if (!canvas.width || !canvas.height) return;
+  const availableWidth = Math.max(200, stage.clientWidth - 8);
+  const availableHeight = Math.max(220, Math.round(window.innerHeight * .72));
+  let scale = zoom.value === '100' ? 1 :
+    zoom.value === 'width' ? availableWidth / canvas.width :
+    Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+  if (zoom.value === 'fit') scale = Math.min(1, scale);
+  canvas.style.width = Math.round(canvas.width * scale) + 'px';
+  canvas.style.height = Math.round(canvas.height * scale) + 'px';
+}
 function draw(){
   const p=pageInfo(); if(!p || !image.complete || !image.naturalWidth) return;
   canvas.width=image.naturalWidth; canvas.height=image.naturalHeight;
+  fitCanvas();
   ctx.drawImage(image,0,0,canvas.width,canvas.height);
   const sx=canvas.width/p.width, sy=canvas.height/p.height;
   state.rows.forEach((r,i)=>{
@@ -130,6 +145,8 @@ element.querySelector('#hj-delete').addEventListener('click',()=>{if(selected>=0
 kindSelect.addEventListener('change',()=>{if(selected>=0){state.rows[selected][1]=kindSelect.value;publish();draw();}});
 include.addEventListener('change',()=>{if(selected>=0){state.rows[selected][6]=include.checked;publish();}});
 pageSelect.addEventListener('change',()=>setPage(Number(pageSelect.value)));
+zoom.addEventListener('change',fitCanvas);
+new ResizeObserver(fitCanvas).observe(stage);
 function load(){
   try{
     const next=JSON.parse(props.value||'{}');
