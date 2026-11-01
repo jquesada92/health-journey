@@ -112,9 +112,9 @@ def review_with_gemini(
     except Exception as exc:
         # Provider errors can contain request snippets, file metadata or IDs.
         raise RuntimeError(
-            "No se completó la revisión con Gemini. Revisa la cuota, la "
-            "configuración y los logs privados del proveedor."
-        ) from exc
+            "No se completó la revisión con Gemini. Revisa la cuota y la "
+            "configuración del proveedor sin compartir el documento."
+        ) from None
 
     result = []
     for measurement in report.measurements:
