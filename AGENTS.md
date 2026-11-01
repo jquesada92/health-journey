@@ -116,3 +116,18 @@ Requisitos comprobables adicionales: aceptar `Test Date / Time\n04.10.2026. 10:0
 ## Timestamp InBody: resolver columnas OCR por coordenadas
 
 Para ambos encabezados reales `Test Date / Time` y `Fecha / Hora del test`, **el OCR de texto plano NO es suficiente**: `tokens_to_text` puede poner `Gender`/`Género` delante del título y la fecha de nacimiento antes de la fecha del examen. El extractor `extract_header_exam_timestamp` en `inbody_mvp/layouts.py` toma la fecha y hora directamente de detecciones EasyOCR con posiciones del encabezado superior y su propia columna de examen, exigiendo un título explícito y valores en el mismo renglón. No acepta fechas del DOB ni valores del historial. `extract_document` usa ese timestamp para ambos tipos de plantilla, y nunca lo debe borrar al reconocer siluetas españolas. No se guardan imágenes reales ni identificadores en tests; mantener `tests/test_header_spatial_timestamp.py` y las otras pruebas de fecha. Comprobar el despliegue real con reportes del propietario, sin ponerlos en GitHub.
+
+## OCR por secciones con IA: experimento con validación obligatoria
+
+`inbody_mvp/section_ai.py` utiliza opcionalmente **PaddleOCR
+PP-DocLayout-S**, modelo visual genérico entrenado para detectar regiones de
+documento, antes de aplicar EasyOCR a cada recorte. Detectar regiones no
+identifica una variable InBody: las etiquetas OCR explícitas asignan
+secciones semánticas; descartar historial y bloques sin clasificación.
+Reubicar todas las bounding boxes al sistema de coordenadas original.
+No sustituir los resultados globales por OCR de recortes sin verificación
+de sección/posición y revisión humana. Mantener desactivado
+`ENABLE_AI_SECTION_OCR` hasta instalar `requirements-ai.txt`, verificar
+ZeroGPU e incrementar exactitud frente al benchmark de los 22 reportes,
+sin subir los JPG a GitHub ni a servicios externos. Ver
+`docs/ocr-secciones-ia.md` y `tests/test_ai_section_ocr.py`.
