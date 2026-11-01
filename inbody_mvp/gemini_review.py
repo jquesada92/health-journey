@@ -445,7 +445,7 @@ def audit_write_enabled() -> bool:
     """Never accept administrator credentials for consent-only audit writes."""
     from sqlalchemy.engine.url import make_url
     from sqlalchemy.exc import ArgumentError
-    flag = os.getenv("ENABLE_ANONYMOUS_AUDIT", "").lower().strip()
+    flag = os.getenv("ENABLE_ANONYMOUS_DEMO", "").lower().strip()
     if flag not in ("1", "true", "yes"):
         return False
     url = os.getenv("DEMO_DATABASE_URL", "")
@@ -465,7 +465,7 @@ def _audit_write_engine():
         raise PermissionError(
             "El guardado por consentimiento no está configurado. "
             "Define DEMO_DATABASE_URL (rol health_journey_demo_writer) y "
-            "ENABLE_ANONYMOUS_AUDIT=1 en Hugging Face."
+            "ENABLE_ANONYMOUS_DEMO=1 en Hugging Face."
         )
     uri = os.environ["DEMO_DATABASE_URL"]
     if uri.startswith("postgresql://"):
@@ -487,7 +487,7 @@ def save_audit(table, snapshot, consent, profile=None):
             raise PermissionError(
                 "La escritura por consentimiento no está configurada. "
                 "Solicita configurar DEMO_DATABASE_URL con health_journey_demo_writer "
-                "y ENABLE_ANONYMOUS_AUDIT=1."
+                "y ENABLE_ANONYMOUS_DEMO=1."
             )
         body = {
             "source_sha256": snapshot["sha256"],
