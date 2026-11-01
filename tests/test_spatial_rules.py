@@ -6,7 +6,7 @@ def box(text,x,y,w=.09,h=.008):
 def test_header_vertical():
     tokens=[box("ID",.12,.04),box("ABC123456",.12,.065),box("Edad",.55,.04),box("34",.55,.065)]
     matches=match_spatial_pairs(tokens,1000,1000,direction="top_to_bottom",region=(0,0,1,.15),labels=("ID","Edad"),tolerance=.018)
-    assert [(m.label.text,m.value.text) for m in matches] == [("ID","ABC123456")] or len(matches)==1
+    assert [(m.label.text,m.value.text) for m in matches] == [("ID","ABC123456"),("Edad","34")]
 
 def test_muscle_fat_horizontal_preserves_decimal():
     tokens=[box("Peso",.08,.22),box("8.20 kg",.32,.22),box("Masa muscular",.08,.26),box("32.1 kg",.32,.26)]
