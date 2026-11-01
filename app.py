@@ -118,10 +118,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         gemini_upload_state = gr.State(value=None)
         gemini_snapshot = gr.State(value=None)
+        gemini_consent_remote = gr.Checkbox(label="Autorizo enviar este documento a Google Gemini para su extracción", value=False, info="Google procesará el contenido del documento; usa solo archivos anonimizados en QA.")
         gemini_upload.change(
             fn=snapshot_upload, inputs=[gemini_upload], outputs=[gemini_upload_state],
         ).then(fn=lambda: (None, False), outputs=[gemini_snapshot, gemini_consent_remote])
-        gemini_consent_remote = gr.Checkbox(label="Autorizo enviar este documento a Google Gemini para su extracción", value=False, info="Google procesará el contenido del documento; usa solo archivos anonimizados en QA.")
         gemini_extract = gr.Button("Extraer mediciones con Gemini Flash", variant="primary")
         gemini_status = gr.Markdown("Pendiente de extracción.")
         gr.Markdown(
