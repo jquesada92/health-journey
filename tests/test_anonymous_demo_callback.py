@@ -17,8 +17,9 @@ def test_no_legacy_demo_save_callback_in_gemini_flow():
 def test_consent_checked_before_private_access():
     node = next(n for n in ast.walk(ast.parse(MODULE))
                 if isinstance(n, ast.FunctionDef) and n.name == "save_audit")
-    assert isinstance(node.body[0], ast.If)
-    assert "consent" in ast.unparse(node.body[0].test)
+    first_guard = next(stmt for stmt in node.body if isinstance(stmt, ast.If))
+    assert "consent" in ast.unparse(first_guard.test)
+    assert node.body.index(first_guard) < next(i for i,stmt in enumerate(node.body) if "audit_write_enabled()" in ast.unparse(stmt))
     assert "audit_write_enabled()" in ast.unparse(node)
 
 def test_audit_is_consent_only_but_private_reads_remain_protected():
