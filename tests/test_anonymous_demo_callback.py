@@ -1,86 +1,26 @@
-"""Exercise the real Gradio save callback without starting OCR or Neon."""
-from __future__ import annotations
-
+"""The new private Gemini audit cannot use the anonymous demo writer."""
 import ast
 from pathlib import Path
-from types import SimpleNamespace
-from uuid import uuid4
 
-import pytest
+APP = (Path(__file__).resolve().parents[1] / "app.py").read_text()
+MODULE = (Path(__file__).resolve().parents[1] / "inbody_mvp/gemini_review.py").read_text()
 
-ROOT = Path(__file__).resolve().parents[1]
+def test_no_legacy_demo_save_callback_in_gemini_flow():
+    tree = ast.parse(APP)
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Attribute) and n.func.attr == "click"
+             and any(k.arg == "fn" and isinstance(k.value, ast.Name)
+                     and k.value.id == "save_audit" for k in n.keywords)]
+    assert len(calls) == 1
+    assert "save_demo_exam" not in MODULE
 
+def test_consent_checked_before_private_access():
+    node = next(n for n in ast.walk(ast.parse(MODULE))
+                if isinstance(n, ast.FunctionDef) and n.name == "save_audit")
+    assert isinstance(node.body[0], ast.If)
+    assert "consent" in ast.unparse(node.body[0].test)
+    assert "require_database_access(profile)" in ast.unparse(node)
 
-def callback_environment(demo=True, ready=True):
-    calls = []
-    source = (ROOT / "app.py").read_text()
-    tree = ast.parse(source)
-    matches = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "save_reviewed"
-    ]
-    assert len(matches) == 1
-    fn = matches[0]
-    # Defer annotation evaluation so imported Gradio does not need to run.
-    fn.decorator_list = []
-    fn.returns = None
-    for arg in [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]:
-        arg.annotation = None
-    namespace = {
-        "gr": SimpleNamespace(Error=ValueError),
-        "uuid4": uuid4,
-        "anonymous_demo_requested": lambda: demo,
-        "anonymous_demo_enabled": lambda: ready,
-        "source_exam_timestamp": lambda state: state["timestamp"],
-        "prepare_confirmed_exam": lambda *args: (
-            calls.append(("prepared", args)),
-            SimpleNamespace(id_persona=args[2]),
-        )[1],
-        "save_demo_exam": lambda *args, **kwargs: (
-            calls.append(("demo", kwargs)),
-            "example",
-        )[1],
-        "require_database_access": lambda profile: calls.append(("private_auth", profile)),
-        "save_confirmed_exam": lambda *args, **kwargs: (
-            calls.append(("private_save", kwargs)),
-            "example",
-        )[1],
-    }
-    exec(compile(ast.Module(body=[fn], type_ignores=[]), "<save_reviewed>", "exec"), namespace)
-    return namespace["save_reviewed"], calls
-
-
-def args(consent=True, publish=True):
-    return (
-        {"synthetic": True, "timestamp": "2026-10-31T10:00:00"}, [],
-        "REAL-ID-MUST-NOT-SAVE", "InBody 580",
-        35, "ES", publish, consent, str(uuid4()),
-    )
-
-
-def test_demo_without_consent_is_rejected_before_any_database_action():
-    fn, calls = callback_environment()
-    with pytest.raises(ValueError, match="aceptar el almacenamiento"):
-        fn(*args(consent=False))
-    assert calls == []
-
-
-def test_demo_uses_anonymous_id_no_auth_and_separate_publish_choice():
-    fn, calls = callback_environment()
-    msg = fn(*args(consent=True, publish=False))
-    assert "sin publicación" in msg
-    assert [kind for kind, _ in calls] == ["prepared", "demo"]
-    assert calls[0][1][2].startswith("ANON-")
-    assert calls[0][1][2] != "REAL-ID-MUST-NOT-SAVE"
-    assert calls[0][1][4] == "2026-10-31T10:00:00"
-    assert calls[0][1][5] is None
-    assert calls[1][1]["storage_consent"] is True
-    assert calls[1][1]["publish_consent"] is False
-
-
-def test_non_demo_still_uses_original_private_auth_guard():
-    fn, calls = callback_environment(demo=False)
-    fn(*args(consent=True, publish=False), profile=None)
-    assert [kind for kind, _ in calls] == [
-        "private_auth", "prepared", "private_save"
-    ]
+def test_private_auth_still_required_for_gemini_audit():
+    assert "require_database_access(profile)" in MODULE
+    assert "_database_engine()" in MODULE
