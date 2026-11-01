@@ -1,5 +1,23 @@
 # 04 — Motor de extracción, OCR, plantillas e idioma
 
+## Recuperación temporal de Gemini HTTP 503
+
+La extracción usa el modelo configurado en `GEMINI_MODEL` y conserva el JSON
+estructurado y la revisión por medición. El SDK oficial ya realiza reintentos
+exponenciales ante 503. Si estos terminan sin éxito, la aplicación envía una
+solicitud adicional a `GEMINI_FALLBACK_MODEL` (predeterminado:
+`gemini-3.5-flash-lite`). No hay fallback ante 429, errores de
+autenticación, esquema inválido o modelo inexistente. El fallback puede
+desactivarse con `GEMINI_FALLBACK_MODEL=off`.
+
+El modelo que produjo el JSON se conserva en `snapshot["model"]` y en
+`hj_extraction_audits.model_name`; también se conservan
+`primary_model` y `fallback_used` en el snapshot de sesión.
+Toda medición debe revisarse, especialmente cuando se cambia a un
+modelo de menor capacidad. La alternativa puede consumir cuota/costo.
+Pruebas sin red: `tests/test_gemini_failover.py`.
+
+
 
 ## Modelos Gemini y error 404 (noviembre de 2026)
 
