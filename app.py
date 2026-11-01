@@ -183,13 +183,13 @@ def inspect_report_visual(file_path: str | None):
 def detect_report_sections(file_path):
     if not file_path:
         raise gr.Error("Carga primero un reporte.")
-    from inbody_mvp.section_review import propose_regions
+    from inbody_mvp.section_review import propose_regions, preview_proposals
     try:
         path = Path(file_path)
         if not path.is_file() or path.stat().st_size > MAX_UPLOAD_BYTES:
             raise DocumentError("Archivo inexistente o demasiado grande.")
         rows, metadata = propose_regions(path.name, path.read_bytes())
-        return rows, metadata, f"Detectadas {len(rows)} regiones. Corrige la columna sección y las coordenadas antes de extraer."
+        return rows, metadata, f"Detectadas {len(rows)} regiones. Corrige la columna sección y las coordenadas antes de extraer.", preview_proposals(path.name, path.read_bytes(), rows)
     except Exception as exc:
         raise gr.Error(f"No se pudieron detectar regiones ({type(exc).__name__}).") from exc
 
@@ -245,12 +245,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             interactive=True, type="pandas", static_columns=[0, 7],
             label="Edita sección, coordenadas e incluir. history/other no se extraen.",
         )
-        region_status = gr.Markdown("Primero detecta las secciones.")
+        region_status = gr.Markdown("Primero detecta las secciones.")\n        proposal_preview = gr.Gallery(label="Regiones detectadas por IA (azul)", columns=1, height=520)
         region_preview_button = gr.Button("Previsualizar secciones aprobadas")
         region_preview = gr.Gallery(label="Secciones aprobadas", columns=1, height=520)
         detect_sections_button.click(
             fn=detect_report_sections, inputs=[upload],
-            outputs=[regions_table, sections_state, region_status], concurrency_limit=1,
+            outputs=[regions_table, sections_state, region_status, proposal_preview], concurrency_limit=1,
         )
         region_preview_button.click(
             fn=preview_reviewed_sections,
@@ -476,7 +476,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.ClearButton([upload, status, person, model, timestamp, age, age_source,
                         report_language, table, raw, warnings, csv_file, extraction_state,
                         publication_choice, storage_consent, debug_gallery, debug_table, debug_status,
-                         regions_table, sections_state, region_status, region_preview],
+                         regions_table, sections_state, region_status, region_preview, proposal_preview],
                        value="Limpiar")
     with gr.Tab("Dashboard público"):
         gr.Markdown(
