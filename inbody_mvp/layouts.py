@@ -64,6 +64,79 @@ def tokens_to_text(tokens):
                      for group in groups)
 
 
+def extract_header_exam_timestamp(detections, width, height):
+    """Read the exam clock from header OCR boxes, not flattened OCR lines.
+
+    On InBody sheets the label may share its text row with Gender/Género.
+    The date and clock often appear beneath it as separate detections,
+    including a trailing dot in "04.10.2026. 10:04". Limit the search to
+    the exam-date column in the TOP header: never inspect DOB or graph rows.
+    """
+    tokens = normalize_detections(detections, width, height)
+    header = [
+        t for t in tokens
+        if .045 <= t.cy <= .145 and .42 <= t.cx <= .82
+    ]
+    label_text = " ".join(
+        t.text for t in sorted(
+            (t for t in header if t.cy < .105), key=lambda t: (round(t.cy, 2), t.cx)
+        )
+    )
+    has_exam_label = re.search(
+        r"(?:test\s+date\s*/\s*time|fecha\s*/\s*hora"
+        r"(?:\s+(?:del|de)\s+(?:test|examen|prueba))?|"
+        r"fecha\s+y\s+hora|measurement\s+date|date\s*/\s*time)",
+        label_text, re.I,
+    )
+    if not has_exam_label:
+        return None
+
+    date_re = re.compile(
+        r"(?<!\d)(\d{4}[/.-]\d{1,2}[/.-]\d{1,2}|"
+        r"\d{1,2}[/.-]\d{1,2}[/.-]\d{4})(?!\d)"
+    )
+    time_re = re.compile(r"(?<!\d)(\d{1,2}:\d{2}(?::\d{2})?)(?!\d)")
+
+    dates = []
+    clocks = []
+    # The DOB column ends to the left of this ROI. The exam column starts
+    # near 0.47 x and the time can extend to roughly 0.70 x.
+    for token in header:
+        if not (.46 <= token.cx <= .77 and .075 <= token.cy <= .135):
+            continue
+        date_match = date_re.search(token.text)
+        if date_match:
+            dates.append((token, date_match.group(1)))
+        time_match = time_re.search(token.text)
+        if time_match:
+            clocks.append((token, time_match.group(1)))
+    for date_token, raw_date in dates:
+        parts = re.split(r"[/.-]", raw_date)
+        try:
+            if len(parts[0]) == 4:
+                year, month, day = map(int, parts)
+            else:
+                day, month, year = map(int, parts)
+            exam_date = datetime(year, month, day)
+        except ValueError:
+            continue
+        # Pair only values on the same printed baseline. Do not associate
+        # the exam date with unrelated times found elsewhere on the page.
+        for clock_token, raw_clock in clocks:
+            if abs(date_token.cy - clock_token.cy) > .014:
+                continue
+            try:
+                clock = datetime.strptime(
+                    raw_clock, "%H:%M:%S" if raw_clock.count(":") == 2 else "%H:%M"
+                )
+                return exam_date.replace(
+                    hour=clock.hour, minute=clock.minute, second=clock.second
+                ).isoformat(timespec="seconds")
+            except ValueError:
+                continue
+    return None
+
+
 @dataclass(frozen=True)
 class Cell:
     metric: str

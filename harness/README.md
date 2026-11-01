@@ -89,3 +89,7 @@ Para evitar pantallas blancas al iniciar sesión desde la vista incrustada, se u
 ## Fecha de medición fuente de verdad
 
 **Decisión:** la fecha/hora del examen debe **leerse del propio PDF/JPG/PNG**; el usuario no la introduce. Se muestra como lectura no editable. CSV, guardado privado y guardado de demostración utilizan el campo `ExtractionResult.timestamp` devuelto por OCR/extracción. El backend rechaza valores distintos y documentos sin fecha/hora verificables; no utiliza medianoche ni `datetime.now()` como sustitutos. Mantener pruebas de encabezados español/inglés y rechazo de DOB/timestamps inválidos. La consulta pública puede truncar a fecha para privacidad, pero el examen de origen utiliza su fecha/hora extraída.
+
+## OCR de encabezado multicolumna
+
+Para reportes InBody con `Test Date / Time` y `Fecha / Hora del test`, las etiquetas y valores pueden estar en diferentes renglones, con la fecha de nacimiento en la columna izquierda. La función `extract_header_exam_timestamp` usa coordenadas del OCR para recuperar fecha y hora en el encabezado de la **columna de examen**; `extract_document` conserva ese valor aunque se active la plantilla de siluetas españolas. No se deben construir timestamps a partir de la concatenación arbitraria de DOB + hora ni del reloj del sistema. Mantener prueba end-to-end sintética `tests/test_header_spatial_timestamp.py`. No confundir pruebas sintéticas verdes con validación de reconocimiento EasyOCR sobre fotos reales.

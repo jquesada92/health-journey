@@ -19,7 +19,8 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 from .language import ReportLanguage, detect_report_language
 
-from .layouts import extract_inbody580, normalize_detections, tokens_to_text
+from .layouts import (extract_header_exam_timestamp, extract_inbody580,
+                      normalize_detections, tokens_to_text)
 from .layouts_es import extract_spanish_silhouette
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
@@ -406,17 +407,23 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
         texts.append((text, "ocr"))
     result = parse_text(texts, filename=filename, digest=digest)
     for page_number, detections, width, height in positional_pages:
+        # Date/time uses original OCR bounding boxes, not tokens_to_text.
+        # The latter may join "Gender" with "Test Date / Time" or interleave
+        # the birth-date column with the exam-date column on the same row.
+        header_timestamp = extract_header_exam_timestamp(detections, width, height)
         rows, metadata = extract_inbody580(detections, width, height)
         if not metadata:
             rows, metadata = extract_spanish_silhouette(detections, width, height)
-        if not metadata:
+        if not metadata and header_timestamp is None:
             continue
         if metadata.get("layout") == "spanish_silhouette":
             # Positional header matching owns identity and exam date; do not
             # inherit invented identifiers/model numbers from joined OCR text.
             result.id_persona = None
             result.modelo_inbody = None
-            result.timestamp = None
+            # Preserve an explicitly labelled timestamp found by parse_text.
+            # Header geometry below takes precedence when OCR row ordering
+            # prevents the generic text parser from seeing its date field.
             result.edad, result.origen_edad = None, None
             result.medidas = []
         if rows:
@@ -440,7 +447,7 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
         exam = _parse_date(metadata["exam_date_raw"]) if metadata.get("exam_date_raw") else None
         birth = _parse_date(metadata["dob_raw"]) if metadata.get("dob_raw") else None
         clock = metadata.get("exam_time_raw")
-        if exam and clock:
+        if exam and clock and not header_timestamp:
             try:
                 result.timestamp = datetime.combine(
                     exam, datetime.strptime(clock, "%H:%M").time()
@@ -448,6 +455,12 @@ def extract_document(filename: str, data: bytes, ocr: OcrFunction | None = None)
                 notices.append("Timestamp del reporte sin zona horaria verificada.")
             except ValueError:
                 pass
+        if header_timestamp:
+            result.timestamp = header_timestamp
+            notices.append(
+                "Fecha y hora del examen identificadas por posición en el encabezado "
+                "(sin zona horaria verificada)."
+            )
         if exam and birth and birth <= exam:
             calc = exam.year - birth.year - ((exam.month, exam.day) < (birth.month, birth.day))
             if 0 <= calc <= 120:
