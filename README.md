@@ -248,3 +248,9 @@ Se almacenan solo medidas numéricas aprobadas, fecha sin hora, modelo sanitizad
 La fecha/hora del examen **se extrae automáticamente** del encabezado de su PDF/JPG/PNG mediante texto nativo u OCR (incluidos encabezados españoles «Fecha de medición», «Fecha de examen» y los equivalentes ingleses). Se muestra en una caja **de solo lectura**. El usuario no debe rellenarla ni sustituirla por la fecha actual.
 
 Al exportar CSV o guardar en Neon (incluyendo modo demostración sin login), el servidor utiliza el timestamp del `ExtractionResult`, **no** un campo editable de Gradio. `prepare_confirmed_exam` rechaza una fecha que difiere de la detectada en el reporte. Si faltan fecha u hora, se bloquean guardado y exportación del CSV y se solicita verificar la legibilidad del encabezado/volver a extraer, **sin inventar un valor**. El dashboard público muestra solo fecha (no hora).
+
+## Encabezados InBody con fecha y hora en la siguiente línea
+
+El extractor reconoce directamente el encabezado impreso en distintos modelos, incluidos `Test Date / Time\n04.10.2026. 10:04` y `Fecha / Hora del test\n26.01.2025. 14:20`. También acepta que ambos valores estén en la misma línea, años sin punto final y fechas ISO. Un punto adicional después de `AAAA` forma parte de la puntuación del reporte, **no** de la fecha.
+
+La fecha y la hora deben venir juntas del documento (nunca del reloj del sistema). Si el OCR no las reconoce, se muestra un error y no se permite inventar ni editar el timestamp antes de guardar en Neon. Las nuevas pruebas reproducen ambos encabezados mediante texto e imágenes de prueba sintéticas, sin subir informes personales al repositorio.
