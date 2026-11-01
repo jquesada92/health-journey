@@ -233,7 +233,7 @@ def capture_section_edits(upload_state, editor_value, metadata):
         _, data = report_from_snapshot(upload_state)
         rows, _ = editor_rows(editor_value, metadata, data)
         return rows, None, (
-            f"Capturadas {len(rows)} secciones del editor visual. "
+            f"Tabla actualizada: {len(rows)} secciones del editor visual. "
             "Revisa la tabla y pulsa Validar secciones corregidas."
         )
     except DocumentError as exc:
@@ -305,7 +305,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             interactive=True, type="pandas", static_columns=[0, 7],
             label="Edita categorías, coordenadas e inclusión. history y other no se extraen.",
         )
-        capture_sections_button = gr.Button("Capturar nuevas secciones y correcciones", variant="secondary")
+        capture_sections_button = gr.Button("Actualizar secciones", variant="secondary")
         validate_sections_button = gr.Button("Validar secciones corregidas", variant="secondary")
         detect_sections_button.click(
             fn=detect_report_sections, inputs=[upload_snapshot],
