@@ -26,6 +26,9 @@ def propose_regions(filename: str, data: bytes):
     images = list(_pages(filename, data))
     rows = []
     for page, image in images:
+        # InBody headers are narrow rows, often ignored by generic layout models.
+        # Provide a labeled, editable geometry proposal, not a claimed AI detection.
+        rows.append([page, "header", 0, 0, image.width, round(image.height * .15), True, None])
         for region in ai_detect_layout(image):
             x0, y0, x1, y1 = region.box
             rows.append([page, "other", x0, y0, x1, y1, True,

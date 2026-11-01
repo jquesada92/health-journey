@@ -73,23 +73,28 @@ def extract_header_exam_timestamp(detections, width, height):
     the exam-date column in the TOP header: never inspect DOB or graph rows.
     """
     tokens = normalize_detections(detections, width, height)
-    header = [
-        t for t in tokens
-        if .045 <= t.cy <= .145 and .42 <= t.cx <= .82
-    ]
-    label_text = " ".join(
-        t.text for t in sorted(
-            (t for t in header if t.cy < .105), key=lambda t: (round(t.cy, 2), t.cx)
-        )
+    # Locate the actual exam-date label, rather than assuming that it occupies
+    # a fixed horizontal column across all report designs.
+    top = [t for t in tokens if .015 <= t.cy <= .19]
+    label_re = re.compile(
+        r"(?:fecha\s*/\s*hora(?:\s+(?:del|de)\s+(?:test|examen|prueba))?"
+        r"|test\s+date\s*/\s*time|date\s*/\s*time)", re.I
     )
-    has_exam_label = re.search(
-        r"(?:test\s+date\s*/\s*time|fecha\s*/\s*hora"
-        r"(?:\s+(?:del|de)\s+(?:test|examen|prueba))?|"
-        r"fecha\s+y\s+hora|measurement\s+date|date\s*/\s*time)",
-        label_text, re.I,
-    )
-    if not has_exam_label:
+    labels = [t for t in top if label_re.search(t.text)]
+    if not labels:
+        # Some OCR engines split the printed title across neighboring boxes.
+        top_sorted = sorted(top, key=lambda t: (round(t.cy, 2), t.cx))
+        labels = [t for t in top_sorted
+                  if re.search(r"fecha\s*/\s*hora|test\s+date", t.text, re.I)]
+    if not labels:
         return None
+    label = max(labels, key=lambda t: t.cx)
+    # Match the value directly below the rightmost exam label. This excludes
+    # left-hand DOB/age fields and permits dates near the page's right edge.
+    header = [t for t in top
+              if t.cx >= max(0, label.x - .035)
+              and t.cy >= label.cy - .015
+              and t.cy <= min(.22, label.cy + .085)]
 
     date_re = re.compile(
         r"(?<!\d)(\d{4}[/.-]\d{1,2}[/.-]\d{1,2}|"
@@ -102,8 +107,6 @@ def extract_header_exam_timestamp(detections, width, height):
     # The DOB column ends to the left of this ROI. The exam column starts
     # near 0.47 x and the time can extend to roughly 0.70 x.
     for token in header:
-        if not (.46 <= token.cx <= .77 and .075 <= token.cy <= .135):
-            continue
         date_match = date_re.search(token.text)
         if date_match:
             dates.append((token, date_match.group(1)))
