@@ -211,8 +211,13 @@ def detect_report_sections(upload_state):
     try:
         filename, data = report_from_snapshot(upload_state)
         rows, metadata = propose_regions(filename, data)
-        return (rows, metadata,
-                f"Detectadas {len(rows)} regiones. Corrígelas en el único visor.",
+        detection_status = (
+            "PaddleOCR no devolvió regiones o no pudo iniciar. Se crearon "
+            "propuestas manuales editables; clasifica las áreas antes de validar."
+            if metadata.get("layout_mode") == "manual"
+            else f"Detectadas {len(rows)} regiones (PaddleOCR). Corrígelas en el visor."
+        )
+        return (rows, metadata, detection_status,
                 make_editor_payload(filename, data, rows, metadata))
     except Exception as exc:
         raise gr.Error(f"No se pudieron detectar regiones ({type(exc).__name__}).") from exc
