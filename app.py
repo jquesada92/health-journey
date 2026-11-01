@@ -218,15 +218,15 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             fn=lambda: (None, False),
             outputs=[gemini_snapshot, gemini_consent_remote],
         ).then(
-            fn=render_document_preview,
-            inputs=[gemini_upload_state],
-            outputs=[gemini_preview, gemini_preview_status],
-        ).then(
             fn=lambda: (
                 pd.DataFrame(columns=GEMINI_COLUMNS),
                 "Pendiente de extracción.", False, ""
             ),
             outputs=[gemini_table, gemini_status, gemini_consent, gemini_save_status],
+        ).then(
+            fn=render_document_preview,
+            inputs=[gemini_upload_state],
+            outputs=[gemini_preview, gemini_preview_status],
         )
         gr.ClearButton(
             [gemini_upload, gemini_upload_state, gemini_snapshot,
