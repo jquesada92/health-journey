@@ -1,13 +1,13 @@
 # Guardado anónimo con consentimiento — demostración académica
 
-Este modo permite que un profesor pruebe extracción, revisión, guardado en Neon y dashboard público **sin iniciar sesión en Hugging Face**. No convierte la base de pacientes privada en una base editable por cualquiera.
+Este modo permite que un profesor pruebe extracción, revisión, guardado en Neon y dashboard público **sin iniciar sesión en Hugging Face**. No convierte la base de pacientes privada en una base editable por cualquiera. Consulta la [guía completa de Variables y Secrets](hugging-face-variables-y-secrets.md), que cubre también Gemini y las consultas privadas.
 
 ## Activación en el único Space de Gradio
 
 | Configuración | Tipo Hugging Face | Valor/propósito |
 | --- | --- | --- |
 | `ENABLE_ANONYMOUS_DEMO` | Variable | `1` — activa el formulario sin login |
-| `DEMO_DATABASE_URL` | **Secret** | conexión a Neon con el rol `health_journey_demo_writer` (solo EXECUTE de la función de demo) |
+| `DEMO_DATABASE_URL` | **Secret** | conexión a Neon con el rol `health_journey_demo_writer`: EXECUTE sobre la función de demo y, cuando se despliegue migración 005, sobre la función de auditoría Gemini |
 | `ENABLE_PUBLIC_DASHBOARD` | Variable | `1` — visualiza exámenes publicados |
 | `PUBLIC_DATABASE_URL` | **Secret** | rol `health_journey_public`, SELECT solo sobre vistas públicas |
 | `ENABLE_PERSISTENCE` | Variable | Puede permanecer `0`; no es necesario para la demo |
@@ -36,7 +36,7 @@ Los exámenes publicados son **seudónimos**, no anónimos irreversibles: patron
 
 ## Aislamiento SQL
 
-- `health_journey_demo_writer` debe recibir únicamente `CONNECT`, `USAGE` y `EXECUTE` sobre `hj_submit_demo_report(uuid,date,text,jsonb,boolean)`. Sin SELECT/INSERT/UPDATE/DELETE directos en ninguna tabla, y sin acceso a `hj_persons`, `hj_exams` o `hj_measurements`.
+- `health_journey_demo_writer` debe recibir únicamente `CONNECT`, `USAGE` y `EXECUTE` sobre `hj_submit_demo_report(uuid,date,text,jsonb,boolean)` y, tras la migración 005, sobre `hj_submit_reviewed_audit(jsonb)`. Sin SELECT/INSERT/UPDATE/DELETE directos en tablas privadas. **Los dos procedimientos tienen contratos distintos:** el demo guarda métricas minimizadas; la auditoría de Gemini conserva información identificable privada y no se publica automáticamente.
 - La función `SECURITY DEFINER` tiene `SET search_path = pg_catalog, pg_temp`; `REVOKE EXECUTE FROM PUBLIC` forma parte de la migración. Los objetos se referencian con esquema explícito.
 - El validador del lado SQL limita los nombres de las métricas y unidades, rangos, segmentos y frecuencias, máximo 80 filas por examen y un total de 40 envíos cada hora.
 - `health_journey_public` recibe SELECT de `hj_demo_public_series`, que muestra solo registros con publicación autorizada **y sin caducar**.
@@ -58,15 +58,8 @@ Los exámenes publicados son **seudónimos**, no anónimos irreversibles: patron
 
 ## Estado de Neon y paso de credenciales
 
-La migración 004 está **aplicada** en la base `health_journey`. Se verificó que el rol `health_journey_demo_writer` **no** pertenece a ningún grupo privilegiado, no puede leer ni escribir las tablas privadas, no tiene permisos directos de escritura sobre las tablas de demostración y **únicamente puede ejecutar** `hj_submit_demo_report`. La vista y tablas existen, sin registros de demostración inicialmente.
+La migración 004 está **aplicada** en `health_journey`. Se verificó que el rol `health_journey_demo_writer` no es superusuario ni puede crear roles; carece de permisos directos de lectura/escritura sobre las tablas privadas y puede ejecutar `hj_submit_demo_report`. La función de auditoría de la migración 005 todavía no está instalada en `main` (comprobado el 1 de noviembre de 2026). La guía distingue estas dos funciones.
 
-Por seguridad, el rol se ha dejado en `NOLOGIN` y sin contraseña. Para terminar la configuración, abre el **SQL Editor de Neon** y, desde una cuenta administradora autorizada, ejecuta con una contraseña generada en privado:
-
-```sql
-ALTER ROLE health_journey_demo_writer
-WITH LOGIN PASSWORD 'CONTRASENA_GENERADA_EN_PRIVADO';
-```
-
-Después crea en Hugging Face el Secret `DEMO_DATABASE_URL` con el connection string de ese rol, la base `health_journey` y `sslmode=require`. No escribas la contraseña en GitHub ni la compartas en el chat. Para el dashboard también debes configurar el Secret `PUBLIC_DATABASE_URL` del lector `health_journey_public`.
+El rol `health_journey_demo_writer` **ya tiene LOGIN habilitado** (verificado el 1 de noviembre de 2026). No es necesario volver a habilitarlo ni modificar su contraseña solo para actualizar esta documentación. Confirma que el Secret `DEMO_DATABASE_URL` en Hugging Face use ese rol, base `health_journey` y `sslmode=require`, sin revelar el valor. Para el dashboard configura aparte `PUBLIC_DATABASE_URL` del lector `health_journey_public`.
 
 La casilla de consentimiento **no equivale a autenticación de identidad**: este modo está limitado a pruebas con reportes sintéticos o anonimizados. Los datos que no se aprobaron para publicación no aparecen en el dashboard, pero siguen almacenados temporalmente en las tablas demo.
