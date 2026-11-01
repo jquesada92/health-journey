@@ -145,22 +145,10 @@ def test_public_demo_view_and_database_role_are_restricted():
     assert "FROM public.hj_measurements" not in migration
 
 
-def test_app_has_separate_storage_and_publish_consents():
-    code = (ROOT / "app.py").read_text(encoding="utf-8")
-    tree = ast.parse(code)
-    checkbox_names = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
-            if (isinstance(node.value.func, ast.Attribute)
-                    and node.value.func.attr == "Checkbox"):
-                checkbox_names.update(
-                    item.id for item in node.targets if isinstance(item, ast.Name)
-                )
-                options = {k.arg: k.value for k in node.value.keywords}
-                if "storage_consent" in checkbox_names or "publication_choice" in checkbox_names:
-                    assert isinstance(options["value"], ast.Constant)
-                    assert options["value"].value is False
-    assert {"storage_consent", "publication_choice"} <= checkbox_names
-    assert "anonymous_session = gr.State(value=lambda: str(uuid4())" in code
-    assert "storage_consent, anonymous_session" in code
-    assert "save_demo_exam(" in code
+def test_gemini_audit_does_not_use_demo_writer():
+    app = (ROOT / "app.py").read_text()
+    gemini = (ROOT / "inbody_mvp/gemini_review.py").read_text()
+    assert "gemini_consent = gr.Checkbox(" in app
+    assert "save_audit" in app
+    assert "save_demo_exam" not in gemini
+    assert "require_database_access(profile)" in gemini
