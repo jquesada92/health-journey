@@ -34,7 +34,7 @@ PUBLIC_METRICS: dict[str, str] = {
 
 PUBLIC_COLUMNS = (
     "period_month", "device_group", "variable_medida",
-    "unidad_medida", "segmento", "frecuencia_khz",
+    "unidad_medida", "segmento",
     "participantes", "valor_promedio",
 )
 
@@ -67,10 +67,10 @@ def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -
         with engine.connect() as connection:
             rows = connection.execute(text("""
                 SELECT period_month, device_group, variable_medida,
-                       unidad_medida, segmento, frecuencia_khz,
+                       unidad_medida, segmento,
                        participantes, valor_promedio
                 FROM hj_public_monthly_summary
-                WHERE variable_medida = :variable
+                WHERE split_part(variable_medida, '__', 1) = :variable
                 ORDER BY period_month, device_group, segmento, frecuencia_khz
                 LIMIT :row_limit
             """), {"variable": variable, "row_limit": max_rows}).mappings().all()
@@ -83,8 +83,6 @@ def load_public_monthly_summary(variable: str = "weight", max_rows: int = 120) -
             record["period_month"] = record["period_month"].isoformat()
             record["participantes"] = int(record["participantes"])
             record["valor_promedio"] = float(record["valor_promedio"])
-            if record["frecuencia_khz"] is not None:
-                record["frecuencia_khz"] = float(record["frecuencia_khz"])
             result.append(record)
         return result
     finally:
@@ -140,7 +138,7 @@ def load_public_person_series(
                 FROM (
             """ + source_sql + """
                 ) AS published
-                WHERE variable_medida = :metric
+                WHERE split_part(variable_medida, '__', 1) = :metric
                 ORDER BY exam_date, anonymous_id
                 LIMIT :row_limit
             """), {"metric": variable, "row_limit": limit}).mappings().all()
