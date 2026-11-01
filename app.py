@@ -120,7 +120,8 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gemini_snapshot = gr.State(value=None)
         gemini_upload.change(
             fn=snapshot_upload, inputs=[gemini_upload], outputs=[gemini_upload_state],
-        ).then(fn=lambda: None, outputs=[gemini_snapshot])
+        ).then(fn=lambda: (None, False), outputs=[gemini_snapshot, gemini_consent_remote])
+        gemini_consent_remote = gr.Checkbox(label="Autorizo enviar este documento a Google Gemini para su extracción", value=False, info="Google procesará el contenido del documento; usa solo archivos anonimizados en QA.")
         gemini_extract = gr.Button("Extraer mediciones con Gemini Flash", variant="primary")
         gemini_status = gr.Markdown("Pendiente de extracción.")
         gr.Markdown(
@@ -140,7 +141,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             label="Revisión de mediciones; una fila por valor",
         )
         gemini_extract.click(
-            fn=extract_gemini, inputs=[gemini_upload_state],
+            fn=extract_gemini, inputs=[gemini_upload_state, gemini_consent_remote],
             outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
         )
@@ -170,7 +171,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         gr.ClearButton(
             [gemini_upload, gemini_upload_state, gemini_snapshot,
-             gemini_table, gemini_status, gemini_consent, gemini_save_status],
+             gemini_table, gemini_status, gemini_consent, gemini_consent_remote, gemini_save_status],
             value="Limpiar",
         )
     with gr.Tab("Dashboard público"):
