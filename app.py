@@ -324,6 +324,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         extraction_state = gr.State(value=None)
         anonymous_session = gr.State(value=lambda: str(uuid4()), time_to_live=3600)
         gr.Markdown("### 4. Revisar mediciones extraídas")
+        gr.Markdown(
+            "**Ángulo de fase:** medición independiente (unidad: °), calculada a partir "
+            "de la relación entre reactancia y resistencia eléctrica. Se utiliza como "
+            "indicador indirecto de propiedades celulares; no equivale a un diagnóstico. "
+            "Cada segmento y frecuencia del examen se identifican en el nombre de la variable."
+        )
         table = gr.Dataframe(
             headers=REVIEW_COLUMNS,
             datatype=["str", "str", "str", "str", "str", "str", "number", "number", "str"],
