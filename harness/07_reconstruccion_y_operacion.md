@@ -1,8 +1,30 @@
 # 07 — Manual de reconstrucción desde cero y operación
 
+## Compatibilidad ZeroGPU mientras CPU Basic no esté disponible
+
+**Estado de infraestructura (2026-11-01):** Hugging Face puede no ofrecer
+CPU Basic a cuentas sin suscripción aunque el costo horario figure como
+gratuito. El Space existente sigue asignado a ZeroGPU. En ese entorno,
+la comprobación de arranque exige un handler Gradio registrado con el
+decorador `@spaces.GPU`.
+
+Como el procesamiento InBody actual se envía a Gemini por API, NO se
+reserva GPU para extraer documentos. Para mantener el Space accesible
+sin cambiar de hardware se registró un **diagnóstico CUDA opcional**
+(`diagnose_zerogpu`, botón en acordeón cerrado) con
+`@spaces.GPU(duration=15)`. El usuario solo consume cuota ZeroGPU si
+activa ese diagnóstico. Las llamadas `extract_gemini` y `save_audit`
+permanecen fuera del decorador y no solicitan GPU.
+
+El diagnóstico no sustituye pruebas de arranque, consentimiento,
+extracción ni persistencia. Esta compatibilidad es una medida temporal
+para el hardware existente; la arquitectura adecuada para Gemini es
+CPU. No enviar documentos identificables a un Space público.
+
+
 ## Contrato de infraestructura vigente — Gemini Flash por API
 
-La aplicación actual no necesita GPU: debe ejecutarse con **hardware CPU Basic**
+La aplicación actual no necesita GPU para Gemini: idealmente usaría **hardware CPU Basic**
 y SDK Gradio en Hugging Face Spaces. El Space existente puede conservar una
 asignación **ZeroGPU** de la arquitectura histórica con OCR local. Esto es
 incompatible con la ausencia de handlers `@spaces.GPU` y bloquea el arranque.
