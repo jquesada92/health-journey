@@ -154,6 +154,31 @@ La ficha para Blackboard y el alcance verificable de la versión 0 se documentan
 
 **Pieza de IA elegida para el reto:** un modelo de Hugging Face ejecutado localmente, [`microsoft/trocr-small-printed`](https://huggingface.co/microsoft/trocr-small-printed), combinado con EasyOCR para detectar regiones de texto. TrOCR reconoce texto impreso de líneas individuales; **no comprende por sí solo un reporte completo ni lo convierte en mediciones estructuradas**. Las reglas de Python/Pydantic identifican y validan las mediciones, que el usuario revisa antes de confirmar. No requiere una API comercial ni tiene cobros por solicitud, pero sí recursos de cómputo y descargas de modelo. En Hugging Face ZeroGPU el alojamiento gratuito está sujeto a elegibilidad, cuotas y disponibilidad. **Estado del reto inicial (histórico):** EasyOCR funcionaba como primera aproximación; TrOCR no está integrado. El MVP posterior añadió PDF y tabulación candidata. No se utilizarán documentos de salud reales en el Space público del reto.
 
+## Comparación opcional con Gemini (rama de evaluación)
+
+La extracción principal sigue siendo **local** (PyMuPDF / EasyOCR / PaddleOCR
+opcional). El módulo `inbody_mvp/gemini_review.py` añade una comparación
+**independiente y no vinculante** de medidas observadas en PDF/JPG/PNG, con
+JSON estructurado y valores decimales conservados como cadenas (p. ej.,
+`8.20`). No sustituye el parser, no sincroniza datos con Neon, no reconoce
+identidades ni confirma diagnósticos. El servicio externo se ejecuta únicamente
+cuando `ENABLE_GEMINI_REVIEW=1`, existe un `GEMINI_API_KEY` configurado como
+Secret y el usuario marca el consentimiento en la interfaz para **cada archivo
+anonimizado**. Los resultados deben cotejarse con el original.
+
+**Privacidad:** el nivel gratuito de Gemini puede utilizar las solicitudes
+para mejorar productos de Google. No habilitar con documentos personales o
+datos médicos identificables. Los límites de cuotas y acceso pueden variar;
+una clave con facturación habilitada podría generar cargos. No se ha
+verificado la conexión de este módulo con una clave real ni la precisión del
+modelo sobre reportes InBody. [Condiciones del proveedor](https://ai.google.dev/gemini-api/docs/pricing).
+
+La detección regional de PaddleOCR ahora permite continuar por un editor manual
+si el modelo no inicia o no detecta secciones. Esto es un mecanismo de respaldo,
+no evidencia de que PaddleOCR esté funcionando en Hugging Face. No habilitar
+el modelo para todos los usuarios hasta comprobar logs, rendimiento y precisión
+en QA.
+
 ## Estado actual
 
 El punto de entrada **`app.py` utiliza Gradio**. La pestaña **InBody Upload** permite seleccionar PDF, JPG, JPEG y PNG (máximo 15 MB), extraer texto nativo o OCR, revisar mediciones candidatas en una tabla editable y exportar **un CSV borrador vertical de siete columnas**. La clasificación inicial conserva medidas desconocidas y reconoce, cuando el texto lo permite, grasa, masa muscular, segmentos y ángulo de fase/frecuencia.
