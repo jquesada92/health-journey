@@ -258,3 +258,18 @@ La fecha y la hora deben venir juntas del documento (nunca del reloj del sistema
 ## Corrección del OCR de fecha/hora en dos columnas
 
 El problema de los reportes InBody JPG no era solo Regex. EasyOCR puede recuperar la cabecera `Gender / Test Date / Time` o `Género / Fecha / Hora del test` como una misma línea, mientras el texto de `DOB` y el timestamp aparecen mezclados en la línea siguiente. Se añadió `extract_header_exam_timestamp`, que lee **directamente los cuadros OCR por posición** en el encabezado y usa únicamente la columna del examen. Se conservan las reglas de Regex para texto digital y el reconocimiento por plantilla. Se rechazan fechas inválidas, sin hora o fuera de la línea de examen. El parser de siluetas españolas ya no borra un timestamp explícito y correcto al fusionar resultados. Las pruebas usan cuadros de texto sintéticos, no imágenes médicas reales.
+
+## OCR opcional por secciones detectadas con IA
+
+Para documentos de varias columnas y gráficos se incorporó una fase
+experimental con un **modelo local PP-DocLayout-S** que detecta bloques
+visuales y aplica **EasyOCR por sección**, reubicando resultados a las
+coordenadas originales. Etiquetas explícitas determinan qué sección representa
+cada bloque y el historial gráfico no puede alimentar las medidas actuales.
+Se mantiene el OCR convencional y la revisión manual. El modo
+`ENABLE_AI_SECTION_OCR=1` está **desactivado por defecto** y requiere instalar
+dependencias adicionales de `requirements-ai.txt` en un entorno QA compatible.
+No se ha demostrado todavía su superioridad con los JPG originales ni su
+compatibilidad de runtime con ZeroGPU.
+
+[Arquitectura, instalación y protocolo de benchmark](docs/ocr-secciones-ia.md).
