@@ -1,5 +1,30 @@
 # Despliegue de Health Journey en Hugging Face Spaces
 
+## Requisito crítico de hardware para Gemini (noviembre de 2026)
+
+El flujo activo usa **Gemini Flash por API**, sin GPU local, y ejecuta Gradio
+con Python, PyMuPDF y Pandas. Por ello, el hardware correcto en
+`jaqo/health-journey` es **CPU Basic**, no ZeroGPU.
+
+**Cambio manual imprescindible en el Space existente:** Hugging Face → Space
+`jaqo/health-journey` → **Settings → Hardware → CPU Basic**. Selecciona
+CPU Basic y espera a que el Space se reinicie. El repositorio y su encabezado
+`sdk: gradio` no controlan el hardware ya asignado al Space; desplegar un
+nuevo `app.py` tampoco lo cambia.
+
+**Síntoma de configuración obsoleta:** `RuntimeError: No @spaces.GPU function
+detected during startup`. Significa que el Space sigue en ZeroGPU mientras
+la app (correctamente) ya no tiene funciones `@spaces.GPU`. **No** es un
+problema de importación de Gradio ni un fallo de Gemini. No volver a añadir
+un decorador GPU artificial a una llamada externa de Gemini: desperdiciaría
+cuota y mantendría una dependencia innecesaria.
+
+Validar después: el Space arranca en CPU Basic, la interfaz Gradio carga,
+Gemini solo recibe un documento con consentimiento, y el guardado privado
+requiere autorización. Revisar el costo y la disponibilidad de CPU Basic en
+la cuenta antes de confirmar cualquier cambio de hardware.
+
+
 **Repositorio fuente:** [jquesada92/health-journey](https://github.com/jquesada92/health-journey)  
 **Space de QA:** [jaqo/health-journey](https://huggingface.co/spaces/jaqo/health-journey)
 
