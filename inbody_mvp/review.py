@@ -17,7 +17,7 @@ from .extractor import ExtractionResult
 
 REVIEW_COLUMNS = [
     "original_label", "variable_medida", "categoria", "dimension", "segmento",
-    "frecuencia_khz", "unidad_medida", "valor_medida", "pagina", "fuente",
+    "unidad_medida", "valor_medida", "pagina", "fuente",
 ]
 EXPORT_COLUMNS = [
     "id_persona", "modelo_inbody", "timestamp", "variable_medida",
@@ -45,7 +45,17 @@ class ReviewedRow(BaseModel):
 def review_table(result: ExtractionResult) -> pd.DataFrame:
     """Create an editable table without discarding unknown measurements."""
     return pd.DataFrame(
-        [{key: getattr(measure, key) for key in REVIEW_COLUMNS} for measure in result.medidas],
+        [
+            {
+                key: (
+                    f"{measure.variable_medida}__{measure.frecuencia_khz:g}khz"
+                    if key == "variable_medida" and measure.frecuencia_khz is not None
+                    else getattr(measure, key)
+                )
+                for key in REVIEW_COLUMNS
+            }
+            for measure in result.medidas
+        ],
         columns=REVIEW_COLUMNS,
     )
 
