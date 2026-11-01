@@ -56,6 +56,7 @@ jobs:
               'inbody_mvp/layouts.py',
               'inbody_mvp/layouts_es.py',
               'inbody_mvp/section_ai.py',
+              'inbody_mvp/gemini_review.py',
               'inbody_mvp/visual_debug.py',
               'inbody_mvp/section_review.py',
               'inbody_mvp/spatial_rules.py',
