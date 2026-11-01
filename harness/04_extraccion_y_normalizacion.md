@@ -1,5 +1,27 @@
 # 04 — Motor de extracción, OCR, plantillas e idioma
 
+## Contrato API Gemini para JSON estructurado (corrección 400 INVALID_ARGUMENT)
+
+En `inbody_mvp/gemini_review.py`, `Extraction`, `Header` y `Measurement`
+utilizan `ConfigDict(extra="forbid")` para rechazar campos desconocidos.
+Esto genera `additionalProperties: false` en el JSON Schema de Pydantic.
+Con `response_schema=Extraction`, algunas versiones de `google-genai`
+transforman ese campo a `additional_properties` al serializar la
+configuración OpenAPI y Gemini responde **400 INVALID_ARGUMENT**.
+
+**Contrato obligatorio:** usar `response_json_schema=Extraction.model_json_schema()`
+junto con `response_mime_type="application/json"`; no establecer
+`response_schema` a la vez. Continuar validando la respuesta en Python con
+`Extraction.model_validate_json(response.text)` para preservar la política
+de campos estrictos y valores decimales como texto (`"8.20"`).
+
+Los fallos de API deben mostrar solo la categoría y código HTTP (400/401/
+403/404/429/5xx), sin propagar mensajes brutos que podrían contener datos
+privados, clave API o extractos de documentos. Las pruebas sintéticas
+`tests/test_gemini_api_contract.py` simulan el SDK, verifican el contrato
+HTTP y no utilizan Internet ni reportes identificables.
+
+
 
 ## Contrato vigente de Gemini y auditoría (noviembre de 2026)
 
