@@ -19,6 +19,9 @@ numpy>=1.26,<3.0
 rapidfuzz>=3.10,<4.0
 python-dateutil>=2.9,<3.0
 
+# Optional Gemini comparison; never called unless enabled + per-request consent
+google-genai>=1.0,<2.0
+
 # Hugging Face Space: experimental CPU document layout model
 paddlepaddle==3.2.2
 paddleocr>=3.3,<4
