@@ -326,11 +326,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.Markdown("### 4. Revisar mediciones extraídas")
         table = gr.Dataframe(
             headers=REVIEW_COLUMNS,
-            datatype=["str", "str", "str", "str", "str", "number", "str", "number", "number", "str"],
-            type="pandas", interactive=True, static_columns=[0, 8, 9],
+            datatype=["str", "str", "str", "str", "str", "str", "number", "number", "str"],
+            type="pandas", interactive=True, static_columns=[0, 7, 8],
             label="Una fila por medición; valores sin confirmar",
         )
-        gr.Markdown("Los valores, unidades, segmentos y frecuencias deben cotejarse con el documento original.")
+        gr.Markdown("Los valores decimales, unidades y segmentos deben cotejarse con el documento original. Ejemplo: 8.20 kg se almacena numéricamente como 8.2 kg, nunca como 8 kg.")
         with gr.Accordion("Diagnóstico OCR (opcional)", open=False):
             gr.Markdown(
                 "Visualiza cajas **naranjas** de EasyOCR y, cuando está habilitado el "
@@ -591,11 +591,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             )
             visible = frame[
                 ["serie", "exam_date", "device_group", "variable_medida",
-                 "unidad_medida", "segmento", "frecuencia_khz", "valor_medida"]
+                 "unidad_medida", "segmento", "valor_medida"]
             ].copy()
             visible.columns = [
                 "Serie", "Fecha", "Modelo", "Medición", "Unidad",
-                "Segmento", "Frecuencia (kHz)", "Valor"
+                "Segmento", "Valor"
             ]
             return (
                 f"{len(visible)} mediciones publicadas, "
