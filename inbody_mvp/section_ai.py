@@ -71,6 +71,9 @@ def ai_sections_requested() -> bool:
 @lru_cache(maxsize=1)
 def _layout_model():
     """Keep heavy optional dependencies out of the normal ZeroGPU startup."""
+    # Must be set before importing PaddleX / PaddleOCR.
+    # Avoid the oneDNN CPU execution path that fails on PIR array attributes.
+    os.environ.setdefault("PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", "False")
     try:
         from paddleocr import LayoutDetection
     except ImportError as exc:
@@ -78,10 +81,7 @@ def _layout_model():
             "OCR por secciones requiere paddleocr y paddlepaddle; "
             "instala requirements-ai.txt en un entorno compatible."
         ) from exc
-    # PaddleX defaults to oneDNN on CPU; Paddle 3.3.x can fail on PIR
-    # ArrayAttribute<DoubleAttribute> during predictor.run().
-    # Explicitly use the plain Paddle CPU runtime for compatibility.
-    return LayoutDetection(model_name="PP-DocLayout-S", device="cpu", run_mode="paddle")
+    return LayoutDetection(model_name="PP-DocLayout-S", device="cpu")
 
 
 def _model_payload(result: Any) -> dict:
