@@ -32,3 +32,22 @@ def test_clear_resets_consent_and_extraction():
     assert any({"gemini_consent", "gemini_snapshot", "gemini_table"} <=
                {x.id for x in n.args[0].elts if isinstance(x, ast.Name)}
                for n in clears)
+
+
+def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
+    """ZeroGPU startup scans the actual Gradio event handler."""
+    functions = [n for n in TREE.body if isinstance(n, ast.FunctionDef)
+                 and n.name == "diagnose_zerogpu"]
+    assert len(functions) == 1
+    assert any(isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
+               and isinstance(d.func.value, ast.Name)
+               and d.func.value.id == "spaces" and d.func.attr == "GPU"
+               for d in functions[0].decorator_list)
+    handlers = [n for n in ast.walk(TREE) if isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Attribute) and n.func.attr == "click"]
+    assert any(any(k.arg == "fn" and isinstance(k.value, ast.Name)
+                   and k.value.id == "diagnose_zerogpu" for k in n.keywords)
+               for n in handlers)
+    assert "fn=extract_gemini" in (Path(__file__).resolve().parents[1] / "app.py").read_text()
+    assert not any(isinstance(n, ast.FunctionDef) and n.name == "extract_gemini"
+                   for n in TREE.body)
