@@ -141,6 +141,17 @@ def _choose(tokens: list[Token], spec: SpanishCell) -> tuple[float,str] | None:
         if not x0 <= t.cx <= x1 or not y0 <= t.cy <= y1:
             continue
         val=_number(t.text)
+        # A missing decimal point in EasyOCR must not turn 4.07 kg into
+        # 407 kg or 133.8% into 1338%. Do not guess the missing punctuation:
+        # drop ambiguous OCR candidates and require a corrected OCR reading.
+        if spec.metric == 'segmental_lean_mass' and val is not None and val >= 100:
+            continue
+        if spec.metric == 'segmental_fat_mass' and val is not None and val >= 100:
+            continue
+        if spec.metric == 'segmental_lean_reference_percentage' and val is not None and val > 400:
+            continue
+        if spec.metric == 'segmental_fat_reference_percentage' and val is not None and val > 400:
+            continue
         if spec.metric == "inbody_score":
             score = re.fullmatch(r"\s*(\d{1,3})\s*/\s*100(?:\s*puntos?)?\s*", t.text, re.I)
             if score:
