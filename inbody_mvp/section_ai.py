@@ -71,6 +71,9 @@ def ai_sections_requested() -> bool:
 @lru_cache(maxsize=1)
 def _layout_model():
     """Keep heavy optional dependencies out of the normal ZeroGPU startup."""
+    # Must be set before importing PaddleX / PaddleOCR.
+    # Avoid the oneDNN CPU execution path that fails on PIR array attributes.
+    os.environ.setdefault("PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", "False")
     try:
         from paddleocr import LayoutDetection
     except ImportError as exc:

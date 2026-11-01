@@ -20,5 +20,5 @@ rapidfuzz>=3.10,<4.0
 python-dateutil>=2.9,<3.0
 
 # Hugging Face Space: experimental CPU document layout model
-paddlepaddle>=3.2,<4
+paddlepaddle==3.2.2
 paddleocr>=3.3,<4
