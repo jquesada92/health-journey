@@ -27,7 +27,7 @@ def _assigned_widget(tree, name):
     raise AssertionError(f"Falta el widget {name}")
 
 
-@pytest.mark.parametrize("widget", ["upload", "extract_button", "detect_sections_button"])
+@pytest.mark.parametrize("widget", ["gemini_upload", "gemini_extract"])
 def test_main_ui_controls_remain_enabled_when_public_dashboard_is_active(widget):
     tree = ast.parse((ROOT / "app.py").read_text(encoding="utf-8"))
     call = _assigned_widget(tree, widget)
