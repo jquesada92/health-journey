@@ -77,7 +77,33 @@ def test_both_layouts_accept_structured_ocr_without_false_success():
     assert result.tipo_archivo == "jpg"
 
 def test_gemini_missing_upload_is_rejected_before_api_or_authentication():
-    from inbody_mvp.gemini_review import extract_gemini
-    import gradio as gr
-    with pytest.raises(gr.Error, match="Primero carga"):
-        extract_gemini(None)
+    """Verify the callback's guard without importing Gradio or API dependencies.
+
+    CI deliberately installs lightweight parsing dependencies only.
+    """
+    import ast
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    source = (Path(__file__).resolve().parents[1]
+              / "inbody_mvp" / "gemini_review.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    callback = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "extract_gemini"
+    )
+    callback.decorator_list = []
+    callback.returns = None
+    for arg in callback.args.args:
+        arg.annotation = None
+
+    class UiError(Exception):
+        pass
+
+    scope = {"gr": SimpleNamespace(Error=UiError)}
+    exec(compile(ast.fix_missing_locations(
+        ast.Module(body=[callback], type_ignores=[])
+    ), "<gemini extraction guard>", "exec"), scope)
+
+    with pytest.raises(UiError, match="Primero carga"):
+        scope["extract_gemini"](None)
