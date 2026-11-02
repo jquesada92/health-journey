@@ -13,7 +13,7 @@ import hashlib
 import hmac
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.url import make_url
@@ -130,6 +130,42 @@ def authenticate_master_demo(username: str, password: str) -> bool:
     except Exception:
         # Never leak database access or credential errors through login.
         return False
+
+
+
+def change_master_demo_password(
+    current_password: str, new_password: str, confirm: str, request=None
+) -> str:
+    """Password rotation requires authenticated Gradio session and old secret."""
+    if not master_demo_authenticated(request):
+        raise PermissionError("Inicia sesión como obs-master-demo.")
+    if new_password != confirm:
+        raise ValueError("La nueva contraseña y su confirmación no coinciden.")
+    if not isinstance(new_password, str) or len(new_password) < 16:
+        raise ValueError("La nueva contraseña debe tener al menos 16 caracteres.")
+    if new_password == current_password:
+        raise ValueError("Elige una contraseña diferente a la anterior.")
+    engine = _engine()
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(text("""
+                SELECT password_hash FROM public.hj_app_accounts
+                WHERE username = :username AND enabled = true
+                FOR UPDATE
+            """), {"username": MASTER_DEMO_USERNAME}).mappings().first()
+            if row is None or not verify_password(current_password, row["password_hash"]):
+                raise PermissionError("La contraseña actual es incorrecta.")
+            new_hash = hash_password(new_password)
+            conn.execute(text("""
+                UPDATE public.hj_app_accounts
+                   SET password_hash = :password_hash,
+                       failed_attempts = 0, locked_until = NULL,
+                       password_changed_at = now()
+                 WHERE username = :username
+            """), {"username": MASTER_DEMO_USERNAME, "password_hash": new_hash})
+        return "Contraseña actualizada. Cierra sesión y vuelve a ingresar."
+    finally:
+        engine.dispose()
 
 
 def master_demo_authenticated(request) -> bool:
