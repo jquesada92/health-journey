@@ -48,8 +48,8 @@ def records():
 
 def test_indicators_use_previous_measurement_and_relative_difference(records):
     result = render_progress(records)
-    assert len(result) == 11
-    assert len(METRICS) == 5
+    assert len(result) == 13
+    assert len(METRICS) == 6
     weight_fig = result[1]
     assert isinstance(weight_fig, go.Figure)
     trace = weight_fig.data[0]
@@ -64,7 +64,7 @@ def test_indicators_use_previous_measurement_and_relative_difference(records):
     # ECW is unchanged; still shows neutral arrow rather than good/bad.
     assert result[5].data[0].delta.reference == pytest.approx(.370)
     assert "4 fecha(s)" in result[0]
-    history = result[7]
+    history = result[8]
     weight = history[history["Medición"] == "Weight"].sort_values("Fecha")
     assert weight.iloc[-1]["Cambio vs anterior"] == "↑ +1.1%"
     assert weight.iloc[-2]["Cambio vs anterior"] == "↓ -0.6%"
@@ -75,7 +75,7 @@ def test_filter_date_range_updates_current_previous_and_keeps_exact_decimals(rec
     assert result[1].data[0].value == pytest.approx(71.6)
     assert result[1].data[0].delta.reference == pytest.approx(72.0)
     assert "3 fecha(s)" in result[0]
-    detail = result[8]
+    detail = result[9]
     lean = detail[detail["Measurement"] == "Right Arm - Lean Mass"].iloc[0]
     assert lean["Current"] == "3.50"
     assert lean["Previous"] == "3.35"
@@ -94,7 +94,7 @@ def test_missing_previous_and_zero_reference_do_not_crash():
     next_row = report_rows("2026-09-01", "72.4", "30.2", "14.2", "20.0", "0.370", "3.50")
     both = render_progress(row + next_row)
     assert both[1].data[0].mode == "number"
-    assert both[7].loc[both[7]["Medición"] == "Weight"].iloc[-1]["Cambio vs anterior"] == "—"
+    assert both[8].loc[both[8]["Medición"] == "Weight"].iloc[-1]["Cambio vs anterior"] == "—"
 
 
 def test_invalid_dates_and_empty_period(records):
@@ -104,24 +104,24 @@ def test_invalid_dates_and_empty_period(records):
         render_progress(records, "banana")
     empty = render_progress(records, "2025-01-01", "2025-12-31")
     assert "Sin mediciones" in empty[0]
-    assert empty[7].empty and empty[8].empty
+    assert empty[8].empty and empty[9].empty
 
 
 def test_segmental_values_not_used_as_whole_body_metrics(records):
     truncated = [x for x in records if x["measurement"].startswith("Right Arm - ")]
     result = render_progress(truncated, selected_section="Segmental Lean Analysis")
     assert result[1].data == ()
-    detail = result[8]
+    detail = result[9]
     assert detail.iloc[-1]["Current"] == "3.69"
-    assert "3.69" in str(result[9].data[0].text)
+    assert "3.69" in str(result[10].data[0].text)
 
 
 def test_history_is_date_separated_and_never_uses_pdf_trend_values(records):
     selected = render_progress(records)
-    figure = selected[6]
+    figure = selected[7]
     assert figure.data[0].name == "Weight"
     assert list(figure.data[0].y) == [73.6, 72.0, 71.6, 72.4]
-    assert "Body Composition History" not in selected[8].to_string()
+    assert "Body Composition History" not in selected[9].to_string()
     assert _change_label(Decimal("8.20"), Decimal("8.00")).startswith("↑")
 
 
@@ -148,9 +148,10 @@ def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     assert "Exam selector" not in section
     assert '"type=password"' not in section  # uses correctly typed Gradio keyword
     assert 'type="password"' in section
-    assert len(METRICS) == 5
+    assert len(METRICS) == 6
     assert SECTIONS[0] == "Todas las secciones"
     assert 'progress_score = gr.Plot(' in app
+    assert 'progress_section_history = gr.Plot(' in app
     assert 'progress_score],' in app
 
 
@@ -167,13 +168,13 @@ def test_score_line_accepts_variants_without_fabricating_data(label, section, un
          "value": "84.20", "unit": unit, "anonymous_id": "synthetic"},
     ]
     result = render_progress(points)
-    chart = result[10]
+    chart = result[11]
     assert isinstance(chart, go.Figure)
     assert chart.data[0].type == "scatter"
     assert chart.data[0].mode == "lines+markers+text"
     assert list(chart.data[0].y) == [82.0, 84.2]
     assert list(chart.data[0].text) == ["82.00", "84.20"]
-    assert len(result[7]) == 0  # No full-body metrics fabricated
+    assert len(result[8]) == 0  # No full-body metrics fabricated
 
 
 def test_score_chart_respects_date_filter_and_keeps_private_ids_hidden():
@@ -187,11 +188,11 @@ def test_score_chart_respects_date_filter_and_keeps_private_ids_hidden():
             ("2026-09-01", "81"),
         ]
     ]
-    chart = render_progress(report, "2026-08-01", "2026-09-30")[10]
+    chart = render_progress(report, "2026-08-01", "2026-09-30")[11]
     assert list(chart.data[0].y) == [79.0, 81.0]
     assert "synthetic-person-private" not in chart.to_json()
     assert "private.pdf" not in chart.to_json()
-    missing = render_progress(report, "2025-01-01", "2025-12-31")[10]
+    missing = render_progress(report, "2025-01-01", "2025-12-31")[11]
     assert not missing.data
     assert "Todavía no hay puntajes" in str(missing.layout.annotations)
 
@@ -203,5 +204,49 @@ def test_score_does_not_include_unrelated_scoring_measurements():
         {"exam_date": "2026-09-01", "section": "Research Parameters",
          "measurement": "Score", "value": "20", "unit": "points"},
     ]
-    assert not render_progress(data)[10].data
+    assert not render_progress(data)[11].data
+
+
+
+def test_phase_angle_kpi_report_row_and_comparison(records):
+    phase = [
+        {"exam_date": "2026-09-27", "section": "Research Parameters",
+         "measurement": "Phase Angle", "unit": "°", "value": "6.20"},
+        {"exam_date": "2026-10-04", "section": "ECW Ratio-Phase Angle",
+         "measurement": "Phase Angle at 50 kHz", "unit": "deg", "value": "6.80"},
+        {"exam_date": "2026-10-04", "section": "Segmental Lean Analysis",
+         "measurement": "Right Arm - Phase Angle", "unit": "°", "value": "5.10"},
+    ]
+    result = render_progress(records + phase)
+    assert result[6].data[0].type == "indicator"
+    assert result[6].data[0].value == pytest.approx(6.80)
+    assert result[6].data[0].delta.reference == pytest.approx(6.20)
+    report = result[7]
+    assert len(report.data) == 6
+    assert report.data[-1].name == "Phase Angle"
+    assert list(report.data[-1].y) == [6.20, 6.80]
+    assert list(report.data[-1].text) == ["6.20", "6.80"]
+    assert "Ángulo de fase" in str(report.layout.annotations)
+    assert "↑ +9.7%" in str(report.layout.annotations)
+    assert "Right Arm" not in report.to_json()
+
+
+def test_section_history_show_all_measurements_by_unit_and_date(records):
+    chart = render_progress(
+        records, selected_section="Segmental Lean Analysis"
+    )[12]
+    assert chart.data
+    assert list(chart.data[0].y) == [3.2, 3.35, 3.5, 3.69]
+    assert "Right Arm - Lean Mass" in chart.to_json()
+    assert "inbody_private.jpg" not in chart.to_json()
+    assert not render_progress(records)[12].data
+
+
+def test_report_style_has_labeled_rows_with_recent_comparisons(records):
+    report = render_progress(records)[7]
+    assert len(report.data) == 5
+    assert all(trace.mode == "lines+markers+text" for trace in report.data)
+    assert "Masa muscular esquelética" in str(report.layout.annotations)
+    assert "↓ -6.0%" in str(report.layout.annotations)
+    assert report.layout.height >= 680
 
