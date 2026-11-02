@@ -136,12 +136,14 @@ def main() -> int:
 
     workflow = contenido(".github/workflows/deploy-huggingface.yml")
     # Solo módulos efectivamente requeridos por el flujo de ejecución actual.
+    # section_ai.py es importado por extractor.py durante startup aunque
+    # el análisis OCR con Paddle esté desactivado; sin este módulo falla Space.
     # Los módulos legacy de OCR/editor se conservan para pruebas antiguas,
     # pero no deben formar parte del paquete activo en Hugging Face.
-    activos = ['inbody_mvp/__init__.py','inbody_mvp/extractor.py','inbody_mvp/layouts.py','inbody_mvp/layouts_es.py','inbody_mvp/gemini_review.py','inbody_mvp/review.py','inbody_mvp/language.py','inbody_mvp/storage.py','inbody_mvp/public_dashboard.py','inbody_mvp/oauth_ui.py','inbody_mvp/demo_storage.py']
+    activos = ['inbody_mvp/__init__.py','inbody_mvp/extractor.py','inbody_mvp/layouts.py','inbody_mvp/layouts_es.py','inbody_mvp/gemini_review.py','inbody_mvp/review.py','inbody_mvp/language.py','inbody_mvp/storage.py','inbody_mvp/public_dashboard.py','inbody_mvp/oauth_ui.py','inbody_mvp/demo_storage.py','inbody_mvp/progress_dashboard.py','inbody_mvp/section_ai.py']
     obsoletos = ["inbody_mvp/visual_debug.py", "inbody_mvp/section_review.py",
                  "inbody_mvp/visual_editor.py", "inbody_mvp/visual_editor_ui.py",
-                 "inbody_mvp/section_ai.py"]
+                 ]
     for rel in activos:
         if rel not in workflow:
             errores.append(f"Falta módulo activo en despliegue: {rel}")

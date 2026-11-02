@@ -53,6 +53,7 @@ jobs:
               'README.md',
               'inbody_mvp/__init__.py',
               'inbody_mvp/extractor.py',
+              'inbody_mvp/section_ai.py',
               'inbody_mvp/layouts.py',
               'inbody_mvp/layouts_es.py',
               'inbody_mvp/gemini_review.py',
@@ -60,9 +61,39 @@ jobs:
               'inbody_mvp/language.py',
               'inbody_mvp/storage.py',
               'inbody_mvp/public_dashboard.py',
+              'inbody_mvp/progress_dashboard.py',
               'inbody_mvp/oauth_ui.py',
               'inbody_mvp/demo_storage.py',
           ]
+          # Avoid pushing a Space that imports a runtime module omitted
+          # from this explicit deployment allowlist (prevents stale HF UI).
+          import ast
+
+          root = Path('.')
+          active = set(files)
+          to_scan = ['app.py']
+          scanned = set()
+          while to_scan:
+              source = to_scan.pop()
+              if source in scanned:
+                  continue
+              scanned.add(source)
+              for node in ast.walk(ast.parse((root / source).read_text(encoding='utf-8'))):
+                  if not isinstance(node, ast.ImportFrom):
+                      continue
+                  module = (node.module or '')
+                  if node.level == 0 and module.startswith('inbody_mvp.'):
+                      candidate = module.replace('.', '/') + '.py'
+                      if candidate not in active:
+                          raise SystemExit(f'Deploy allowlist missing imported module: {candidate}')
+                      to_scan.append(candidate)
+                  elif node.level == 1 and source.startswith('inbody_mvp/'):
+                      candidate = 'inbody_mvp/' + module.replace('.', '/') + '.py'
+                      if module and (root / candidate).is_file():
+                          if candidate not in active:
+                              raise SystemExit(f'Deploy allowlist missing relative module: {candidate}')
+                          to_scan.append(candidate)
+
           for name in files:
               if not Path(name).is_file():
                   raise SystemExit(f'Missing required file: {name}')
