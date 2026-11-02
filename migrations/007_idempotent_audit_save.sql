@@ -140,7 +140,9 @@ WHERE version_rank = 1;
 REVOKE ALL ON FUNCTION public.hj_audit_filename_processed(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.hj_submit_reviewed_audit_receipt(jsonb,boolean,boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.hj_audit_filename_processed(text)
-    TO health_journey_demo_writer;
+    TO health_journey_app, health_journey_runtime;
+REVOKE ALL ON FUNCTION public.hj_audit_filename_processed(text)
+    FROM health_journey_demo_writer;
 GRANT EXECUTE ON FUNCTION public.hj_submit_reviewed_audit_receipt(jsonb,boolean,boolean)
     TO health_journey_demo_writer;
 REVOKE ALL ON public.hj_audit_reviewed_private FROM PUBLIC;
