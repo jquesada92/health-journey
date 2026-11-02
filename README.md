@@ -8,6 +8,58 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Progress Dashboard — Gradio + Plotly (noviembre de 2026)
+
+La pestaña **Progress Dashboard** sustituye el antiguo mensaje
+«Dashboard (siguiente fase)». No incluye selector de examen: el sistema
+selecciona automáticamente el valor más reciente disponible **por
+variable** dentro del rango de fechas indicado. Filtros: ID de reporte
+en campo privado (se normaliza al buscar), **Desde**, **Hasta** y una
+sección para el análisis detallado. La interfaz muestra solo un alias
+seudónimo, nunca la cédula InBody ni el nombre del archivo.
+
+Plotly crea cinco indicadores `go.Indicator(number+delta)` y sus
+flechas con variación porcentual relativa a la medición inmediatamente
+anterior **de la misma variable y unidad**, dentro del intervalo:
+`(actual - anterior) / abs(anterior) × 100`. Un aumento muestra ↑,
+una disminución ↓ y un valor igual →. El color de la flecha es neutral,
+ya que subir o bajar no determina por sí mismo un resultado de salud
+favorable. Si no hay valor anterior o es cero, se muestra «Sin medición
+anterior» o «Referencia anterior = 0», sin porcentaje inventado.
+
+Métricas base: `Weight`, `Skeletal Muscle Mass`,
+`Body Fat Mass`, `Body Fat Percentage` y `ECW Ratio`.
+Un gráfico multieje de subplots Plotly conserva unidades separadas.
+La tabla de histórico contiene fecha, variable, valor literal, unidad
+y cambio; los valores como `8.20` se conservan como texto en tablas.
+
+La subsección **Detailed Exam Analysis** permite elegir **sección**,
+no un examen: toma la lectura más reciente de cada variable de esa
+sección dentro del rango, muestra la lectura anterior, cambio relativo
+y fecha. Las barras Plotly agrupan por unidad para evitar comparar
+kg, porcentajes y otras magnitudes en un único eje. Las secciones nuevas
+no reconocidas siguen apareciendo en «Todas las secciones».
+
+**Fuente y límites:** la carga se realiza solo desde
+`hj_audit_reviewed_private` en Neon mediante
+`load_reviewed_audit_history`; requiere
+`ENABLE_PERSISTENCE=1`, `DATABASE_URL`,
+`HF_ALLOWED_USERS` y OAuth autorizado, incluso si
+`ENABLE_ANONYMOUS_DEMO=1` permite escribir con consentimiento
+y sin login. El dashboard público se mantiene aislado:
+**guardar no significa autorizar publicación**.
+El historial del gráfico embebido en el PDF nunca es una fuente.
+La vista SQL retorna **fecha sin hora**; varias mediciones de la misma
+variable en una misma fecha pueden ser ambiguas, por lo que no se
+inventan promedios ni orden temporal intradía. El lector limita
+la respuesta a 5000 filas, después de filtrar por identidad.
+
+La implementación está en `inbody_mvp/progress_dashboard.py`, con
+tests sintéticos `tests/test_progress_dashboard.py`. No se realizaron
+migraciones adicionales ni se alteraron las auditorías guardadas.
+
+
+
 ## Configuración de Hugging Face Spaces
 
 Las cinco **Variables** y los cuatro **Secrets** utilizados por Health Journey
