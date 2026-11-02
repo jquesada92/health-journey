@@ -232,7 +232,7 @@ def load_reviewed_audit_history(
     """
     require_database_access(oauth_profile)
     person_key = canonical_person_id(person_id)
-    row_limit = min(max(int(limit), 1), 500)
+    row_limit = min(max(int(limit), 1), 5000)
     engine = _database_engine()
     try:
         with engine.connect() as connection:
