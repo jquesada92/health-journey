@@ -63,3 +63,25 @@
 - Respetar el pedido actual de **documentación solamente**: ningún archivo de app, tests, SQL, requirements, workflow o configuración de despliegue debe modificarse en este cambio.
 - Actualizar esta bitácora al cerrar cada requerimiento, especificando commit/PR, pruebas ejecutadas y evidencia del entorno; diferenciar claramente «solicitado», «implementado», «desplegado» y «validado».
 - No hacer merge, despliegue, migración ni modificar secretos por el solo hecho de consolidar el contexto.
+
+## 7. Nuevo requisito — diseño responsive mobile-first (solicitado 2026-11-01)
+
+**Estado: solicitado, no implementado ni validado.** Toda la interfaz **Gradio** de InBody Hub debe adaptarse de forma usable a celulares, tablets y pantallas de escritorio; no sustituir la tecnología ni introducir una interfaz React/Dash paralela.
+
+### Contrato funcional y visual
+
+- Diseño **mobile-first** con una columna en pantallas pequeñas y distribución de dos columnas solo cuando haya espacio útil; sin scroll horizontal de la página.
+- Navegación compacta, títulos y controles legibles; botones de carga, extraer, corregir, guardar y actualizar suficientemente grandes para uso táctil, con estados de carga y deshabilitado claros.
+- En teléfono, cargar PDF/JPG/PNG desde archivos, cámara cuando el navegador lo permita; vista previa de páginas ajustada al ancho y con zoom/expansión. No ocultar consentimientos ni información crítica por falta de espacio.
+- La tabla editable de mediciones debe conservar **todos los campos y precisión**; en móvil usar tarjetas de medición o editor de fila accesible (sección, variable, valor, unidad, original y comentario), en lugar de exigir desplazamiento horizontal de una tabla extensa. No duplicar editores en un mismo flujo.
+- Dashboard adaptable: indicadores en cuadrícula flexible (1 columna móvil, más columnas en tablet/escritorio), filtros apilables, gráficas Plotly con ancho responsivo, ejes/etiquetas legibles y opción de inspeccionar valores; **InBody Score** histórico, ángulo de fase y análisis segmental deben verse correctamente en móvil.
+- Mensajes de validación y el **único popup de error** visibles en pantalla pequeña, sin quedar tapados por teclado, cabecera o contenido flotante.
+- Priorizar CSS/Gradio responsivo y componentes nativos; no bloquear la accesibilidad por estilos fijos ni comprometer autenticación/privacidad.
+
+### Criterios de aceptación
+
+1. Probar vistas de referencia de **360 px, 390 px, 768 px y 1280 px**; permitir zoom del navegador y orientación vertical/horizontal, sin desbordamiento general ni acciones invisibles.
+2. Completar desde celular: login (si aplica), consentimientos, carga, visualización, extracción, edición de una medición, guardado y limpieza tras éxito.
+3. Navegar dashboard, filtros, comparativas, gráficos y puntuación histórica con tacto; evitar recorte de leyendas, superposición de indicadores y pérdida de precisión decimal.
+4. Verificar en Android Chrome y iOS Safari cuando estén disponibles; documentar cualquier limitación real de Gradio/navegador.
+5. No considerar este requisito cumplido sin capturas o pruebas E2E en dimensiones móviles, además de las pruebas de escritorio.
