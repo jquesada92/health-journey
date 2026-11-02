@@ -552,3 +552,47 @@ segmento, fecha, falsos positivos, latencia y memoria.
 
 **[Guía completa: cómo la IA detecta secciones, arquitectura, ejemplo,
 limitaciones, evaluación y privacidad](docs/ocr-secciones-ia.md).**
+
+## Validación de duplicados y limpieza del formulario (migración 007)
+
+El botón «Guardar mediciones revisadas y auditoría» comprueba en una
+**transacción en Neon** y en este orden:
+
+1. **Archivo ya procesado:** coincidencia de nombre sin distinguir
+   mayúsculas/espacios exteriores, o contenido SHA-256 idéntico.
+   Se muestra «Este archivo ya fue procesado», sin crear otra auditoría.
+   En una sesión privada autorizada la carga también consulta
+   anticipadamente el nombre mediante
+   `hj_audit_filename_processed(text)`.
+2. **Mediciones duplicadas:** si el **ID numérico normalizado**, la
+   **fecha y hora exactas del examen** y el **nombre de medición**
+   coinciden con una auditoría previa, el guardado se detiene y avisa
+   cuántos valores ya fueron capturados. Es necesario marcar
+   **«Confirmo sobrescribir mediciones anteriores»** y guardar de nuevo.
+   Este consentimiento es distinto del de almacenar en Neon.
+3. **Guardado nuevo o actualización aprobada:** se inserta la nueva
+   auditoría completa; la vista privada
+   `hj_audit_reviewed_private` muestra solo la versión más reciente
+   para cada persona/fecha exacta/medición. La versión anterior **no se
+   elimina**: permanece como evidencia de auditoría. Las mediciones
+   no presentes en el nuevo documento se conservan del anterior.
+   Si una medición aparece varias veces en el documento nuevo, la vista
+   conserva esas filas, no inventa agregados.
+4. **Limpieza automática solo al guardar con éxito:** se retiran archivo,
+   visor PDF, tabla, respuesta Gemini, consentimientos y confirmación
+   de sobrescritura. Se notifica el éxito. Si hay duplicados o un
+   error, no se destruye la revisión que el usuario está corrigiendo.
+
+La ruta mantiene `ENABLE_ANONYMOUS_DEMO=1` y el Secret
+`DEMO_DATABASE_URL` con el rol restringido
+`health_journey_demo_writer`. No concede SELECT directo a ese rol.
+La migración 007 incluye el procedimiento transaccional
+`hj_submit_reviewed_audit_receipt`, la comprobación de archivo y la
+vista de últimas mediciones. Los códigos de error SQLSTATE se registran
+**sin** valores personales, SQL bruto, tokens o contraseñas.
+
+La comprobación anticipada de nombres está disponible solo con una
+sesión privada autorizada, para no permitir enumeración anónima de
+archivos de salud. La validación de duplicados en el guardado siempre
+se ejecuta en Neon. **No se elimina ni modifica la cuenta
+`obs-master-demo`.**
