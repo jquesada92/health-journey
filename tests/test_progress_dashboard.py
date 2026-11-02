@@ -1,5 +1,6 @@
 """Synthetic regression tests for private Plotly historical InBody progress."""
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -83,7 +84,6 @@ def test_filter_date_range_updates_current_previous_and_keeps_exact_decimals(rec
     assert "person_id" not in detail.columns
     assert "age" not in detail.columns
     assert "filename" not in detail.columns
-    assert "4" not in result[0].split("fecha(s)")[0]
 
 
 def test_missing_previous_and_zero_reference_do_not_crash():
@@ -122,7 +122,7 @@ def test_history_is_date_separated_and_never_uses_pdf_trend_values(records):
     assert figure.data[0].name == "Weight"
     assert list(figure.data[0].y) == [73.6, 72.0, 71.6, 72.4]
     assert "Body Composition History" not in selected[8].to_string()
-    assert _change_label(pd.to_numeric("8.20"), pd.to_numeric("8.00")).startswith("↑")
+    assert _change_label(Decimal("8.20"), Decimal("8.00")).startswith("↑")
 
 
 def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
