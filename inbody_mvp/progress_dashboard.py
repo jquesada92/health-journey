@@ -235,6 +235,56 @@ def _series_figure(points_by_metric):
     return fig
 
 
+def _score_figure(rows):
+    """Plot the InBody Score of each recorded exam as a date-filtered line.
+
+    Score comes from reviewed Neon measurements, NOT the historical image
+    embedded in a PDF. Accept the English standardized term plus legacy
+    Spanish labels and common point units, never other score-like measures.
+    """
+    valid_names = {"inbody score", "puntaje inbody", "puntuacion inbody"}
+    valid_units = {"", "points", "point", "puntos", "pts", "pt"}
+    matches = [
+        row for row in rows
+        if (
+            _slug(row["measurement"]) in valid_names
+            or (
+                _slug(row["measurement"]) in {"score", "puntaje"}
+                and _slug(row["section"]) == "inbody score"
+            )
+        )
+        and row["unit"].strip().lower() in valid_units
+    ]
+    by_date = {}
+    for row in sorted(matches, key=lambda x: (
+        x["date"], x["section"], x["measurement"]
+    )):
+        by_date[row["date"]] = row
+    if not by_date:
+        return _empty_figure(
+            "Todavía no hay puntajes InBody revisados en el rango seleccionado."
+        )
+    points = [by_date[key] for key in sorted(by_date)]
+    fig = go.Figure(go.Scatter(
+        x=[p["date"] for p in points],
+        y=[float(p["numeric"]) for p in points],
+        mode="lines+markers+text",
+        text=[p["original"] for p in points],
+        textposition="top center",
+        name="InBody Score",
+        hovertemplate="%{x|%Y-%m-%d} · %{text} puntos<extra>InBody Score</extra>",
+    ))
+    fig.update_layout(
+        title="Evolución del puntaje InBody",
+        xaxis_title="Fecha del examen",
+        yaxis_title="Puntos",
+        height=350,
+        margin=dict(l=55, r=25, t=65, b=55),
+        hovermode="closest",
+    )
+    return fig
+
+
 def _latest_group(rows):
     # One current measurement per section, label and unit.
     # Multiple same-date reports are ambiguous in the date-only view;
@@ -356,4 +406,5 @@ def render_progress(records, from_date=None, to_date=None,
         "fecha anterior disponible dentro del filtro, no una valoración médica."
         if rows else "Sin mediciones revisadas para el rango seleccionado."
     )
-    return (status, *indicators, trend, summary, selected, detail_chart)
+    score_trend = _score_figure(rows)
+    return (status, *indicators, trend, summary, selected, detail_chart, score_trend)
