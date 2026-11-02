@@ -85,3 +85,14 @@
 3. Navegar dashboard, filtros, comparativas, gráficos y puntuación histórica con tacto; evitar recorte de leyendas, superposición de indicadores y pérdida de precisión decimal.
 4. Verificar en Android Chrome y iOS Safari cuando estén disponibles; documentar cualquier limitación real de Gradio/navegador.
 5. No considerar este requisito cumplido sin capturas o pruebas E2E en dimensiones móviles, además de las pruebas de escritorio.
+
+## 8. Incidencias confirmadas por usuario — negativos y eliminación de filas (2026-11-01)
+
+**Estado: bug reportado, NO corregido.** Inspección estática de `main`:
+
+- **Eliminar una fila falla por diseño de la validación actual.** En `inbody_mvp/gemini_review.py`, `validate_review()` compara `len(frame)` contra `len(snapshot["rows"])` y lanza `ValueError("No se permite agregar o eliminar filas de auditoría.")` cuando difieren. Además compara filas por `zip()` y posición: eliminar una fila intermedia desplaza las restantes e invalida su procedencia. Solución propuesta: IDs estables de fila derivados de extracción, borrado explícito autorizado con motivo/bitácora, auditoría de originales preservada y validación por identidad, no índice. Definir si «eliminar» significa excluir una medición del guardado o borrar datos ya persistidos: para revisión, **exclusión previa al guardado** es opción segura y no implica borrar auditoría histórica. Rechazar guardar si no queda ninguna medición válida.
+- **Valores negativos: causa todavía no confirmada.** `_decimal()` usa `Decimal(raw.replace(",", "."))`, sin prohibición explícita de signos negativos. En `app.py`, el Dataframe de revisión usa `datatype="number"` para la columna de edad/valor según orden de `GEMINI_COLUMNS`; comprobar asignación exacta de columnas, coerción de Gradio/Pandas y validaciones SQL, y si el signo Unicode `−` (U+2212) se confunde con el guion ASCII `-`. También revisar porcentajes, valores negativos legítimos y no permitidos según semántica de medida; no aceptar automáticamente valores imposibles. Preservar texto literal decimal (`-8.20`) para no perder signo ni ceros significativos.
+- **Criterios de reproducción:** editar una medición a `-1`, `-1.25`, `−1.25` (signo Unicode), `-0.50` y `0`; distinguir error de componente, revisión y Neon. Eliminar primera, central y última fila y guardar; comprobar que las demás conservan original/procedencia, que no hay mezcla de filas y que el sistema no inserta valores excluidos. Revisar deshacer antes de guardar y que los errores se presenten en un solo popup.
+- **No inventar diagnóstico:** la causa de eliminación está respaldada por código inspeccionado; el lugar exacto donde falla el negativo sigue sin prueba E2E. Documentar evidencia y tests antes de marcar ambas incidencias resueltas.
+
+**Prioridad: P0**, porque impiden revisar/corregir resultados Gemini y completar el flujo de guardado con integridad.
