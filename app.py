@@ -22,9 +22,7 @@ from inbody_mvp.public_dashboard import (
     PUBLIC_METRICS, public_dashboard_enabled, load_public_person_series,
 )
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
-from inbody_mvp.app_auth import (
-    authenticate_master_demo, password_login_enabled, change_master_demo_password,
-)
+from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
@@ -114,74 +112,15 @@ OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
-    if password_login_enabled():
-        gr.Markdown(
-            "**Acceso protegido:** has iniciado sesión con el usuario de "
-            "la aplicación. El historial privado sigue sujeto a permisos "
-            "del servidor; cerrar sesión termina el acceso a los módulos."
-        )
-        with gr.Accordion("Seguridad de la cuenta (cambiar contraseña)", open=False):
-            gr.Markdown(
-                "Después del primer acceso, cambia la contraseña inicial. "
-                "Utiliza al menos 16 caracteres; no compartas contraseñas "
-                "en GitHub ni en capturas de pantalla."
-            )
-            current_login_password = gr.Textbox(
-                label="Contraseña actual", type="password"
-            )
-            next_login_password = gr.Textbox(
-                label="Nueva contraseña", type="password"
-            )
-            confirm_login_password = gr.Textbox(
-                label="Confirmar nueva contraseña", type="password"
-            )
-            change_login_button = gr.Button("Actualizar contraseña")
-            change_login_result = gr.Markdown()
-
-            def change_login(
-                old_password, new_password, confirm_password,
-                request: gr.Request | None = None,
-            ):
-                try:
-                    return change_master_demo_password(
-                        old_password, new_password, confirm_password, request
-                    )
-                except Exception as exc:
-                    popup_error(exc, "No se pudo cambiar la contraseña.")
-                    return gr.update()
-
-            change_login_button.click(
-                fn=change_login,
-                inputs=[
-                    current_login_password, next_login_password,
-                    confirm_login_password,
-                ],
-                outputs=[change_login_result],
-                concurrency_limit=1,
-            )
-    # The optional GPU callback keeps an existing ZeroGPU Space compatible.
-    # It is NEVER invoked by the Gemini API or Neon audit workflows.
-    with gr.Accordion("Diagnóstico ZeroGPU (opcional)", open=False):
-        gr.Markdown(
-            "Solo para verificar el hardware de Hugging Face. "
-            "Ejecutarlo consume cuota GPU; las extracciones con Gemini no la utilizan."
-        )
-        gpu_diagnostic_button = gr.Button("Probar GPU disponible")
-        gpu_diagnostic_result = gr.Textbox(label="Resultado", interactive=False)
-        def diagnose_gpu_with_popup():
-            try:
-                result = diagnose_zerogpu()
-                if result.startswith("No hay GPU CUDA disponible"):
-                    gr.Warning(result)
-                    return gr.update()
-                return result
-            except Exception as exc:
-                popup_error(exc, "No se pudo ejecutar el diagnóstico GPU.")
-                return gr.update()
-
-        gpu_diagnostic_button.click(
-            fn=diagnose_gpu_with_popup,
-            outputs=[gpu_diagnostic_result], concurrency_limit=1
+    # Infrastructure-only: this invisible registered handler is required by
+    # existing ZeroGPU hardware. It never runs during Gemini extraction.
+    # Keep it mounted so the Space boots, but show no technical controls to
+    # end users; api_name=False also avoids exposing a diagnostic endpoint.
+    with gr.Column(visible=False):
+        _zerogpu_keepalive = gr.Button(visible=False)
+        _zerogpu_keepalive.click(
+            fn=diagnose_zerogpu, outputs=[], api_name=False,
+            concurrency_limit=1,
         )
 
     with gr.Tab("InBody Upload"):
