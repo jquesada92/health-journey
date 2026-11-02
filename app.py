@@ -23,7 +23,7 @@ from inbody_mvp.public_dashboard import (
 )
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.app_auth import (
-    authenticate_master_demo, password_login_enabled,
+    authenticate_master_demo, password_login_enabled, change_master_demo_password,
 )
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
@@ -100,6 +100,46 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "la aplicación. El historial privado sigue sujeto a permisos "
             "del servidor; cerrar sesión termina el acceso a los módulos."
         )
+        with gr.Accordion("Seguridad de la cuenta (cambiar contraseña)", open=False):
+            gr.Markdown(
+                "Después del primer acceso, cambia la contraseña inicial. "
+                "Utiliza al menos 16 caracteres; no compartas contraseñas "
+                "en GitHub ni en capturas de pantalla."
+            )
+            current_login_password = gr.Textbox(
+                label="Contraseña actual", type="password"
+            )
+            next_login_password = gr.Textbox(
+                label="Nueva contraseña", type="password"
+            )
+            confirm_login_password = gr.Textbox(
+                label="Confirmar nueva contraseña", type="password"
+            )
+            change_login_button = gr.Button("Actualizar contraseña")
+            change_login_result = gr.Markdown()
+
+            def change_login(
+                old_password, new_password, confirm_password,
+                request: gr.Request | None = None,
+            ):
+                try:
+                    return change_master_demo_password(
+                        old_password, new_password, confirm_password, request
+                    )
+                except (PermissionError, ValueError) as exc:
+                    raise gr.Error(str(exc)) from None
+                except Exception:
+                    raise gr.Error("No se pudo cambiar la contraseña.") from None
+
+            change_login_button.click(
+                fn=change_login,
+                inputs=[
+                    current_login_password, next_login_password,
+                    confirm_login_password,
+                ],
+                outputs=[change_login_result],
+                concurrency_limit=1,
+            )
     # The optional GPU callback keeps an existing ZeroGPU Space compatible.
     # It is NEVER invoked by the Gemini API or Neon audit workflows.
     with gr.Accordion("Diagnóstico ZeroGPU (opcional)", open=False):
