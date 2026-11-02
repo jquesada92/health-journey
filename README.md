@@ -8,6 +8,55 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Inicio de sesión propio `obs-master-demo`
+
+La aplicación puede exigir un login general de Gradio, sin crear una
+cuenta adicional de Hugging Face. La cuenta de aplicación
+`obs-master-demo` se almacena en **Neon**, en la tabla privada
+`hj_app_accounts`, con hash PBKDF2-SHA256, contraseña de alta entropía
+y bloqueo de 15 minutos tras cinco intentos erróneos.
+La migración `migrations/006_app_master_demo_account.sql` crea
+únicamente la tabla; el registro se aprovisiona de forma privada,
+**nunca en el repositorio**.
+
+Para activarlo en Hugging Face:
+
+1. Aplicar la migración 006 en Neon.
+2. Aprovisionar la cuenta `obs-master-demo` con hash seguro.
+3. Añadir la Variable pública `ENABLE_APP_PASSWORD_LOGIN=1` en
+   Settings → Variables and secrets. Mantener `DATABASE_URL` como Secret,
+   apuntando a un rol privado con permiso sobre `hj_app_accounts`.
+4. Reiniciar el Space. Gradio muestra la pantalla de inicio de sesión
+   antes de cualquier pestaña; el usuario accede con
+   `obs-master-demo` y la contraseña inicial entregada por canal privado.
+5. Usar «Seguridad de la cuenta» para **cambiar la contraseña al primer
+   ingreso**. Nunca guardar contraseñas en README, Variables públicas,
+   archivos, capturas o logs.
+
+Con el login habilitado, **todos los módulos** quedan detrás de la
+pantalla de autenticación: carga, extracción Gemini, revisión,
+consentimientos, guardado, Dashboard, historial y diagnóstico.
+Los módulos siguen sujetos a sus dependencias normales:
+`GEMINI_API_KEY`, `DEMO_DATABASE_URL`, `ENABLE_ANONYMOUS_DEMO`,
+`PUBLIC_DATABASE_URL` y vistas SQL. El login no crea datos que no
+existan ni autoriza la publicación de exámenes privados.
+
+La lectura de Neon acepta el usuario validado por el middleware de
+Gradio mediante `gr.Request.username`. No se acepta un username
+enviado por textbox, query string ni un header inventado por el
+cliente. Las cuentas OAuth de Hugging Face siguen conservando su
+comprobación de `HF_ALLOWED_USERS` cuando el modo de password está
+desactivado. Activar el modo login hace que el Space requiera una
+sesión para toda la UI; no habilita acceso anónimo al Dashboard.
+
+La protección integrada de Gradio es adecuada para una demostración
+controlada, pero **no sustituye** MFA, mitigación de abuso en ingress
+y controles de acceso a nivel de fila en un producto multiusuario.
+En un Space público, no subir reportes identificables sin tener
+un entorno y una política de privacidad apropiados.
+
+
+
 ## Progress Dashboard — Gradio + Plotly (noviembre de 2026)
 
 La pestaña **Progress Dashboard** sustituye el antiguo mensaje
