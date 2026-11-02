@@ -77,7 +77,7 @@ def snapshot_upload(file_path):
             raise DocumentError("Archivo inexistente o mayor de 15 MB.")
         return {"filename": path.name, "data": path.read_bytes()}
     except OSError as exc:
-        raise gr.Error("No se pudo recibir el archivo. Vuelve a cargarlo.") from exc
+        raise DocumentError("No se pudo recibir el archivo. Vuelve a cargarlo.") from exc
 
 
 def verify_neon_session(
