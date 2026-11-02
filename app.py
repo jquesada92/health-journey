@@ -47,6 +47,26 @@ def read_readme() -> str:
     return text
 
 
+
+def popup_error(exc: Exception, fallback: str = "No se pudo completar la operación.") -> None:
+    """One Gradio toast per error; never write an error into an output component.
+
+    Expected UI/validation errors have safe user-facing text. Internal errors
+    are deliberately generic to avoid exposing document contents or DB secrets.
+    """
+    if isinstance(exc, (gr.Error, ValueError, PermissionError, DocumentError)):
+        message = getattr(exc, "message", None) or str(exc).strip("'\\\"")
+    else:
+        message = fallback
+    gr.Warning(str(message))
+
+
+def keep_components(count: int):
+    """Preserve existing file, review, plots and status on a failed event."""
+    return tuple(gr.update() for _ in range(count))
+
+
+
 def snapshot_upload(file_path):
     """Store upload bytes in this Gradio session before temp-file cleanup."""
     if not file_path:
@@ -57,7 +77,7 @@ def snapshot_upload(file_path):
             raise DocumentError("Archivo inexistente o mayor de 15 MB.")
         return {"filename": path.name, "data": path.read_bytes()}
     except OSError as exc:
-        raise gr.Error("No se pudo recibir el archivo. Vuelve a cargarlo.") from exc
+        raise DocumentError("No se pudo recibir el archivo. Vuelve a cargarlo.") from exc
 
 
 def verify_neon_session(
@@ -67,11 +87,11 @@ def verify_neon_session(
     try:
         require_database_access(profile, request=request)
     except PermissionError:
-        return (
+        gr.Warning(
             "No hay sesión de aplicación o Hugging Face autorizada para Neon. "
-            "Inicia sesión desde una pestaña independiente con la cuenta "
-            "incluida en HF_ALLOWED_USERS."
+            "Inicia sesión con la cuenta autorizada."
         )
+        return gr.update()
     return (
         "Sesión autorizada para operaciones privadas. "
         "La conexión SQL todavía no ha sido comprobada."
@@ -126,10 +146,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     return change_master_demo_password(
                         old_password, new_password, confirm_password, request
                     )
-                except (PermissionError, ValueError) as exc:
-                    raise gr.Error(str(exc)) from None
-                except Exception:
-                    raise gr.Error("No se pudo cambiar la contraseña.") from None
+                except Exception as exc:
+                    popup_error(exc, "No se pudo cambiar la contraseña.")
+                    return gr.update()
 
             change_login_button.click(
                 fn=change_login,
@@ -149,8 +168,20 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         gpu_diagnostic_button = gr.Button("Probar GPU disponible")
         gpu_diagnostic_result = gr.Textbox(label="Resultado", interactive=False)
+        def diagnose_gpu_with_popup():
+            try:
+                result = diagnose_zerogpu()
+                if result.startswith("No hay GPU CUDA disponible"):
+                    gr.Warning(result)
+                    return gr.update()
+                return result
+            except Exception as exc:
+                popup_error(exc, "No se pudo ejecutar el diagnóstico GPU.")
+                return gr.update()
+
         gpu_diagnostic_button.click(
-            fn=diagnose_zerogpu, outputs=[gpu_diagnostic_result], concurrency_limit=1
+            fn=diagnose_gpu_with_popup,
+            outputs=[gpu_diagnostic_result], concurrency_limit=1
         )
 
     with gr.Tab("InBody Upload"):
@@ -197,8 +228,22 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             )
             gemini_models_button = gr.Button("Comprobar modelos disponibles")
             gemini_models_status = gr.Markdown()
+            def check_models_with_popup():
+                try:
+                    result = check_gemini_models()
+                    if result.startswith(
+                        ("Falta GEMINI_API_KEY", "No fue posible", "Gemini (")
+                    ):
+                        gr.Warning(result)
+                        return gr.update()
+                    return result
+                except Exception as exc:
+                    popup_error(exc, "No fue posible consultar los modelos Gemini.")
+                    return gr.update()
+
             gemini_models_button.click(
-                fn=check_gemini_models, outputs=[gemini_models_status],
+                fn=check_models_with_popup,
+                outputs=[gemini_models_status],
             )
         gr.Markdown(
             "Al cargar el documento se comprobará si su nombre ya fue "
@@ -244,14 +289,34 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     static_columns=[0,1,2,3,8,9],
                     label="Revisión de mediciones; una fila por valor",
                 )
+        def extract_with_popup(state, consent):
+            try:
+                return extract_gemini(state, consent)
+            except Exception as exc:
+                popup_error(exc, "No se pudo extraer el reporte.")
+                return keep_components(3)
+
         gemini_extract.click(
-            fn=extract_gemini, inputs=[gemini_upload_state, gemini_consent_remote],
+            fn=extract_with_popup,
+            inputs=[gemini_upload_state, gemini_consent_remote],
             outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
         )
         gemini_check = gr.Button("Validar revisión y correcciones", variant="secondary")
+        def review_with_popup(table, snapshot):
+            try:
+                result = review_status(table, snapshot)
+                if result.startswith("Revisión pendiente:"):
+                    gr.Warning(result.removeprefix("Revisión pendiente:").strip())
+                    return gr.update()
+                return result
+            except Exception as exc:
+                popup_error(exc, "No se pudo validar la revisión.")
+                return gr.update()
+
         gemini_check.click(
-            fn=review_status, inputs=[gemini_table, gemini_snapshot],
+            fn=review_with_popup,
+            inputs=[gemini_table, gemini_snapshot],
             outputs=[gemini_status],
         )
         gr.Markdown(
@@ -277,23 +342,23 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gemini_save_status = gr.Markdown()
 
         def save_review_and_clear(table, snapshot, consent, overwrite):
-            message = save_audit(table, snapshot, consent, overwrite)
+            try:
+                message = save_audit(table, snapshot, consent, overwrite)
+            except Exception as exc:
+                popup_error(exc, "No se pudo guardar la auditoría en Neon.")
+                return keep_components(12)
             if message.startswith("Guardado en Neon:"):
                 # One atomic UI event clears the previous file, its preview,
                 # the AI snapshot, the editable table and both consents.
                 gr.Info(message)
                 return (
-                    message, None, None, None, [], "Carga un PDF o imagen para visualizarlo.",
+                    "", None, None, None, [], "Carga un PDF o imagen para visualizarlo.",
                     pd.DataFrame(columns=GEMINI_COLUMNS),
                     "Pendiente de extracción.", False, False, False,
                     "Sin archivo para verificar.",
                 )
-            unchanged = gr.update()
-            return (
-                message, unchanged, unchanged, unchanged, unchanged,
-                unchanged, unchanged, unchanged, unchanged, unchanged,
-                unchanged, unchanged,
-            )
+            gr.Warning(message)
+            return keep_components(12)
 
         gemini_save.click(
             fn=save_review_and_clear,
@@ -314,12 +379,35 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             state, profile: gr.OAuthProfile | None = None,
             request: gr.Request | None = None,
         ):
-            return check_processed_filename(
-                state, profile=profile, request=request
-            )
+            try:
+                message = check_processed_filename(
+                    state, profile=profile, request=request
+                )
+                if message.startswith(("Este nombre de archivo ya fue procesado",
+                                       "No se pudo leer", "La verificación anticipada no")):
+                    gr.Warning(message)
+                    return gr.update()
+                return message
+            except Exception as exc:
+                popup_error(exc, "No se pudo comprobar el nombre del archivo.")
+                return gr.update()
+
+        def upload_with_popup(file_path):
+            try:
+                return snapshot_upload(file_path)
+            except Exception as exc:
+                popup_error(exc, "No se pudo recibir el archivo.")
+                return gr.update()
+
+        def preview_with_popup(state):
+            try:
+                return render_document_preview(state)
+            except Exception as exc:
+                popup_error(exc, "No se pudo mostrar el documento.")
+                return keep_components(2)
 
         gemini_upload.upload(
-            fn=snapshot_upload,
+            fn=upload_with_popup,
             inputs=[gemini_upload],
             outputs=[gemini_upload_state],
         ).then(
@@ -332,7 +420,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             ),
             outputs=[gemini_table, gemini_status, gemini_consent, gemini_save_status],
         ).then(
-            fn=render_document_preview,
+            fn=preview_with_popup,
             inputs=[gemini_upload_state],
             outputs=[gemini_preview, gemini_preview_status],
         ).then(
@@ -401,7 +489,15 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     for _, label, _ in METRICS
                 ]
             gr.Markdown("### Historical Progress")
+            gr.Markdown(
+                "### Body Composition History — formato del reporte InBody\\n"
+                "Filas alineadas por fecha con valores, líneas de evolución "
+                "y comparación frente al examen anterior. Incluye ángulo de fase "
+                "cuando esté disponible en las mediciones revisadas."
+            )
             progress_trends = gr.Plot(label="Body Composition History")
+            gr.Markdown("### InBody Score — progreso entre exámenes")
+            progress_score = gr.Plot(label="Puntaje de cada examen · puntos")
             progress_summary = gr.Dataframe(
                 label="Mediciones por fecha y cambio porcentual",
                 type="pandas", interactive=False,
@@ -423,6 +519,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             progress_detail_plot = gr.Plot(
                 label="Comparación de medidas de la sección"
             )
+            progress_section_history = gr.Plot(
+                label="Historial de medidas de la sección seleccionada"
+            )
 
             def show_progress(
                 person_id, start_date, end_date, section,
@@ -434,13 +533,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                         person_id, oauth_profile=profile, limit=5000, request=request
                     )
                     result = render_progress(records, start_date, end_date, section)
-                except (PermissionError, ValueError) as exc:
-                    raise gr.Error(str(exc)) from None
-                except Exception:
-                    raise gr.Error(
-                        "No se pudo consultar el progreso privado en Neon. "
-                        "Comprueba tu sesión autorizada y la conexión."
-                    ) from None
+                except Exception as exc:
+                    popup_error(
+                        exc, "No se pudo consultar el progreso privado en Neon."
+                    )
+                    return keep_components(13)
                 if records:
                     alias = "Persona " + str(records[0]["anonymous_id"])[:8]
                     return (f"**{alias}** · " + result[0], *result[1:])
@@ -450,7 +547,8 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 fn=show_progress,
                 inputs=[progress_person, progress_start, progress_end, progress_section],
                 outputs=[progress_status, *progress_kpis, progress_trends,
-                         progress_summary, progress_detail, progress_detail_plot],
+                         progress_summary, progress_detail, progress_detail_plot,
+                         progress_score, progress_section_history],
                 concurrency_limit=1,
             )
         with gr.Accordion("Mediciones publicadas (solo datos aprobados)", open=False):
@@ -487,13 +585,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             def show_public_dashboard(variable):
                 try:
                     records = load_public_person_series(variable)
-                except ValueError as exc:
-                    raise gr.Error(str(exc)) from exc
-                except Exception:
-                    raise gr.Error(
-                        "No se pudieron consultar las mediciones públicas. "
-                        "Verifica la conexión y la migración 003."
-                    )
+                except Exception as exc:
+                    popup_error(exc, "No se pudieron consultar las mediciones públicas.")
+                    return keep_components(3)
                 frame = pd.DataFrame(records)
                 fig = go.Figure()
                 if frame.empty:
@@ -602,13 +696,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     records = load_reviewed_audit_history(
                         person_id, oauth_profile=profile, limit=500, request=request
                     )
-                except (ValueError, PermissionError) as exc:
-                    raise gr.Error(str(exc)) from None
-                except Exception:
-                    raise gr.Error(
-                        "No se pudo consultar la auditoría privada. "
-                        "Revisa el acceso autorizado y la migración 005."
-                    ) from None
+                except Exception as exc:
+                    popup_error(exc, "No se pudo consultar la auditoría privada.")
+                    return keep_components(3)
                 fig = go.Figure()
                 frame = pd.DataFrame(records)
                 if frame.empty:
@@ -686,10 +776,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 records = load_measurement_history(
                     person_id, oauth_profile=profile, limit=500, request=request
                 )
-            except (PermissionError, ValueError) as exc:
-                raise gr.Error(str(exc)) from exc
-            except Exception:
-                raise gr.Error("No se pudo consultar Neon. Revisa la conexión y los permisos.")
+            except Exception as exc:
+                popup_error(exc, "No se pudo consultar Neon. Revisa la conexión y los permisos.")
+                return keep_components(3)
             frame = pd.DataFrame(records)
             fig = go.Figure()
             if frame.empty:

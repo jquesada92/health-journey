@@ -93,7 +93,7 @@ def test_review_ui_has_read_only_pdf_viewer_and_reset_on_upload():
     assert "gemini_preview = gr.Gallery(" in source
     assert 'buttons=["fullscreen"]' in source
     assert "show_share_button=False" not in source
-    assert "fn=render_document_preview" in source
+    assert "fn=preview_with_popup" in source
     assert "outputs=[gemini_preview, gemini_preview_status]" in source
     assert "gemini_preview, gemini_preview_status, gemini_table" in source
     assert "outputs=[gemini_snapshot, gemini_consent_remote]" in source

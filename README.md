@@ -596,3 +596,41 @@ sesión privada autorizada, para no permitir enumeración anónima de
 archivos de salud. La validación de duplicados en el guardado siempre
 se ejecuta en Neon. **No se elimina ni modifica la cuenta
 `obs-master-demo`.**
+
+
+## Dashboard estilo InBody, Phase Angle e InBody Score
+
+El **Dashboard único** presenta «Body Composition History» con filas
+Plotly alineadas por fecha, inspiradas en el informe InBody original.
+Muestra el valor impreso en cada punto, una línea por medición, la
+última lectura y su cambio relativo en porcentaje con flechas ↑/↓.
+Se conservan por separado las unidades y escalas de **Weight, SMM,
+BFM, PBF, ECW Ratio y Phase Angle**. El último indicador admite
+`Phase Angle` y `Phase Angle at 50 kHz` en °/grados, con nombres
+ingleses estandarizados; las mediciones segmentales se excluyen
+del KPI global. No se mezclan frecuencias distintas ni medidas
+localizadas en extremidades. La sección detallada mantiene
+comparación actual/anterior y añade tendencias históricas por
+medición y unidad para la sección seleccionada.
+
+El gráfico **InBody Score — progreso entre exámenes** es una línea
+independiente, con valores, fechas y filtro temporal compartido.
+Solo incluye los puntajes capturados y revisados de los exámenes
+almacenados en Neon, **no** los puntos históricos dibujados en el
+PDF. Si no hay puntajes registrados, muestra una figura vacía y un
+mensaje informativo. No se inventan valores ni se interpretan las
+flechas automáticamente como mejoras clínicas.
+
+## Un solo popup cuando hay un error
+
+Los errores de carga, vista previa, extracción Gemini, validación,
+guardado, consulta Neon, consulta del Dashboard, cambio de
+contraseña y diagnósticos de la API/GPU se muestran por
+`gr.Warning` **una vez por evento**. No se escriben mensajes
+de error en múltiples componentes y se conservan los valores
+ya capturados o corregidos (`gr.update()`) para continuar.
+Un guardado exitoso sí limpia el formulario y muestra un único
+mensaje de éxito (`gr.Info`). Las advertencias de archivo
+repetido o sobrescritura no autorizada tampoco vacían los
+datos. No se exponen errores SQL internos, credenciales,
+identificadores reales ni contenido del documento en un popup.

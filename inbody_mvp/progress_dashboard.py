@@ -6,6 +6,7 @@ accept raw PDF history plots as datapoints or expose a real person ID.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -22,6 +23,7 @@ METRICS = (
     ("Body Fat Mass", "Masa grasa corporal", "kg"),
     ("Body Fat Percentage", "Porcentaje de grasa", "%"),
     ("ECW Ratio", "Relación ECW", ""),
+    ("Phase Angle", "Ángulo de fase", "°"),
 )
 ALIASES = {
     "weight": "Weight",
@@ -38,6 +40,13 @@ ALIASES = {
     "ecw ratio": "ECW Ratio",
     "ecw tbw": "ECW Ratio",
     "extracellular water ratio": "ECW Ratio",
+    "phase angle": "Phase Angle",
+    "whole body phase angle": "Phase Angle",
+    "phase angle 50 khz": "Phase Angle",
+    "phase angle at 50 khz": "Phase Angle",
+    "whole body phase angle at 50 khz": "Phase Angle",
+    "angulo de fase": "Phase Angle",
+    "angulo de fase a 50 khz": "Phase Angle",
 }
 SECTIONS = (
     "Todas las secciones",
@@ -48,6 +57,8 @@ SECTIONS = (
     "Segmental Fat Analysis",
     "Segmental ECW Analysis",
     "ECW Ratio-Phase Angle",
+    "Phase Angle",
+    "Segmental Phase Angle",
     "Research Parameters",
     "Weight Control",
     "InBody Score",
@@ -59,6 +70,7 @@ PRIORITY_SECTIONS = {
     "Body Fat Mass": ("Muscle-Fat Analysis", "Body Composition Analysis"),
     "Body Fat Percentage": ("Obesity Analysis",),
     "ECW Ratio": ("ECW Ratio-Phase Angle", "Research Parameters"),
+    "Phase Angle": ("ECW Ratio-Phase Angle", "Research Parameters", "Phase Angle"),
 }
 DETAIL_COLUMNS = [
     "Section", "Measurement", "Current", "Unit", "Previous",
@@ -92,7 +104,10 @@ def _number(value):
 
 
 def _slug(value):
-    return " ".join(re.findall(r"[a-z0-9]+", str(value).lower()))
+    folded = unicodedata.normalize("NFKD", str(value).lower())
+    return " ".join(re.findall(
+        r"[a-z0-9]+", "".join(c for c in folded if not unicodedata.combining(c))
+    ))
 
 
 def _base_metric(name):
@@ -187,9 +202,17 @@ def _normalize_records(records):
 
 
 def _metric_points(rows, metric, expected_unit):
-    matches = [r for r in rows
-               if _base_metric(r["measurement"]) == metric
-               and r["unit"] == expected_unit]
+    matches = [
+        r for r in rows
+        if _base_metric(r["measurement"]) == metric
+        and (
+            r["unit"] == expected_unit
+            or (
+                metric == "Phase Angle"
+                and _slug(r["unit"]) in {"deg", "degree", "degrees", "grados"}
+            )
+        )
+    ]
     priority = PRIORITY_SECTIONS.get(metric, ())
     # Prefer the canonical section for any repeated metric on one date.
     matches.sort(key=lambda r: (
@@ -205,33 +228,186 @@ def _metric_points(rows, metric, expected_unit):
 
 
 def _series_figure(points_by_metric):
-    available = [(name, unit, points_by_metric[name])
-                 for name, _, unit in METRICS if points_by_metric[name]]
+    """Report-like body composition history: aligned rows and labeled points.
+
+    Similar to the InBody printout: one line per variable, date grid at the
+    bottom, visible measured values, a left-side label and recent comparison.
+    Distinct measurement units always have their own subplot scale.
+    """
+    available = [(name, label, unit, points_by_metric[name])
+                 for name, label, unit in METRICS if points_by_metric[name]]
     if not available:
         return _empty_figure("No hay mediciones históricas en el rango seleccionado.")
+    count = len(available)
     fig = make_subplots(
-        rows=len(available), cols=1, shared_xaxes=True,
-        vertical_spacing=min(0.12, 0.28 / len(available)),
-        subplot_titles=[name for name, _, _ in available],
+        rows=count, cols=1, shared_xaxes=True,
+        vertical_spacing=0.058,
+        row_heights=[1] * count,
     )
-    for index, (name, unit, points) in enumerate(available, 1):
-        fig.add_trace(go.Scatter(
-            x=[p["date"] for p in points],
-            y=[float(p["numeric"]) for p in points],
-            mode="lines+markers+text",
-            text=[p["original"] for p in points],
-            textposition="top center",
-            name=name,
-            hovertemplate=f"%{{x|%Y-%m-%d}} · %{{text}} {unit}<extra>{name}</extra>",
-            showlegend=False,
-        ), row=index, col=1)
-        fig.update_yaxes(title_text=unit or "ratio", row=index, col=1)
     fig.update_layout(
-        height=max(360, len(available) * 175),
-        margin=dict(l=70, r=25, t=65, b=45),
+        height=max(420, count * 138 + 105),
+        margin=dict(l=198, r=175, t=28, b=66),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
         hovermode="closest",
     )
-    fig.update_xaxes(title_text="Fecha del examen", row=len(available), col=1)
+    for index, (name, label, unit, points) in enumerate(available, 1):
+        x = [p["date"] for p in points]
+        y = [float(p["numeric"]) for p in points]
+        fig.add_trace(go.Scatter(
+            x=x, y=y, mode="lines+markers+text",
+            text=[p["original"] for p in points],
+            textposition="top center",
+            textfont={"size": 11},
+            line={"width": 2, "color": "#64748b"},
+            marker={"size": 8, "color": "#1f2937"},
+            name=name,
+            hovertemplate=(
+                f"%{{x|%d/%m/%Y}} · %{{text}} {unit}"
+                f"<extra>{label}</extra>"
+            ),
+            showlegend=False,
+        ), row=index, col=1)
+        distinct = sorted(set(y))
+        span = max(y) - min(y) if len(distinct) > 1 else 0
+        margin_y = max(span * 0.30, abs(y[-1]) * 0.02, 0.01)
+        fig.update_yaxes(
+            range=[min(y) - margin_y, max(y) + margin_y * 1.6],
+            visible=False, showgrid=False, zeroline=False,
+            row=index, col=1,
+        )
+        fig.update_xaxes(
+            showgrid=True, gridcolor="rgba(130,140,154,0.15)",
+            griddash="dot",
+            showline=True, linecolor="rgba(130,140,154,0.3)",
+            zeroline=False, row=index, col=1,
+        )
+        axis = "y domain" if index == 1 else f"y{index} domain"
+        fig.add_annotation(
+            x=-0.055, y=0.5, xref="x domain", yref=axis,
+            text=f"<b>{label}</b><br><span style='font-size:10px'>{unit or 'ratio'}</span>",
+            showarrow=False, xanchor="right", align="right",
+            font={"size": 12}, row=index, col=1,
+        )
+        last = points[-1]
+        previous = points[-2] if len(points) > 1 else None
+        change = _change_label(
+            last["numeric"], previous["numeric"] if previous else None
+        )
+        fig.add_annotation(
+            x=1.035, y=0.5, xref="x domain", yref=axis,
+            text=f"<b>{last['original']} {unit}</b><br>{change}",
+            showarrow=False, xanchor="left", align="left",
+            font={"size": 12}, row=index, col=1,
+        )
+    fig.update_xaxes(
+        tickformat="%d/%m/%y",
+        title_text="Fecha del examen",
+        row=count, col=1,
+        showticklabels=True,
+    )
+    return fig
+
+
+def _score_figure(rows):
+    """Plot the InBody Score of each recorded exam as a date-filtered line.
+
+    Score comes from reviewed Neon measurements, NOT the historical image
+    embedded in a PDF. Accept the English standardized term plus legacy
+    Spanish labels and common point units, never other score-like measures.
+    """
+    valid_names = {"inbody score", "puntaje inbody", "puntuacion inbody"}
+    valid_units = {"", "points", "point", "puntos", "pts", "pt"}
+    matches = [
+        row for row in rows
+        if (
+            _slug(row["measurement"]) in valid_names
+            or (
+                _slug(row["measurement"]) in {"score", "puntaje"}
+                and _slug(row["section"]) == "inbody score"
+            )
+        )
+        and row["unit"].strip().lower() in valid_units
+    ]
+    by_date = {}
+    for row in sorted(matches, key=lambda x: (
+        x["date"], x["section"], x["measurement"]
+    )):
+        by_date[row["date"]] = row
+    if not by_date:
+        return _empty_figure(
+            "Todavía no hay puntajes InBody revisados en el rango seleccionado."
+        )
+    points = [by_date[key] for key in sorted(by_date)]
+    fig = go.Figure(go.Scatter(
+        x=[p["date"] for p in points],
+        y=[float(p["numeric"]) for p in points],
+        mode="lines+markers+text",
+        text=[p["original"] for p in points],
+        textposition="top center",
+        name="InBody Score",
+        hovertemplate="%{x|%Y-%m-%d} · %{text} puntos<extra>InBody Score</extra>",
+    ))
+    fig.update_layout(
+        title="Evolución del puntaje InBody",
+        xaxis_title="Fecha del examen",
+        yaxis_title="Puntos",
+        height=350,
+        margin=dict(l=55, r=25, t=65, b=55),
+        hovermode="closest",
+    )
+    return fig
+
+
+def _section_history_figure(rows, selected_section):
+    """Historical trends for other recorded measurements by section and unit."""
+    if selected_section == SECTIONS[0]:
+        return _empty_figure(
+            "Selecciona una sección para ver la evolución de sus medidas."
+        )
+    chosen = [r for r in rows if r["section"] == selected_section]
+    if not chosen:
+        return _empty_figure(
+            "No hay datos históricos de esta sección en el rango seleccionado."
+        )
+    units = sorted({r["unit"] for r in chosen})
+    fig = make_subplots(
+        rows=len(units), cols=1, shared_xaxes=True,
+        vertical_spacing=min(0.16, 0.30 / max(len(units), 1)),
+        subplot_titles=[f"Unidad: {u or 'sin unidad'}" for u in units],
+    )
+    for idx, unit in enumerate(units, 1):
+        measurements = sorted({
+            r["measurement"] for r in chosen if r["unit"] == unit
+        })
+        for name in measurements:
+            by_day = {
+                row["date"]: row for row in chosen
+                if row["unit"] == unit and row["measurement"] == name
+            }
+            points = [by_day[day] for day in sorted(by_day)]
+            fig.add_trace(go.Scatter(
+                x=[p["date"] for p in points],
+                y=[float(p["numeric"]) for p in points],
+                mode="lines+markers",
+                name=name,
+                hovertemplate=(
+                    f"{name}<br>%{{x|%d/%m/%Y}}: %{{y}} {unit}<extra></extra>"
+                ),
+            ), row=idx, col=1)
+        fig.update_yaxes(title_text=unit or "valor", row=idx, col=1)
+    fig.update_xaxes(
+        title_text="Fecha del examen", tickformat="%d/%m/%y",
+        row=len(units), col=1,
+    )
+    fig.update_layout(
+        title=f"Evolución histórica — {selected_section}",
+        height=max(370, 310 * len(units)),
+        margin=dict(l=65, r=30, t=85, b=55),
+        hovermode="closest",
+        legend={"orientation": "h", "y": -0.2},
+    )
     return fig
 
 
@@ -349,6 +525,7 @@ def render_progress(records, from_date=None, to_date=None,
         selected = detail
     trend = _series_figure(values)
     detail_chart = _detail_plot(detail, selected_section)
+    section_history = _section_history_figure(rows, selected_section)
     date_count = len({r["date"] for r in rows})
     status = (
         f"{date_count} fecha(s) de examen y {len(rows)} mediciones revisadas "
@@ -356,4 +533,8 @@ def render_progress(records, from_date=None, to_date=None,
         "fecha anterior disponible dentro del filtro, no una valoración médica."
         if rows else "Sin mediciones revisadas para el rango seleccionado."
     )
-    return (status, *indicators, trend, summary, selected, detail_chart)
+    score_trend = _score_figure(rows)
+    return (
+        status, *indicators, trend, summary, selected,
+        detail_chart, score_trend, section_history,
+    )

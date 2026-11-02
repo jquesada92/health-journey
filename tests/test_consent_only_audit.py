@@ -246,7 +246,7 @@ def test_review_ui_clears_only_after_success():
     assert 'if message.startswith("Guardado en Neon:"):' in source
     assert "pd.DataFrame(columns=GEMINI_COLUMNS)" in source
     assert "gr.Info(message)" in source
-    assert "unchanged = gr.update()" in source
+    assert "return keep_components(12)" in source
     assert "gemini_upload.upload(" in source
     assert "gemini_upload.change(" not in source
     assert "gemini_overwrite = gr.Checkbox(" in source
