@@ -19,11 +19,11 @@ def test_gemini_save_requires_consent_and_snapshot():
     save = [n for n in ast.walk(TREE) if isinstance(n, ast.Call)
             and isinstance(n.func, ast.Attribute) and n.func.attr == "click"
             and any(k.arg == "fn" and isinstance(k.value, ast.Name)
-                    and k.value.id == "save_audit" for k in n.keywords)]
+                    and k.value.id == "save_review_and_clear" for k in n.keywords)]
     assert len(save) == 1
     inputs = next(k.value for k in save[0].keywords if k.arg == "inputs")
     assert [x.id for x in inputs.elts] == [
-        "gemini_table", "gemini_snapshot", "gemini_consent"
+        "gemini_table", "gemini_snapshot", "gemini_consent", "gemini_overwrite"
     ]
 
 def test_clear_resets_consent_and_extraction():
