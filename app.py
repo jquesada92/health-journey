@@ -243,101 +243,206 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
              gemini_consent, gemini_consent_remote, gemini_save_status],
             value="Limpiar",
         )
-    with gr.Tab("Dashboard público"):
+    with gr.Tab("Dashboard"):
         gr.Markdown(
-            "**Progreso personal con identificador aleatorio.** "
-            "Solo aparecen los exámenes que autorizaste al guardarlos. "
-            "No se publican nombre, cédula, ID InBody, edad, hora, archivos "
-            "ni texto OCR. Se muestran las fechas (sin hora) y valores "
-            "de las mediciones: aunque tu ID esté oculto, los patrones "
-            "pueden permitir reidentificación."
+            "## Dashboard InBody\\n"
+            "Un único lugar para visualizar el progreso histórico personal "
+            "y, por separado, las mediciones autorizadas para publicación. "
+            "La búsqueda privada admite el alias `test` cuando está "
+            "configurado como Secret; nunca revela el ID original."
         )
-        metric_public = gr.Dropdown(
-            choices=[(label, metric) for metric, label in PUBLIC_METRICS.items()],
-            value="weight", label="Medición que deseas visualizar",
-        )
-        public_button = gr.Button(
-            "Ver progreso público",
-            interactive=public_dashboard_enabled(),
-        )
-        if not public_dashboard_enabled():
+        with gr.Accordion("Mi progreso histórico (acceso privado)", open=True):
             gr.Markdown(
-                "Dashboard público sin conexión. En este mismo Space configura "
-                "PUBLIC_DATABASE_URL (Secret de solo lectura) y "
-                "ENABLE_PUBLIC_DASHBOARD=1 (Variable). La carga de archivos "
-                "continuará habilitada."
+                "## Progreso histórico InBody\\n"
+                "Consulta las mediciones **revisadas y guardadas en Neon** con "
+                "acceso privado autorizado. La persona se presenta mediante "
+                "un alias; la cédula del reporte no aparece en gráficas ni tablas. "
+                "Los valores históricos dibujados en el PDF **no** se importan."
             )
-        public_status = gr.Markdown("Sin consulta.")
-        public_plot = gr.Plot(label="Tendencias de mediciones publicadas")
-        public_table = gr.Dataframe(
-            label="Mediciones publicadas sin datos de identidad",
-            type="pandas", interactive=False,
-        )
-
-        def show_public_dashboard(variable):
-            try:
-                records = load_public_person_series(variable)
-            except ValueError as exc:
-                raise gr.Error(str(exc)) from exc
-            except Exception:
-                raise gr.Error(
-                    "No se pudieron consultar las mediciones públicas. "
-                    "Verifica la conexión y la migración 003."
+            with gr.Row():
+                progress_person = gr.Textbox(
+                    label="ID del reporte (solo búsqueda privada)",
+                    placeholder="ID del reporte o alias privado test",
+                    type="password", scale=3,
                 )
-            frame = pd.DataFrame(records)
-            fig = go.Figure()
-            if frame.empty:
+                progress_start = gr.DateTime(
+                    include_time=False, type="string",
+                    label="Desde", scale=2,
+                )
+                progress_end = gr.DateTime(
+                    include_time=False, type="string",
+                    label="Hasta", scale=2,
+                )
+            progress_refresh = gr.Button(
+                "Consultar progreso", variant="primary",
+                interactive=database_enabled(),
+            )
+            if not database_enabled():
+                gr.Markdown(
+                    "Para consultar historiales de auditoría, configura "
+                    "`ENABLE_PERSISTENCE=1`, `DATABASE_URL` y `HF_ALLOWED_USERS`. "
+                    "Aunque el modo demo permita guardar sin login, el acceso "
+                    "al historial personal exige OAuth autorizado."
+                )
+            gr.Markdown(
+                "**Valores actuales** — cada flecha de Plotly muestra si la "
+                "medición subió o bajó y su diferencia porcentual contra la "
+                "fecha anterior **dentro del rango elegido**. "
+                "Las flechas son descriptivas, no indican si un cambio es saludable."
+            )
+            progress_status = gr.Markdown("Sin consulta.")
+            with gr.Row():
+                progress_kpis = [
+                    gr.Plot(label=label, min_width=205)
+                    for _, label, _ in METRICS
+                ]
+            gr.Markdown("### Historical Progress")
+            progress_trends = gr.Plot(label="Body Composition History")
+            progress_summary = gr.Dataframe(
+                label="Mediciones por fecha y cambio porcentual",
+                type="pandas", interactive=False,
+            )
+            gr.Markdown(
+                "### Detailed Exam Analysis\\n"
+                "Se toma automáticamente la medición más reciente de cada "
+                "variable en el rango seleccionado, y se compara con la anterior. "
+                "**No es necesario escoger un examen.**"
+            )
+            progress_section = gr.Dropdown(
+                label="Sección del reporte",
+                choices=list(SECTIONS), value=SECTIONS[0],
+            )
+            progress_detail = gr.Dataframe(
+                label="Valores actuales y comparación por sección",
+                type="pandas", interactive=False,
+            )
+            progress_detail_plot = gr.Plot(
+                label="Comparación de medidas de la sección"
+            )
+
+            def show_progress(
+                person_id, start_date, end_date, section,
+                profile: gr.OAuthProfile | None = None,
+            ):
+                try:
+                    records = load_reviewed_audit_history(
+                        person_id, oauth_profile=profile, limit=5000
+                    )
+                    result = render_progress(records, start_date, end_date, section)
+                except (PermissionError, ValueError) as exc:
+                    raise gr.Error(str(exc)) from None
+                except Exception:
+                    raise gr.Error(
+                        "No se pudo consultar el progreso privado en Neon. "
+                        "Comprueba tu sesión autorizada y la conexión."
+                    ) from None
+                if records:
+                    alias = "Persona " + str(records[0]["anonymous_id"])[:8]
+                    return (f"**{alias}** · " + result[0], *result[1:])
+                return result
+
+            progress_refresh.click(
+                fn=show_progress,
+                inputs=[progress_person, progress_start, progress_end, progress_section],
+                outputs=[progress_status, *progress_kpis, progress_trends,
+                         progress_summary, progress_detail, progress_detail_plot],
+                concurrency_limit=1,
+            )
+        with gr.Accordion("Mediciones publicadas (solo datos aprobados)", open=False):
+            gr.Markdown(
+                "**Progreso personal con identificador aleatorio.** "
+                "Solo aparecen los exámenes que autorizaste al guardarlos. "
+                "No se publican nombre, cédula, ID InBody, edad, hora, archivos "
+                "ni texto OCR. Se muestran las fechas (sin hora) y valores "
+                "de las mediciones: aunque tu ID esté oculto, los patrones "
+                "pueden permitir reidentificación."
+            )
+            metric_public = gr.Dropdown(
+                choices=[(label, metric) for metric, label in PUBLIC_METRICS.items()],
+                value="weight", label="Medición que deseas visualizar",
+            )
+            public_button = gr.Button(
+                "Ver progreso público",
+                interactive=public_dashboard_enabled(),
+            )
+            if not public_dashboard_enabled():
+                gr.Markdown(
+                    "Dashboard público sin conexión. En este mismo Space configura "
+                    "PUBLIC_DATABASE_URL (Secret de solo lectura) y "
+                    "ENABLE_PUBLIC_DASHBOARD=1 (Variable). La carga de archivos "
+                    "continuará habilitada."
+                )
+            public_status = gr.Markdown("Sin consulta.")
+            public_plot = gr.Plot(label="Tendencias de mediciones publicadas")
+            public_table = gr.Dataframe(
+                label="Mediciones publicadas sin datos de identidad",
+                type="pandas", interactive=False,
+            )
+
+            def show_public_dashboard(variable):
+                try:
+                    records = load_public_person_series(variable)
+                except ValueError as exc:
+                    raise gr.Error(str(exc)) from exc
+                except Exception:
+                    raise gr.Error(
+                        "No se pudieron consultar las mediciones públicas. "
+                        "Verifica la conexión y la migración 003."
+                    )
+                frame = pd.DataFrame(records)
+                fig = go.Figure()
+                if frame.empty:
+                    return (
+                        "Todavía no hay mediciones de esta variable autorizadas "
+                        "para el dashboard. Guarda un examen marcando la casilla "
+                        "de publicación desde el Space privado.",
+                        fig, frame,
+                    )
+                # Never render the underlying UUID alias or raw personal identifier.
+                frame["serie"] = frame["anonymous_id"].map(
+                    lambda alias: "Serie " + str(alias)[:8]
+                )
+                frame["modelo_y_region"] = frame.apply(
+                    lambda item: (
+                        str(item["device_group"])
+                        + " · " + str(item["segmento"] or "Cuerpo completo")
+                        + " · " + str(item["variable_medida"])
+                    ),
+                    axis=1,
+                )
+                frame["linea"] = frame["serie"] + " · " + frame["modelo_y_region"]
+                # Separate incomparable units, models, segments and frequencies.
+                frame["linea"] = frame["linea"] + " · " + frame["unidad_medida"].fillna("?")
+                fig = px.line(
+                    frame.sort_values("exam_date"),
+                    x="exam_date", y="valor_medida",
+                    color="linea", markers=True,
+                    labels={
+                        "exam_date": "Fecha del examen (sin hora)",
+                        "valor_medida": "Valor medido",
+                        "linea": "Serie y tipo de medición",
+                    },
+                )
+                visible = frame[
+                    ["serie", "exam_date", "device_group", "variable_medida",
+                     "unidad_medida", "segmento", "valor_medida"]
+                ].copy()
+                visible.columns = [
+                    "Serie", "Fecha", "Modelo", "Medición", "Unidad",
+                    "Segmento", "Valor"
+                ]
                 return (
-                    "Todavía no hay mediciones de esta variable autorizadas "
-                    "para el dashboard. Guarda un examen marcando la casilla "
-                    "de publicación desde el Space privado.",
-                    fig, frame,
+                    f"{len(visible)} mediciones publicadas, "
+                    f"{frame['serie'].nunique()} serie(s) sin ID personal.",
+                    fig, visible,
                 )
-            # Never render the underlying UUID alias or raw personal identifier.
-            frame["serie"] = frame["anonymous_id"].map(
-                lambda alias: "Serie " + str(alias)[:8]
-            )
-            frame["modelo_y_region"] = frame.apply(
-                lambda item: (
-                    str(item["device_group"])
-                    + " · " + str(item["segmento"] or "Cuerpo completo")
-                    + " · " + str(item["variable_medida"])
-                ),
-                axis=1,
-            )
-            frame["linea"] = frame["serie"] + " · " + frame["modelo_y_region"]
-            # Separate incomparable units, models, segments and frequencies.
-            frame["linea"] = frame["linea"] + " · " + frame["unidad_medida"].fillna("?")
-            fig = px.line(
-                frame.sort_values("exam_date"),
-                x="exam_date", y="valor_medida",
-                color="linea", markers=True,
-                labels={
-                    "exam_date": "Fecha del examen (sin hora)",
-                    "valor_medida": "Valor medido",
-                    "linea": "Serie y tipo de medición",
-                },
-            )
-            visible = frame[
-                ["serie", "exam_date", "device_group", "variable_medida",
-                 "unidad_medida", "segmento", "valor_medida"]
-            ].copy()
-            visible.columns = [
-                "Serie", "Fecha", "Modelo", "Medición", "Unidad",
-                "Segmento", "Valor"
-            ]
-            return (
-                f"{len(visible)} mediciones publicadas, "
-                f"{frame['serie'].nunique()} serie(s) sin ID personal.",
-                fig, visible,
-            )
 
-        public_button.click(
-            fn=show_public_dashboard,
-            inputs=[metric_public],
-            outputs=[public_status, public_plot, public_table],
-            concurrency_limit=1,
-        )
+            public_button.click(
+                fn=show_public_dashboard,
+                inputs=[metric_public],
+                outputs=[public_status, public_plot, public_table],
+                concurrency_limit=1,
+            )
     with gr.Tab("Historial en Neon"):
         if os.getenv("SPACE_ID") and OAUTH_URLS:
             gr.HTML(
@@ -513,103 +618,6 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             fn=display_history,
             inputs=[history_id, metric_filter, unit_filter, segment_filter],
             outputs=[db_status, db_chart, db_table],
-            concurrency_limit=1,
-        )
-    with gr.Tab("Progress Dashboard"):
-        gr.Markdown(
-            "## Progreso histórico InBody\\n"
-            "Consulta las mediciones **revisadas y guardadas en Neon** con "
-            "acceso privado autorizado. La persona se presenta mediante "
-            "un alias; la cédula del reporte no aparece en gráficas ni tablas. "
-            "Los valores históricos dibujados en el PDF **no** se importan."
-        )
-        with gr.Row():
-            progress_person = gr.Textbox(
-                label="ID del reporte (solo búsqueda privada)",
-                placeholder="Introduce ID para consultar",
-                type="password", scale=3,
-            )
-            progress_start = gr.DateTime(
-                include_time=False, type="string",
-                label="Desde", scale=2,
-            )
-            progress_end = gr.DateTime(
-                include_time=False, type="string",
-                label="Hasta", scale=2,
-            )
-        progress_refresh = gr.Button(
-            "Consultar progreso", variant="primary",
-            interactive=database_enabled(),
-        )
-        if not database_enabled():
-            gr.Markdown(
-                "Para consultar historiales de auditoría, configura "
-                "`ENABLE_PERSISTENCE=1`, `DATABASE_URL` y `HF_ALLOWED_USERS`. "
-                "Aunque el modo demo permita guardar sin login, el acceso "
-                "al historial personal exige OAuth autorizado."
-            )
-        gr.Markdown(
-            "**Valores actuales** — cada flecha de Plotly muestra si la "
-            "medición subió o bajó y su diferencia porcentual contra la "
-            "fecha anterior **dentro del rango elegido**. "
-            "Las flechas son descriptivas, no indican si un cambio es saludable."
-        )
-        progress_status = gr.Markdown("Sin consulta.")
-        with gr.Row():
-            progress_kpis = [
-                gr.Plot(label=label, min_width=205)
-                for _, label, _ in METRICS
-            ]
-        gr.Markdown("### Historical Progress")
-        progress_trends = gr.Plot(label="Body Composition History")
-        progress_summary = gr.Dataframe(
-            label="Mediciones por fecha y cambio porcentual",
-            type="pandas", interactive=False,
-        )
-        gr.Markdown(
-            "### Detailed Exam Analysis\\n"
-            "Se toma automáticamente la medición más reciente de cada "
-            "variable en el rango seleccionado, y se compara con la anterior. "
-            "**No es necesario escoger un examen.**"
-        )
-        progress_section = gr.Dropdown(
-            label="Sección del reporte",
-            choices=list(SECTIONS), value=SECTIONS[0],
-        )
-        progress_detail = gr.Dataframe(
-            label="Valores actuales y comparación por sección",
-            type="pandas", interactive=False,
-        )
-        progress_detail_plot = gr.Plot(
-            label="Comparación de medidas de la sección"
-        )
-
-        def show_progress(
-            person_id, start_date, end_date, section,
-            profile: gr.OAuthProfile | None = None,
-        ):
-            try:
-                records = load_reviewed_audit_history(
-                    person_id, oauth_profile=profile, limit=5000
-                )
-                result = render_progress(records, start_date, end_date, section)
-            except (PermissionError, ValueError) as exc:
-                raise gr.Error(str(exc)) from None
-            except Exception:
-                raise gr.Error(
-                    "No se pudo consultar el progreso privado en Neon. "
-                    "Comprueba tu sesión autorizada y la conexión."
-                ) from None
-            if records:
-                alias = "Persona " + str(records[0]["anonymous_id"])[:8]
-                return (f"**{alias}** · " + result[0], *result[1:])
-            return result
-
-        progress_refresh.click(
-            fn=show_progress,
-            inputs=[progress_person, progress_start, progress_end, progress_section],
-            outputs=[progress_status, *progress_kpis, progress_trends,
-                     progress_summary, progress_detail, progress_detail_plot],
             concurrency_limit=1,
         )
     with gr.Tab("Proyecto"):
