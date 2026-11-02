@@ -473,7 +473,7 @@ def _audit_write_engine():
     return create_engine(uri, pool_pre_ping=True, pool_size=1, max_overflow=0)
 
 
-def save_audit(table, snapshot, consent, profile=None):
+def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None):
     """Consent-based write-only submission; never grants private read access.
 
     The anonymous database role has EXECUTE only on a validated stored
@@ -502,22 +502,119 @@ def save_audit(table, snapshot, consent, profile=None):
         engine = _audit_write_engine()
         try:
             with engine.begin() as con:
-                audit_id = con.execute(
-                    text("SELECT public.hj_submit_reviewed_audit(CAST(:payload AS jsonb))"),
-                    {"payload": json.dumps(body, ensure_ascii=False)},
+                receipt = con.execute(
+                    text(
+                        "SELECT public.hj_submit_reviewed_audit_receipt("
+                        "CAST(:payload AS jsonb), :confirm_overwrite, false)"
+                    ),
+                    {
+                        "payload": json.dumps(body, ensure_ascii=False),
+                        "confirm_overwrite": confirm_overwrite is True,
+                    },
                 ).scalar_one()
+            if isinstance(receipt, str):
+                receipt = json.loads(receipt)
+            if receipt["status"] == "filename_processed":
+                return (
+                    "Este archivo ya fue procesado en Neon (nombre o contenido "
+                    "idéntico). No se guardaron duplicados."
+                )
+            if receipt["status"] == "overwrite_required":
+                count = int(receipt.get("conflicts", 0))
+                return (
+                    f"Ya se capturaron {count} mediciones con el mismo ID de "
+                    "persona, fecha y nombre de medición. Si guardas este "
+                    "nuevo reporte, esos valores se **sobrescribirán en el "
+                    "dashboard**, conservando la versión anterior como "
+                    "auditoría. Marca 'Confirmo sobrescribir mediciones "
+                    "anteriores' y vuelve a guardar."
+                )
+            if receipt["status"] not in ("saved", "overwritten"):
+                raise RuntimeError("Invalid audit receipt status")
+            if receipt["status"] == "overwritten":
+                return (
+                    f"Guardado en Neon: {len(rows)} mediciones. Se actualizaron "
+                    f"{receipt.get('conflicts', 0)} mediciones en el dashboard; "
+                    "sus versiones anteriores permanecen en auditoría."
+                )
             return (
-                f"Auditoría guardada en Neon ({audit_id}): "
-                f"{len(rows)} mediciones; "
+                f"Guardado en Neon: {len(rows)} mediciones; "
                 f"{sum(r['was_corrected'] for r in rows)} corregidas."
             )
         finally:
             engine.dispose()
     except (ValueError, PermissionError) as exc:
         raise _ui_error(str(exc)) from None
+    except Exception as exc:
+        # Never log raw SQL/bind parameters, source document, person IDs or
+        # credentials. Record only the SQLSTATE and exception class.
+        import logging
+
+        db_error = getattr(exc, "orig", None)
+        sqlstate = getattr(db_error, "sqlstate", None) or getattr(
+            db_error, "pgcode", None
+        )
+        logging.getLogger(__name__).warning(
+            "Neon audit write failed: sqlstate=%s, class=%s",
+            sqlstate or "unknown", type(exc).__name__,
+        )
+        messages = {
+            "42883": "No se encontró la función de guardado: aplica la migración 007.",
+            "42501": "La conexión DEMO_DATABASE_URL carece del permiso EXECUTE.",
+            "23505": "El archivo o la medición ya existe. Verifica el estado del reporte.",
+            "23514": "Una medición incumple una validación de la base de datos.",
+            "22007": "La fecha del examen tiene un formato inválido.",
+            "22P02": "El reporte contiene un identificador o valor inválido.",
+            "P0001": "Neon rechazó un dato del examen. Revisa el identificador, "
+                     "la fecha, los valores y los comentarios de corrección.",
+        }
+        raise _ui_error(messages.get(
+            sqlstate,
+            "No se pudo guardar en Neon. Consulta el código SQLSTATE en los "
+            "logs del Space, sin compartir datos personales ni claves.",
+        )) from None
+
+def check_processed_filename(upload_state, profile=None, request=None):
+    """Only authenticated private users may query processed file names.
+
+    The save procedure independently checks names even for anonymous upload.
+    No file content is sent to the database by this existence check.
+    """
+    if not upload_state:
+        return "Carga un archivo para verificarlo."
+    from .storage import require_database_access, _database_engine
+
+    try:
+        require_database_access(profile, request=request)
+    except PermissionError:
+        return (
+            "Se verificará si el archivo ya fue procesado al guardarlo. "
+            "Para consultarlo antes, inicia sesión con una cuenta autorizada."
+        )
+
+    name = str(upload_state.get("filename") or "")
+    if not name:
+        return "No se pudo leer el nombre del archivo."
+    try:
+        engine = _database_engine()
+        try:
+            with engine.connect() as conn:
+                processed = conn.execute(
+                    text("SELECT public.hj_audit_filename_processed(:filename)"),
+                    {"filename": name},
+                ).scalar_one()
+            if processed:
+                return (
+                    "Este nombre de archivo ya fue procesado en Neon. "
+                    "No es necesario extraerlo nuevamente."
+                )
+            return "Archivo nuevo: no existe un registro con ese nombre."
+        finally:
+            engine.dispose()
     except Exception:
-        # Do not expose SQL, credentials, identifiers or raw errors to clients.
-        raise _ui_error(
-            "Neon no pudo guardar la auditoría. Verifica el rol de solo escritura, "
-            "la migración 005 y si el archivo ya estaba registrado."
-        ) from None
+        return (
+            "La verificación anticipada no está disponible. Neon validará "
+            "el nombre y las posibles coincidencias al guardar."
+        )
+
+

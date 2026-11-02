@@ -10,9 +10,10 @@ def test_no_legacy_demo_save_callback_in_gemini_flow():
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
              and isinstance(n.func, ast.Attribute) and n.func.attr == "click"
              and any(k.arg == "fn" and isinstance(k.value, ast.Name)
-                     and k.value.id == "save_audit" for k in n.keywords)]
+                     and k.value.id == "save_review_and_clear" for k in n.keywords)]
     assert len(calls) == 1
     assert "save_demo_exam" not in MODULE
+    assert "save_audit(table, snapshot, consent, overwrite)" in APP
 
 def test_consent_checked_before_private_access():
     node = next(n for n in ast.walk(ast.parse(MODULE))

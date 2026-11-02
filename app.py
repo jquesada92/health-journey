@@ -157,6 +157,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         from inbody_mvp.gemini_review import (
             COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
             save_audit, check_gemini_models, render_document_preview,
+            check_processed_filename,
             audit_write_enabled,
         )
         gr.Markdown(
@@ -187,6 +188,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             type="filepath",
         )
         gemini_upload_state = gr.State(value=None)
+        gemini_file_status = gr.Markdown("Sin archivo para verificar.")
         gemini_snapshot = gr.State(value=None)
         with gr.Accordion("Diagnóstico de la API de Gemini", open=False):
             gr.Markdown(
@@ -198,6 +200,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             gemini_models_button.click(
                 fn=check_gemini_models, outputs=[gemini_models_status],
             )
+        gr.Markdown(
+            "Al cargar el documento se comprobará si su nombre ya fue "
+            "procesado (solo para una sesión privada autorizada). "
+            "Al guardar se comprueban también el contenido, el ID, "
+            "la fecha exacta del examen y el nombre de cada medición."
+        )
         gemini_extract = gr.Button("Extraer mediciones con Gemini Flash", variant="primary")
         gemini_status = gr.Markdown("Pendiente de extracción.")
         gr.Markdown(
@@ -257,20 +265,60 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 "El guardado requiere configurar el Secret `DEMO_DATABASE_URL` "
                 "y `ENABLE_ANONYMOUS_DEMO=1`. No uses DATABASE_URL de administrador."
             )
+        gemini_overwrite = gr.Checkbox(
+            label="Confirmo sobrescribir mediciones anteriores cuando "
+                  "coincidan persona, fecha del examen y medición",
+            value=False,
+        )
         gemini_save = gr.Button(
             "Guardar mediciones revisadas y auditoría",
             interactive=audit_write_enabled(), variant="primary",
         )
         gemini_save_status = gr.Markdown()
+
+        def save_review_and_clear(table, snapshot, consent, overwrite):
+            message = save_audit(table, snapshot, consent, overwrite)
+            if message.startswith("Guardado en Neon:"):
+                # One atomic UI event clears the previous file, its preview,
+                # the AI snapshot, the editable table and both consents.
+                gr.Info(message)
+                return (
+                    message, None, None, None, [], "Carga un PDF o imagen para visualizarlo.",
+                    pd.DataFrame(columns=GEMINI_COLUMNS),
+                    "Pendiente de extracción.", False, False, False,
+                    "Sin archivo para verificar.",
+                )
+            unchanged = gr.update()
+            return (
+                message, unchanged, unchanged, unchanged, unchanged,
+                unchanged, unchanged, unchanged, unchanged, unchanged,
+                unchanged, unchanged,
+            )
+
         gemini_save.click(
-            fn=save_audit,
-            inputs=[gemini_table, gemini_snapshot, gemini_consent],
-            outputs=[gemini_save_status],
+            fn=save_review_and_clear,
+            inputs=[gemini_table, gemini_snapshot, gemini_consent, gemini_overwrite],
+            outputs=[
+                gemini_save_status, gemini_upload, gemini_upload_state,
+                gemini_snapshot, gemini_preview, gemini_preview_status,
+                gemini_table, gemini_status, gemini_consent,
+                gemini_consent_remote, gemini_overwrite, gemini_file_status,
+            ],
             concurrency_limit=1,
         )
         # Reset all previous-review state when a different file is selected.
         # The preview runs locally and does not require Gemini consent.
-        gemini_upload.change(
+        # User upload event only: clearing after a successful save must not
+        # trigger another reset that hides the saved confirmation.
+        def show_processed_filename(
+            state, profile: gr.OAuthProfile | None = None,
+            request: gr.Request | None = None,
+        ):
+            return check_processed_filename(
+                state, profile=profile, request=request
+            )
+
+        gemini_upload.upload(
             fn=snapshot_upload,
             inputs=[gemini_upload],
             outputs=[gemini_upload_state],
@@ -287,11 +335,16 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             fn=render_document_preview,
             inputs=[gemini_upload_state],
             outputs=[gemini_preview, gemini_preview_status],
+        ).then(
+            fn=show_processed_filename,
+            inputs=[gemini_upload_state],
+            outputs=[gemini_file_status],
         )
         gr.ClearButton(
             [gemini_upload, gemini_upload_state, gemini_snapshot,
              gemini_preview, gemini_preview_status, gemini_table, gemini_status,
-             gemini_consent, gemini_consent_remote, gemini_save_status],
+             gemini_consent, gemini_consent_remote, gemini_save_status,
+             gemini_overwrite, gemini_file_status],
             value="Limpiar",
         )
     with gr.Tab("Dashboard"):

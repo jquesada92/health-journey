@@ -100,7 +100,7 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
     class Connection:
         def execute(self, query, params):
             submitted.append((str(query), json.loads(params["payload"])))
-            return SimpleNamespace(scalar_one=lambda: "synthetic-extraction-uuid")
+            return SimpleNamespace(scalar_one=lambda: {"status": "saved", "extraction_id": "synthetic-extraction-uuid"})
 
     class Tx:
         def __enter__(self):
@@ -116,10 +116,10 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
 
     monkeypatch.setattr(audit, "_audit_write_engine", Engine)
     result = audit.save_audit(table, snapshot, consent=True, profile=None)
-    assert "synthetic-extraction-uuid" in result
+    assert "Guardado en Neon" in result
     assert len(submitted) == 1
     query, payload = submitted[0]
-    assert "hj_submit_reviewed_audit" in query
+    assert "hj_submit_reviewed_audit_receipt" in query
     assert "INSERT INTO" not in query
     assert payload["person_id"] == "000123"
     assert payload["measurements"][0]["original_value"] == "8.20"
@@ -127,6 +127,72 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
     assert payload["measurements"][0]["was_corrected"] is True
     assert payload["measurements"][0]["correction_comment"].startswith("Corrected")
     assert payload["model_name"] == "synthetic-flash"
+
+
+def test_duplicate_report_returns_idempotent_message(monkeypatch, sample):
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "1")
+    monkeypatch.setenv(
+        "DEMO_DATABASE_URL",
+        "postgresql://health_journey_demo_writer:fake@localhost/db?sslmode=require",
+    )
+
+    class Connection:
+        def execute(self, statement, params):
+            return SimpleNamespace(
+                scalar_one=lambda: {"status": "filename_processed"}
+            )
+    class Engine:
+        def begin(self):
+            class Transaction:
+                def __enter__(self): return Connection()
+                def __exit__(self, *_): return False
+            return Transaction()
+        def dispose(self): pass
+    monkeypatch.setattr(audit, "_audit_write_engine", Engine)
+    status = audit.save_audit(*sample, consent=True)
+    assert "ya fue procesado" in status
+    assert "No se guardaron duplicados" in status
+    assert "internal" not in status
+
+
+def test_collision_requires_user_confirmation(monkeypatch, sample):
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "1")
+    monkeypatch.setenv(
+        "DEMO_DATABASE_URL",
+        "postgresql://health_journey_demo_writer:fake@localhost/db?sslmode=require",
+    )
+    calls = []
+    class Connection:
+        def execute(self, stmt, params):
+            calls.append(params["confirm_overwrite"])
+            return SimpleNamespace(scalar_one=lambda: (
+                {"status": "overwritten", "conflicts": 1} if
+                params["confirm_overwrite"] else
+                {"status": "overwrite_required", "conflicts": 1}
+            ))
+    class Engine:
+        def begin(self):
+            class Tx:
+                def __enter__(self): return Connection()
+                def __exit__(self, *_): return False
+            return Tx()
+        def dispose(self): pass
+
+    monkeypatch.setattr(audit, "_audit_write_engine", Engine)
+    assert "Marca 'Confirmo sobrescribir" in audit.save_audit(*sample, consent=True)
+    assert "Se actualizaron 1" in audit.save_audit(*sample, consent=True, confirm_overwrite=True)
+    assert calls == [False, True]
+
+
+def test_filename_checker_requires_private_auth(monkeypatch):
+    from types import SimpleNamespace
+    from inbody_mvp import storage
+    def denied(profile=None, request=None):
+        raise PermissionError("denied")
+    monkeypatch.setattr(storage, "require_database_access", denied)
+    monkeypatch.setattr(audit, "_audit_write_engine", lambda: pytest.fail("No DB"))
+    message = audit.check_processed_filename({"filename": "test.pdf"})
+    assert "inicia sesión" in message
 
 
 def test_migration_reuses_existing_demo_role_without_private_table_grants():
@@ -153,6 +219,36 @@ def test_both_consents_at_start_and_login_only_for_history():
     assert upload.index("gemini_consent_remote = gr.Checkbox") < upload.index("gemini_upload = gr.File")
     assert upload.index("gemini_consent = gr.Checkbox") < upload.index("gemini_upload = gr.File")
     assert "interactive=audit_write_enabled()" in upload
-    assert "inputs=[gemini_table, gemini_snapshot, gemini_consent]" in upload
+    assert "inputs=[gemini_table, gemini_snapshot, gemini_consent, gemini_overwrite]" in upload
     assert "inicia sesión en pestaña nueva" not in upload
     assert 'with gr.Tab("Historial en Neon")' in app
+
+
+def test_migration_007_requires_confirmation_and_keeps_history():
+    migration = (ROOT / "migrations/007_idempotent_audit_save.sql").read_text()
+    assert "hj_audit_filename_processed" in migration
+    assert "hj_submit_reviewed_audit_receipt" in migration
+    assert "'filename_processed'" in migration
+    assert "'overwrite_required'" in migration
+    assert "p_confirm_overwrite IS NOT TRUE" in migration
+    assert "'overwritten'" in migration
+    assert "dense_rank() OVER" in migration
+    assert "version_rank = 1" in migration
+    assert "DELETE FROM" not in migration
+    assert "UPDATE public.hj_measurement_audits" not in migration
+    assert "GRANT EXECUTE ON FUNCTION public.hj_submit_reviewed_audit_receipt" in migration
+    assert "TO health_journey_demo_writer;" in migration
+
+
+def test_review_ui_clears_only_after_success():
+    source = (ROOT / "app.py").read_text()
+    assert 'def save_review_and_clear(table, snapshot, consent, overwrite):' in source
+    assert 'if message.startswith("Guardado en Neon:"):' in source
+    assert "pd.DataFrame(columns=GEMINI_COLUMNS)" in source
+    assert "gr.Info(message)" in source
+    assert "unchanged = gr.update()" in source
+    assert "gemini_upload.upload(" in source
+    assert "gemini_upload.change(" not in source
+    assert "gemini_overwrite = gr.Checkbox(" in source
+    assert "fn=show_processed_filename" in source
+
