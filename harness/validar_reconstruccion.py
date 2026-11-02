@@ -140,7 +140,7 @@ def main() -> int:
     # el análisis OCR con Paddle esté desactivado; sin este módulo falla Space.
     # Los módulos legacy de OCR/editor se conservan para pruebas antiguas,
     # pero no deben formar parte del paquete activo en Hugging Face.
-    activos = ['inbody_mvp/__init__.py','inbody_mvp/extractor.py','inbody_mvp/layouts.py','inbody_mvp/layouts_es.py','inbody_mvp/gemini_review.py','inbody_mvp/review.py','inbody_mvp/language.py','inbody_mvp/storage.py','inbody_mvp/public_dashboard.py','inbody_mvp/oauth_ui.py','inbody_mvp/demo_storage.py','inbody_mvp/progress_dashboard.py','inbody_mvp/section_ai.py']
+    activos = ['inbody_mvp/__init__.py','inbody_mvp/extractor.py','inbody_mvp/layouts.py','inbody_mvp/layouts_es.py','inbody_mvp/gemini_review.py','inbody_mvp/review.py','inbody_mvp/language.py','inbody_mvp/storage.py','inbody_mvp/public_dashboard.py','inbody_mvp/oauth_ui.py','inbody_mvp/demo_storage.py','inbody_mvp/progress_dashboard.py','inbody_mvp/app_auth.py','inbody_mvp/section_ai.py']
     obsoletos = ["inbody_mvp/visual_debug.py", "inbody_mvp/section_review.py",
                  "inbody_mvp/visual_editor.py", "inbody_mvp/visual_editor_ui.py",
                  ]

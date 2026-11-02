@@ -53,7 +53,7 @@ def test_private_query_emits_alias_but_no_original_person_id(monkeypatch):
         def dispose(self):
             pass
 
-    monkeypatch.setattr(storage, "require_database_access", lambda oauth_profile=None: None)
+    monkeypatch.setattr(storage, "require_database_access", lambda oauth_profile=None, request=None: None)
     monkeypatch.setattr(storage, "_database_engine", lambda: Engine())
     result = storage.load_reviewed_audit_history("8-857-1257")
     assert executed[0][1]["key"] == "88571257"
@@ -65,7 +65,7 @@ def test_private_query_emits_alias_but_no_original_person_id(monkeypatch):
 
 
 def test_private_auth_required_before_query(monkeypatch):
-    def block(profile=None):
+    def block(profile=None, request=None):
         raise PermissionError("access denied")
     monkeypatch.setattr(storage, "require_database_access", block)
     with pytest.raises(PermissionError):
@@ -104,7 +104,7 @@ def test_dashboard_does_not_display_raw_id():
 def test_test_alias_requires_authorized_session_and_private_secret(monkeypatch):
     """Alias 'test' never bypasses private access checks."""
     monkeypatch.setenv("DASHBOARD_TEST_PERSON_ID", "1-234-5678")
-    def reject(_profile):
+    def reject(_profile, request=None):
         raise PermissionError("not authorized")
     monkeypatch.setattr(storage, "require_database_access", reject)
     monkeypatch.setattr(storage, "_database_engine", lambda: pytest.fail("No SQL before auth"))
@@ -115,7 +115,7 @@ def test_test_alias_requires_authorized_session_and_private_secret(monkeypatch):
 def test_test_alias_resolves_to_same_canonical_id_as_real_numeric_id(monkeypatch):
     """Mocked SQL checks that the alias maps server-side without response PII."""
     monkeypatch.setenv("DASHBOARD_TEST_PERSON_ID", "1-234-5678")
-    monkeypatch.setattr(storage, "require_database_access", lambda profile=None: None)
+    monkeypatch.setattr(storage, "require_database_access", lambda profile=None, request=None: None)
     params_used = []
     class Connection:
         def execute(self, statement, params):
@@ -145,7 +145,7 @@ def test_test_alias_resolves_to_same_canonical_id_as_real_numeric_id(monkeypatch
 
 def test_test_alias_requires_secret_even_for_authorized_user(monkeypatch):
     monkeypatch.delenv("DASHBOARD_TEST_PERSON_ID", raising=False)
-    monkeypatch.setattr(storage, "require_database_access", lambda profile=None: None)
+    monkeypatch.setattr(storage, "require_database_access", lambda profile=None, request=None: None)
     monkeypatch.setattr(storage, "_database_engine", lambda: pytest.fail("No SQL without alias"))
     with pytest.raises(ValueError, match="DASHBOARD_TEST_PERSON_ID"):
         storage.load_reviewed_audit_history("test")

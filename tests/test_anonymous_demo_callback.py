@@ -26,4 +26,4 @@ def test_audit_is_consent_only_but_private_reads_remain_protected():
     assert "require_database_access(profile)" not in MODULE
     assert "hj_submit_reviewed_audit" in MODULE
     storage = (Path(__file__).resolve().parents[1] / "inbody_mvp/storage.py").read_text()
-    assert "require_database_access(oauth_profile)" in storage
+    assert "require_database_access(oauth_profile, request=request)" in storage
