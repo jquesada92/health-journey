@@ -117,7 +117,8 @@ def test_app_auth_wired_to_real_gradio_request_not_client_input():
     assert "request: gr.Request | None = None" in app
     assert "request=request" in app
     assert "interactive=(not anonymous_demo_requested() or password_login_enabled())" in app
-    assert "password" not in app.lower().split("auth=authenticate_master_demo")[1].split("\n", 3)[0]
+    assert 'auth=("obs-master-demo", "' not in app
+    assert "auth_message=" in app
 
 
 def test_no_plaintext_password_in_account_migration():
