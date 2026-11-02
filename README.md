@@ -29,8 +29,8 @@ Para activarlo en Hugging Face:
 4. Reiniciar el Space. Gradio muestra la pantalla de inicio de sesión
    antes de cualquier pestaña; el usuario accede con
    `obs-master-demo` y la contraseña inicial entregada por canal privado.
-5. Usar «Seguridad de la cuenta» para **cambiar la contraseña al primer
-   ingreso**. Nunca guardar contraseñas en README, Variables públicas,
+5. La rotación de contraseña queda como operación administrativa fuera de la interfaz principal; el login de Gradio permanece activo y su verificación continúa en Neon.
+
    archivos, capturas o logs.
 
 Con el login habilitado, **todos los módulos** quedan detrás de la
@@ -224,7 +224,7 @@ El PR #38 ya fue fusionado en `main`. La extracción utiliza Gemini Flash
 por API y **no necesita GPU** para procesar los InBody. Sin embargo, el Space
 `jaqo/health-journey` sigue asignado a hardware **ZeroGPU** y el usuario
 no dispone de CPU Basic en sus opciones de hardware. ZeroGPU exige una
-función `@spaces.GPU` conectada a un evento de Gradio para superar el
+función `@spaces.GPU` conectada a un evento de Gradio **oculto** para superar el
 control de arranque. La solución de compatibilidad es un **diagnóstico CUDA
 opcional** asociado a un botón en un acordeón cerrado; no se usa en
 `extract_gemini` ni en `save_audit`. Solo al pulsar el diagnóstico se
@@ -634,3 +634,8 @@ mensaje de éxito (`gr.Info`). Las advertencias de archivo
 repetido o sobrescritura no autorizada tampoco vacían los
 datos. No se exponen errores SQL internos, credenciales,
 identificadores reales ni contenido del documento en un popup.
+
+
+### Interfaz principal simplificada
+
+Se retiraron del inicio los paneles «Seguridad de la cuenta (cambiar contraseña)» y «Diagnóstico ZeroGPU (opcional)». La autenticación `obs-master-demo` sigue operativa, pero la rotación de contraseña se gestiona administrativamente fuera de la UI principal. Se conserva un evento ZeroGPU **invisible y no expuesto como endpoint público** para evitar fallos de arranque del Space en hardware ZeroGPU. La carga, Gemini, Neon y el Dashboard no utilizan GPU.
