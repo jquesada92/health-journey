@@ -46,7 +46,7 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
     handlers = [n for n in ast.walk(TREE) if isinstance(n, ast.Call)
                 and isinstance(n.func, ast.Attribute) and n.func.attr == "click"]
     assert any(any(k.arg == "fn" and isinstance(k.value, ast.Name)
-                   and k.value.id == "diagnose_zerogpu" for k in n.keywords)
+                   and k.value.id == "diagnose_gpu_with_popup" for k in n.keywords)
                for n in handlers)
     app = (Path(__file__).resolve().parents[1] / "app.py").read_text()
     assert "fn=extract_with_popup" in app
