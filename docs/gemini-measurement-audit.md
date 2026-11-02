@@ -233,3 +233,8 @@ was_corrected se calcula comparando contra la respuesta original; la columna mos
 pytest tests/test_gemini_measurement_audit.py
 
 Sin API key de Gemini y base Neon no se validan llamadas reales ni persistencia; estas pruebas verifican la lógica local de revisión.
+
+
+## Capturas repetidas y sobrescritura confirmada
+
+La migración 007 detecta primero archivos ya procesados por nombre (sin diferenciar mayúsculas) o SHA-256. No los guarda de nuevo. Cuando coinciden ID normalizado, fecha-hora del examen y nombre de medición, solicita confirmación explícita antes de guardar otra versión. El dashboard privado presenta la versión más reciente, mientras el historial de auditoría anterior permanece intacto. Después de un guardado exitoso la interfaz limpia archivo, vista previa, tabla, estados y consentimientos. Si hay advertencia o error, conserva la revisión. El chequeo anticipado de nombres requiere sesión autorizada.
