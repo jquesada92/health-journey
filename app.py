@@ -378,7 +378,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             ):
                 try:
                     records = load_reviewed_audit_history(
-                        person_id, oauth_profile=profile, limit=500, request=request0, request=request
+                        person_id, oauth_profile=profile, limit=5000, request=request
                     )
                     result = render_progress(records, start_date, end_date, section)
                 except (PermissionError, ValueError) as exc:
@@ -547,7 +547,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             ):
                 try:
                     records = load_reviewed_audit_history(
-                        person_id, oauth_profile=profile, limit=500
+                        person_id, oauth_profile=profile, limit=500, request=request
                     )
                 except (ValueError, PermissionError) as exc:
                     raise gr.Error(str(exc)) from None
@@ -631,7 +631,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         ):
             try:
                 records = load_measurement_history(
-                    person_id, oauth_profile=profile, limit=500
+                    person_id, oauth_profile=profile, limit=500, request=request
                 )
             except (PermissionError, ValueError) as exc:
                 raise gr.Error(str(exc)) from exc
