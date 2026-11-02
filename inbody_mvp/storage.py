@@ -231,8 +231,19 @@ def load_reviewed_audit_history(
     publication decision; storage consent is not publication consent.
     """
     require_database_access(oauth_profile)
-    person_key = canonical_person_id(person_id)
-    row_limit = min(max(int(limit), 1), 500)
+    # Private demo shortcut only. Never expose the raw report identifier to
+    # the client or allow an unauthenticated "test" alias to query health data.
+    query = str(person_id or "").strip()
+    if query.casefold() == "test":
+        mapped = os.getenv("DASHBOARD_TEST_PERSON_ID", "").strip()
+        if not mapped:
+            raise ValueError(
+                "El alias privado 'test' no está configurado. "
+                "Define el Secret DASHBOARD_TEST_PERSON_ID en Hugging Face."
+            )
+        query = mapped
+    person_key = canonical_person_id(query)
+    row_limit = min(max(int(limit), 1), 5000)
     engine = _database_engine()
     try:
         with engine.connect() as connection:

@@ -148,7 +148,7 @@ def test_migration_reuses_existing_demo_role_without_private_table_grants():
 def test_both_consents_at_start_and_login_only_for_history():
     app = (ROOT / "app.py").read_text()
     start = app.index('with gr.Tab("InBody Upload")')
-    end = app.index('with gr.Tab("Dashboard público")', start)
+    end = app.index('with gr.Tab("Dashboard")', start)
     upload = app[start:end]
     assert upload.index("gemini_consent_remote = gr.Checkbox") < upload.index("gemini_upload = gr.File")
     assert upload.index("gemini_consent = gr.Checkbox") < upload.index("gemini_upload = gr.File")
