@@ -217,18 +217,21 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             gemini_models_button = gr.Button("Comprobar modelos disponibles")
             gemini_models_status = gr.Markdown()
             def check_models_with_popup():
-            try:
-                result = check_gemini_models()
-                if result.startswith(("Falta GEMINI_API_KEY", "No fue posible", "Gemini (")):
-                    gr.Warning(result)
+                try:
+                    result = check_gemini_models()
+                    if result.startswith(
+                        ("Falta GEMINI_API_KEY", "No fue posible", "Gemini (")
+                    ):
+                        gr.Warning(result)
+                        return gr.update()
+                    return result
+                except Exception as exc:
+                    popup_error(exc, "No fue posible consultar los modelos Gemini.")
                     return gr.update()
-                return result
-            except Exception as exc:
-                popup_error(exc, "No fue posible consultar los modelos Gemini.")
-                return gr.update()
 
-        gemini_models_button.click(
-                fn=check_models_with_popup, outputs=[gemini_models_status],
+            gemini_models_button.click(
+                fn=check_models_with_popup,
+                outputs=[gemini_models_status],
             )
         gr.Markdown(
             "Al cargar el documento se comprobará si su nombre ya fue "
