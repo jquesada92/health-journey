@@ -152,7 +152,7 @@ def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     assert SECTIONS[0] == "Todas las secciones"
     assert 'progress_score = gr.Plot(' in app
     assert 'progress_section_history = gr.Plot(' in app
-    assert 'progress_score],' in app
+    assert 'progress_score, progress_section_history],' in app
 
 
 @pytest.mark.parametrize("label,section,unit", [
