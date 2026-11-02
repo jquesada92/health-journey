@@ -22,8 +22,8 @@ Para activarlo en Hugging Face:
 4. Reiniciar el Space. Gradio muestra la pantalla de inicio de sesión
    antes de cualquier pestaña; el usuario accede con
    `obs-master-demo` y la contraseña inicial entregada por canal privado.
-5. Usar «Seguridad de la cuenta» para **cambiar la contraseña al primer
-   ingreso**. Nunca guardar contraseñas en README, Variables públicas,
+5. Rotar la contraseña mediante el procedimiento administrativo privado, fuera de la interfaz principal. El login se mantiene activo.
+
    archivos, capturas o logs.
 
 Con el login habilitado, **todos los módulos** quedan detrás de la
@@ -202,3 +202,53 @@ Síntomas típicos:
 **Dónde se usan en el código:** `inbody_mvp/storage.py`,
 `inbody_mvp/demo_storage.py`, `inbody_mvp/public_dashboard.py`,
 `inbody_mvp/gemini_review.py` y `app.py`.
+
+
+## Selector de modelos Gemini Flash (Free Tier)
+
+En **InBody Upload** hay un menú desplegable de modelos
+adecuados para leer el PDF/imagen y entregar las mediciones como JSON.
+La aplicación consulta `client.models.list()` con la clave
+`GEMINI_API_KEY` guardada como Secret; no manda ningún documento al
+consultar los modelos. Interseca el resultado con esta lista de
+**modelos cuyo nivel gratuito estándar está documentado por Google**
+(consultada en noviembre de 2026):
+
+- `gemini-3.8-flash`: recomendado para tablas y relaciones espaciales complejas.
+- `gemini-3.6-flash`: alternativa multimodal.
+- `gemini-3.5-flash-lite`: alternativa rápida y ligera.
+- `gemini-3.1-flash-lite`: alternativa ligera.
+- `gemini-2.5-flash` y `gemini-2.5-flash-lite`: modelos
+  heredados; Google puede limitar su disponibilidad a proyectos con uso previo.
+
+El menú solo enseña la intersección con los modelos **accesibles para
+la API key**, y se actualiza automáticamente al entrar o con
+«Actualizar modelos disponibles». Se prioriza el valor de
+`GEMINI_MODEL` si aparece entre los accesibles; si no, se propone
+`gemini-3.8-flash` cuando está disponible. Elegir un modelo cambia
+solo la **siguiente extracción**; no modifica Secrets ni las
+Variables del Space. El modelo efectivo (incluido el fallback 503)
+queda registrado en el snapshot de auditoría. No se permite elegir un
+modelo Pro, TTS, Live o de generación de imágenes.
+
+**Advertencia:** que el proveedor anuncie **Free Tier** y liste un
+modelo no prueba que el proyecto sea gratuito, que conserve cuota ni
+que la facturación esté desactivada. En proyectos pagos puede haber
+cargos; comprobar el nivel y límites reales en Google AI Studio.
+Google también indica que los datos enviados en Free Tier pueden
+usarse para mejorar sus productos. No subir resultados médicos
+identificables a ese nivel sin revisar sus condiciones y consentimiento.
+
+Fuente: https://ai.google.dev/gemini-api/docs/pricing y
+https://ai.google.dev/gemini-api/docs/models
+
+## Limpieza de herramientas del inicio
+
+Se eliminaron de la UI principal los acordeones «Seguridad de la
+cuenta (cambiar contraseña)» y «Diagnóstico ZeroGPU (opcional)».
+**El inicio de sesión sigue habilitado**; el cambio de contraseña se
+gestiona administrativamente y no aparece en el dashboard. Dado que
+el Space utiliza hardware ZeroGPU, permanece un handler técnico
+`@spaces.GPU` **invisible y sin endpoint público**, solo para
+satisfacer el requisito de arranque; la extracción Gemini utiliza
+la API de Google y no solicita GPU local.

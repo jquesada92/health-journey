@@ -46,11 +46,11 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
     handlers = [n for n in ast.walk(TREE) if isinstance(n, ast.Call)
                 and isinstance(n.func, ast.Attribute) and n.func.attr == "click"]
     assert any(any(k.arg == "fn" and isinstance(k.value, ast.Name)
-                   and k.value.id == "diagnose_gpu_with_popup" for k in n.keywords)
+                   and k.value.id == "diagnose_zerogpu" for k in n.keywords)
                for n in handlers)
     app = (Path(__file__).resolve().parents[1] / "app.py").read_text()
     assert "fn=extract_with_popup" in app
-    assert "extract_gemini(state, consent)" in app
+    assert "extract_gemini(state, consent, selected_model=model)" in app
     assert "popup_error(exc" in app
     assert "return keep_components(3)" in app
     assert "gr.Warning(message)" in app
@@ -59,3 +59,14 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
     assert "fn=save_review_and_clear" in app
     assert not any(isinstance(n, ast.FunctionDef) and n.name == "extract_gemini"
                    for n in TREE.body)
+
+
+def test_account_and_zerogpu_tools_are_not_visible_in_ui():
+    source = (Path(__file__).resolve().parents[1] / "app.py").read_text()
+    assert 'Seguridad de la cuenta (cambiar contraseña)' not in source
+    assert 'Diagnóstico ZeroGPU (opcional)' not in source
+    assert 'fn=change_login' not in source
+    assert 'with gr.Column(visible=False):' in source
+    assert '_zerogpu_keepalive = gr.Button(visible=False)' in source
+    assert 'fn=diagnose_zerogpu, outputs=[], api_name=False' in source
+    assert 'auth=authenticate_master_demo if password_login_enabled() else None' in source

@@ -44,5 +44,5 @@ def test_ui_supplies_explicit_remote_consent_and_resets_on_upload():
     assert next(k.value.value for k in checkbox[0].value.keywords
                 if k.arg == "value") is False
     text = (ROOT / "app.py").read_text()
-    assert "inputs=[gemini_upload_state, gemini_consent_remote]" in text
+    assert "inputs=[gemini_upload_state, gemini_consent_remote, gemini_model_selector]" in text
     assert "outputs=[gemini_snapshot, gemini_consent_remote]" in text

@@ -22,9 +22,7 @@ from inbody_mvp.public_dashboard import (
     PUBLIC_METRICS, public_dashboard_enabled, load_public_person_series,
 )
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
-from inbody_mvp.app_auth import (
-    authenticate_master_demo, password_login_enabled, change_master_demo_password,
-)
+from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
@@ -114,80 +112,21 @@ OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
-    if password_login_enabled():
-        gr.Markdown(
-            "**Acceso protegido:** has iniciado sesión con el usuario de "
-            "la aplicación. El historial privado sigue sujeto a permisos "
-            "del servidor; cerrar sesión termina el acceso a los módulos."
-        )
-        with gr.Accordion("Seguridad de la cuenta (cambiar contraseña)", open=False):
-            gr.Markdown(
-                "Después del primer acceso, cambia la contraseña inicial. "
-                "Utiliza al menos 16 caracteres; no compartas contraseñas "
-                "en GitHub ni en capturas de pantalla."
-            )
-            current_login_password = gr.Textbox(
-                label="Contraseña actual", type="password"
-            )
-            next_login_password = gr.Textbox(
-                label="Nueva contraseña", type="password"
-            )
-            confirm_login_password = gr.Textbox(
-                label="Confirmar nueva contraseña", type="password"
-            )
-            change_login_button = gr.Button("Actualizar contraseña")
-            change_login_result = gr.Markdown()
-
-            def change_login(
-                old_password, new_password, confirm_password,
-                request: gr.Request | None = None,
-            ):
-                try:
-                    return change_master_demo_password(
-                        old_password, new_password, confirm_password, request
-                    )
-                except Exception as exc:
-                    popup_error(exc, "No se pudo cambiar la contraseña.")
-                    return gr.update()
-
-            change_login_button.click(
-                fn=change_login,
-                inputs=[
-                    current_login_password, next_login_password,
-                    confirm_login_password,
-                ],
-                outputs=[change_login_result],
-                concurrency_limit=1,
-            )
-    # The optional GPU callback keeps an existing ZeroGPU Space compatible.
-    # It is NEVER invoked by the Gemini API or Neon audit workflows.
-    with gr.Accordion("Diagnóstico ZeroGPU (opcional)", open=False):
-        gr.Markdown(
-            "Solo para verificar el hardware de Hugging Face. "
-            "Ejecutarlo consume cuota GPU; las extracciones con Gemini no la utilizan."
-        )
-        gpu_diagnostic_button = gr.Button("Probar GPU disponible")
-        gpu_diagnostic_result = gr.Textbox(label="Resultado", interactive=False)
-        def diagnose_gpu_with_popup():
-            try:
-                result = diagnose_zerogpu()
-                if result.startswith("No hay GPU CUDA disponible"):
-                    gr.Warning(result)
-                    return gr.update()
-                return result
-            except Exception as exc:
-                popup_error(exc, "No se pudo ejecutar el diagnóstico GPU.")
-                return gr.update()
-
-        gpu_diagnostic_button.click(
-            fn=diagnose_gpu_with_popup,
-            outputs=[gpu_diagnostic_result], concurrency_limit=1
+    # Infrastructure-only: this invisible registered handler is required by
+    # existing ZeroGPU hardware. It never runs during Gemini extraction.
+    # Keep it mounted so the Space boots, but show no technical controls to
+    # end users; api_name=False also avoids exposing a diagnostic endpoint.
+    with gr.Column(visible=False):
+        _zerogpu_keepalive = gr.Button(visible=False)
+        _zerogpu_keepalive.click(
+            fn=diagnose_zerogpu, outputs=[], api_name=False,
+            concurrency_limit=1,
         )
 
     with gr.Tab("InBody Upload"):
         from inbody_mvp.gemini_review import (
             COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
-            save_audit, check_gemini_models, render_document_preview,
+            save_audit, get_free_inbody_models, render_document_preview,
             check_processed_filename,
             audit_write_enabled,
         )
@@ -221,30 +160,46 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gemini_upload_state = gr.State(value=None)
         gemini_file_status = gr.Markdown("Sin archivo para verificar.")
         gemini_snapshot = gr.State(value=None)
-        with gr.Accordion("Diagnóstico de la API de Gemini", open=False):
-            gr.Markdown(
-                "Comprueba qué modelos Flash permite tu API key. "
-                "No se envían imágenes ni reportes en esta consulta."
+        gr.Markdown("### Modelo Gemini para extraer este reporte")
+        with gr.Row():
+            gemini_model_selector = gr.Dropdown(
+                label="Modelo Flash disponible con Free Tier documentado",
+                choices=[], value=None,
+                interactive=True, scale=4,
+                info="Solo modelos multimodales que tu API key puede listar.",
             )
-            gemini_models_button = gr.Button("Comprobar modelos disponibles")
-            gemini_models_status = gr.Markdown()
-            def check_models_with_popup():
-                try:
-                    result = check_gemini_models()
-                    if result.startswith(
-                        ("Falta GEMINI_API_KEY", "No fue posible", "Gemini (")
-                    ):
-                        gr.Warning(result)
-                        return gr.update()
-                    return result
-                except Exception as exc:
-                    popup_error(exc, "No fue posible consultar los modelos Gemini.")
-                    return gr.update()
+            gemini_models_button = gr.Button(
+                "Actualizar modelos disponibles", scale=1,
+            )
+        gemini_models_status = gr.Markdown(
+            "La lista se consulta desde Google sin enviar el reporte. "
+            "Free Tier tiene cuotas; si tu proyecto tiene facturación "
+            "activada pueden generarse cargos."
+        )
 
-            gemini_models_button.click(
-                fn=check_models_with_popup,
-                outputs=[gemini_models_status],
-            )
+        def check_models_with_popup():
+            try:
+                options = get_free_inbody_models()
+                ids = [model for _, model in options]
+                configured = os.getenv("GEMINI_MODEL", "").strip()
+                preferred = configured if configured in ids else (
+                    "gemini-3.8-flash" if "gemini-3.8-flash" in ids else ids[0]
+                )
+                return (
+                    gr.update(choices=options, value=preferred),
+                    f"{len(options)} modelo(s) compatible(s) disponible(s). "
+                    "Se recomienda Flash para tablas complejas. "
+                    "Revisa las cuotas y el nivel de facturación del proyecto.",
+                )
+            except Exception as exc:
+                popup_error(exc, "No se pudieron consultar los modelos Gemini.")
+                return keep_components(2)
+
+        gemini_models_button.click(
+            fn=check_models_with_popup,
+            outputs=[gemini_model_selector, gemini_models_status],
+            concurrency_limit=1,
+        )
         gr.Markdown(
             "Al cargar el documento se comprobará si su nombre ya fue "
             "procesado (solo para una sesión privada autorizada). "
@@ -289,16 +244,20 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     static_columns=[0,1,2,3,8,9],
                     label="Revisión de mediciones; una fila por valor",
                 )
-        def extract_with_popup(state, consent):
+        def extract_with_popup(state, consent, model):
             try:
-                return extract_gemini(state, consent)
+                if not model:
+                    raise ValueError(
+                        "Selecciona un modelo Gemini disponible antes de extraer."
+                    )
+                return extract_gemini(state, consent, selected_model=model)
             except Exception as exc:
                 popup_error(exc, "No se pudo extraer el reporte.")
                 return keep_components(3)
 
         gemini_extract.click(
             fn=extract_with_popup,
-            inputs=[gemini_upload_state, gemini_consent_remote],
+            inputs=[gemini_upload_state, gemini_consent_remote, gemini_model_selector],
             outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
         )
@@ -818,6 +777,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
     with gr.Tab("Proyecto"):
         gr.Markdown(value=read_readme)
+    # Populate the selector once per page load and let users refresh manually.
+    # Never send the uploaded report during model discovery.
+    demo.load(
+        fn=check_models_with_popup,
+        outputs=[gemini_model_selector, gemini_models_status],
+        show_progress="hidden",
+    )
 
 
 if __name__ == "__main__":
