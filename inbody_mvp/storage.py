@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .extractor import ExtractionResult
 from .review import REVIEW_COLUMNS, ReviewedRow
+from .app_auth import password_login_enabled, master_demo_authenticated
 
 ReportLanguage = Literal["ES", "EN", "UNKNOWN"]
 
@@ -157,13 +158,16 @@ def database_enabled() -> bool:
     This only reports configuration readiness, not authorization for a request.
     """
     configured = (
-        os.getenv("ENABLE_PERSISTENCE", "").strip().lower() in ("true", "1", "yes")
-        and bool(os.getenv("DATABASE_URL"))
+        bool(os.getenv("DATABASE_URL"))
+        and (
+            os.getenv("ENABLE_PERSISTENCE", "").strip().lower() in ("true", "1", "yes")
+            or password_login_enabled()
+        )
     )
     if not configured:
         return False
     if os.getenv("SPACE_ID"):
-        return bool(os.getenv("HF_ALLOWED_USERS", "").strip())
+        return bool(os.getenv("HF_ALLOWED_USERS", "").strip()) or password_login_enabled()
     return True
 
 
@@ -178,7 +182,7 @@ def require_report_access(oauth_profile=None) -> None:
     return None
 
 
-def require_database_access(oauth_profile=None) -> None:
+def require_database_access(oauth_profile=None, request=None) -> None:
     """Authorize EVERY private Neon read/write against HF OAuth username.
 
     Unlike OCR/CSV, private data must never be accessible anonymously.
@@ -187,6 +191,8 @@ def require_database_access(oauth_profile=None) -> None:
         raise PermissionError("Conexión Neon deshabilitada o incompleta.")
     require_report_access(oauth_profile)
     if os.getenv("SPACE_ID"):
+        if master_demo_authenticated(request):
+            return
         allowed = {
             part.strip().casefold()
             for part in os.getenv("HF_ALLOWED_USERS", "").split(",")
@@ -223,14 +229,14 @@ def canonical_person_id(person_id: str) -> str:
 
 
 def load_reviewed_audit_history(
-    person_id: str, oauth_profile=None, limit: int = 500
+    person_id: str, oauth_profile=None, limit: int = 500, request=None
 ) -> list[dict]:
     """Authorized history, never returns the original ID, file or raw JSON.
 
     The public dashboard must NOT query this table without a separate
     publication decision; storage consent is not publication consent.
     """
-    require_database_access(oauth_profile)
+    require_database_access(oauth_profile, request=request)
     # Private demo shortcut only. Never expose the raw report identifier to
     # the client or allow an unauthenticated "test" alias to query health data.
     query = str(person_id or "").strip()
