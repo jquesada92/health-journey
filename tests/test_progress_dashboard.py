@@ -127,7 +127,13 @@ def test_history_is_date_separated_and_never_uses_pdf_trend_values(records):
 
 def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     app = (ROOT / "app.py").read_text()
-    assert 'with gr.Tab("Progress Dashboard")' in app
+    assert 'with gr.Tab("Dashboard")' in app
+    assert app.count('with gr.Tab("Dashboard")') == 1
+    assert 'with gr.Tab("Dashboard público")' not in app
+    assert 'with gr.Tab("Progress Dashboard")' not in app
+    assert 'with gr.Tab("Dashboard (siguiente fase)")' not in app
+    assert 'with gr.Accordion("Mi progreso histórico (acceso privado)"' in app
+    assert 'with gr.Accordion("Mediciones publicadas (solo datos aprobados)"' in app
     assert "progress_start = gr.DateTime(" in app
     assert "progress_end = gr.DateTime(" in app
     assert "fn=show_progress" in app or "progress_refresh.click(" in app
@@ -136,8 +142,9 @@ def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     assert "progress_refresh.click(" in app
     assert "load_reviewed_audit_history(" in app
     assert "profile: gr.OAuthProfile | None = None" in app
-    section = app[app.index('with gr.Tab("Progress Dashboard")'):]
+    section = app[app.index('with gr.Tab("Dashboard")'):app.index('with gr.Tab("Historial en Neon")')]
     assert "exam_selector" not in section
+    assert "alias privado test" in section
     assert "Exam selector" not in section
     assert '"type=password"' not in section  # uses correctly typed Gradio keyword
     assert 'type="password"' in section
