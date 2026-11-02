@@ -87,11 +87,11 @@ def verify_neon_session(
     try:
         require_database_access(profile, request=request)
     except PermissionError:
-        return (
+        gr.Warning(
             "No hay sesión de aplicación o Hugging Face autorizada para Neon. "
-            "Inicia sesión desde una pestaña independiente con la cuenta "
-            "incluida en HF_ALLOWED_USERS."
+            "Inicia sesión con la cuenta autorizada."
         )
+        return gr.update()
     return (
         "Sesión autorizada para operaciones privadas. "
         "La conexión SQL todavía no ha sido comprobada."
@@ -168,8 +168,20 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         gpu_diagnostic_button = gr.Button("Probar GPU disponible")
         gpu_diagnostic_result = gr.Textbox(label="Resultado", interactive=False)
+        def diagnose_gpu_with_popup():
+            try:
+                result = diagnose_zerogpu()
+                if result.startswith("No hay GPU CUDA disponible"):
+                    gr.Warning(result)
+                    return gr.update()
+                return result
+            except Exception as exc:
+                popup_error(exc, "No se pudo ejecutar el diagnóstico GPU.")
+                return gr.update()
+
         gpu_diagnostic_button.click(
-            fn=diagnose_zerogpu, outputs=[gpu_diagnostic_result], concurrency_limit=1
+            fn=diagnose_gpu_with_popup,
+            outputs=[gpu_diagnostic_result], concurrency_limit=1
         )
 
     with gr.Tab("InBody Upload"):
