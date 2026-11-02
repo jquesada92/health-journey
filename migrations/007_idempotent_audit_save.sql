@@ -63,9 +63,10 @@ BEGIN
         RAISE EXCEPTION 'Invalid normalized person ID';
     END IF;
 
-    -- Order is stable across callers: filename lock, followed by exam lock.
+    -- Stable lock order: filename, content SHA, exam.
     -- A separate hash is also checked to block renamed copies.
     PERFORM pg_advisory_xact_lock(hashtextextended('audit-file:' || lower(v_filename), 0));
+    PERFORM pg_advisory_xact_lock(hashtextextended('audit-sha:' || v_hash, 0));
     PERFORM pg_advisory_xact_lock(
         hashtextextended('audit-exam:' || v_person_key || ':' || v_exam::text, 0)
     );
