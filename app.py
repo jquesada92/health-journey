@@ -474,6 +474,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     for _, label, _ in METRICS
                 ]
             gr.Markdown("### Historical Progress")
+            gr.Markdown(
+                "### Body Composition History — formato del reporte InBody\\n"
+                "Filas alineadas por fecha con valores, líneas de evolución "
+                "y comparación frente al examen anterior. Incluye ángulo de fase "
+                "cuando esté disponible en las mediciones revisadas."
+            )
             progress_trends = gr.Plot(label="Body Composition History")
             gr.Markdown("### InBody Score — progreso entre exámenes")
             progress_score = gr.Plot(label="Puntaje de cada examen · puntos")
@@ -498,6 +504,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             progress_detail_plot = gr.Plot(
                 label="Comparación de medidas de la sección"
             )
+            progress_section_history = gr.Plot(
+                label="Historial de medidas de la sección seleccionada"
+            )
 
             def show_progress(
                 person_id, start_date, end_date, section,
@@ -513,7 +522,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     popup_error(
                         exc, "No se pudo consultar el progreso privado en Neon."
                     )
-                    return keep_components(11)
+                    return keep_components(13)
                 if records:
                     alias = "Persona " + str(records[0]["anonymous_id"])[:8]
                     return (f"**{alias}** · " + result[0], *result[1:])
@@ -524,7 +533,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 inputs=[progress_person, progress_start, progress_end, progress_section],
                 outputs=[progress_status, *progress_kpis, progress_trends,
                          progress_summary, progress_detail, progress_detail_plot,
-                         progress_score],
+                         progress_score, progress_section_history],
                 concurrency_limit=1,
             )
         with gr.Accordion("Mediciones publicadas (solo datos aprobados)", open=False):
