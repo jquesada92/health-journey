@@ -99,3 +99,53 @@ def test_dashboard_does_not_display_raw_id():
     assert '"person_id"' not in snippet
     assert '"filename"' not in snippet
     assert "public_dashboard_enabled()" in app
+
+
+def test_test_alias_requires_authorized_session_and_private_secret(monkeypatch):
+    """Alias 'test' never bypasses private access checks."""
+    monkeypatch.setenv("DASHBOARD_TEST_PERSON_ID", "1-234-5678")
+    def reject(_profile):
+        raise PermissionError("not authorized")
+    monkeypatch.setattr(storage, "require_database_access", reject)
+    monkeypatch.setattr(storage, "_database_engine", lambda: pytest.fail("No SQL before auth"))
+    with pytest.raises(PermissionError):
+        storage.load_reviewed_audit_history("test")
+
+
+def test_test_alias_resolves_to_same_canonical_id_as_real_numeric_id(monkeypatch):
+    """Mocked SQL checks that the alias maps server-side without response PII."""
+    monkeypatch.setenv("DASHBOARD_TEST_PERSON_ID", "1-234-5678")
+    monkeypatch.setattr(storage, "require_database_access", lambda profile=None: None)
+    params_used = []
+    class Connection:
+        def execute(self, statement, params):
+            params_used.append(params)
+            return SimpleNamespace(mappings=lambda: SimpleNamespace(all=lambda: [{
+                "anonymous_id": "cafef00d-aaaa-4aaa-9aaa-000000000000",
+                "exam_date": date(2026, 10, 4),
+                "section": "Muscle-Fat Analysis",
+                "measurement": "Weight",
+                "value": "72.40",
+                "unit": "kg",
+                "was_corrected": False,
+            }]))
+    class DB:
+        def __enter__(self): return Connection()
+        def __exit__(self, *_): return False
+    class Engine:
+        def connect(self): return DB()
+        def dispose(self): pass
+    monkeypatch.setattr(storage, "_database_engine", Engine)
+    result = storage.load_reviewed_audit_history("TeSt")
+    assert params_used[0]["key"] == storage.canonical_person_id("1-234-5678")
+    assert result[0]["anonymous_id"].startswith("cafef00d")
+    assert "person_id" not in result[0]
+    assert "filename" not in result[0]
+
+
+def test_test_alias_requires_secret_even_for_authorized_user(monkeypatch):
+    monkeypatch.delenv("DASHBOARD_TEST_PERSON_ID", raising=False)
+    monkeypatch.setattr(storage, "require_database_access", lambda profile=None: None)
+    monkeypatch.setattr(storage, "_database_engine", lambda: pytest.fail("No SQL without alias"))
+    with pytest.raises(ValueError, match="DASHBOARD_TEST_PERSON_ID"):
+        storage.load_reviewed_audit_history("test")
