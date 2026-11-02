@@ -116,7 +116,7 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
 
     monkeypatch.setattr(audit, "_audit_write_engine", Engine)
     result = audit.save_audit(table, snapshot, consent=True, profile=None)
-    assert "Auditoría guardada en Neon" in result
+    assert "Guardado en Neon" in result
     assert len(submitted) == 1
     query, payload = submitted[0]
     assert "hj_submit_reviewed_audit_receipt" in query
@@ -139,7 +139,7 @@ def test_duplicate_report_returns_idempotent_message(monkeypatch, sample):
     class Connection:
         def execute(self, statement, params):
             return SimpleNamespace(
-                scalar_one=lambda: {"status": "already_saved", "extraction_id": "internal"}
+                scalar_one=lambda: {"status": "filename_processed"}
             )
     class Engine:
         def begin(self):
@@ -150,9 +150,49 @@ def test_duplicate_report_returns_idempotent_message(monkeypatch, sample):
         def dispose(self): pass
     monkeypatch.setattr(audit, "_audit_write_engine", Engine)
     status = audit.save_audit(*sample, consent=True)
-    assert "ya está guardado" in status
-    assert "no se aplicaron" in status
+    assert "ya fue procesado" in status
+    assert "No se guardaron duplicados" in status
     assert "internal" not in status
+
+
+def test_collision_requires_user_confirmation(monkeypatch, sample):
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "1")
+    monkeypatch.setenv(
+        "DEMO_DATABASE_URL",
+        "postgresql://health_journey_demo_writer:fake@localhost/db?sslmode=require",
+    )
+    calls = []
+    class Connection:
+        def execute(self, stmt, params):
+            calls.append(params["confirm_overwrite"])
+            return SimpleNamespace(scalar_one=lambda: (
+                {"status": "overwritten", "conflicts": 1} if
+                params["confirm_overwrite"] else
+                {"status": "overwrite_required", "conflicts": 1}
+            ))
+    class Engine:
+        def begin(self):
+            class Tx:
+                def __enter__(self): return Connection()
+                def __exit__(self, *_): return False
+            return Tx()
+        def dispose(self): pass
+
+    monkeypatch.setattr(audit, "_audit_write_engine", Engine)
+    assert "Marca 'Confirmo sobrescribir" in audit.save_audit(*sample, consent=True)
+    assert "Se actualizaron 1" in audit.save_audit(*sample, consent=True, confirm_overwrite=True)
+    assert calls == [False, True]
+
+
+def test_filename_checker_requires_private_auth(monkeypatch):
+    from types import SimpleNamespace
+    from inbody_mvp import storage
+    def denied(profile=None, request=None):
+        raise PermissionError("denied")
+    monkeypatch.setattr(storage, "require_database_access", denied)
+    monkeypatch.setattr(audit, "_audit_write_engine", lambda: pytest.fail("No DB"))
+    message = audit.check_processed_filename({"filename": "test.pdf"})
+    assert "inicia sesión" in message
 
 
 def test_migration_reuses_existing_demo_role_without_private_table_grants():
@@ -179,6 +219,6 @@ def test_both_consents_at_start_and_login_only_for_history():
     assert upload.index("gemini_consent_remote = gr.Checkbox") < upload.index("gemini_upload = gr.File")
     assert upload.index("gemini_consent = gr.Checkbox") < upload.index("gemini_upload = gr.File")
     assert "interactive=audit_write_enabled()" in upload
-    assert "inputs=[gemini_table, gemini_snapshot, gemini_consent]" in upload
+    assert "inputs=[gemini_table, gemini_snapshot, gemini_consent, gemini_overwrite]" in upload
     assert "inicia sesión en pestaña nueva" not in upload
     assert 'with gr.Tab("Historial en Neon")' in app
