@@ -62,7 +62,7 @@ def test_gradio_has_direct_login_and_oauth_stays_protected():
     assert "hj_submit_reviewed_audit" in (ROOT / "inbody_mvp/gemini_review.py").read_text()
     assert "hf_oauth: true" in readme
     assert "gradio[oauth]" in requirements
-    assert "require_database_access(profile)" in app
+    assert "require_database_access(profile, request=request)" in app
     assert 'getattr(oauth_profile, "username", None)' in storage
 
 
