@@ -193,3 +193,8 @@ sus tests sintéticos estén verdes. Requiere benchmark privado con 22 reportes,
 revisión manual de valores y reducción demostrable de falsos positivos.
 El filtro actual de historial no cubre todo el flujo de OCR global.
 Referencia: [Guía IA por secciones](../docs/ocr-secciones-ia.md).
+
+
+## 7. Registro de continuidad — 2026-11-01
+
+Se añade [10_continuidad_noviembre_2026.md](10_continuidad_noviembre_2026.md) como registro específico de las decisiones más recientes y de las solicitudes todavía por verificar/implementar. Prioriza distinguir **implementado en código**, **configurado/desplegado** y **validado E2E**. Esta incorporación documental no implica que las nuevas funciones ya existan, que los datos hayan sido migrados ni que se haya validado el Space.
