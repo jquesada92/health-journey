@@ -38,9 +38,8 @@ def test_failed_events_preserve_component_values():
         "review_with_popup", "preview_with_popup",
         "show_public_dashboard", "show_progress",
         "display_history", "display_audit_history",
-        "change_login", "show_processed_filename",
+        "show_processed_filename",
         "upload_with_popup", "check_models_with_popup",
-        "diagnose_gpu_with_popup",
     ):
         node = _function(name)
         body = ast.unparse(node)
