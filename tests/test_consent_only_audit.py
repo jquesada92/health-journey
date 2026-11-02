@@ -100,7 +100,7 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
     class Connection:
         def execute(self, query, params):
             submitted.append((str(query), json.loads(params["payload"])))
-            return SimpleNamespace(scalar_one=lambda: "synthetic-extraction-uuid")
+            return SimpleNamespace(scalar_one=lambda: {"status": "saved", "extraction_id": "synthetic-extraction-uuid"})
 
     class Tx:
         def __enter__(self):
@@ -116,10 +116,10 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
 
     monkeypatch.setattr(audit, "_audit_write_engine", Engine)
     result = audit.save_audit(table, snapshot, consent=True, profile=None)
-    assert "synthetic-extraction-uuid" in result
+    assert "Auditoría guardada en Neon" in result
     assert len(submitted) == 1
     query, payload = submitted[0]
-    assert "hj_submit_reviewed_audit" in query
+    assert "hj_submit_reviewed_audit_receipt" in query
     assert "INSERT INTO" not in query
     assert payload["person_id"] == "000123"
     assert payload["measurements"][0]["original_value"] == "8.20"
@@ -127,6 +127,32 @@ def test_consent_only_write_uses_function_and_preserves_original(monkeypatch, sa
     assert payload["measurements"][0]["was_corrected"] is True
     assert payload["measurements"][0]["correction_comment"].startswith("Corrected")
     assert payload["model_name"] == "synthetic-flash"
+
+
+def test_duplicate_report_returns_idempotent_message(monkeypatch, sample):
+    monkeypatch.setenv("ENABLE_ANONYMOUS_DEMO", "1")
+    monkeypatch.setenv(
+        "DEMO_DATABASE_URL",
+        "postgresql://health_journey_demo_writer:fake@localhost/db?sslmode=require",
+    )
+
+    class Connection:
+        def execute(self, statement, params):
+            return SimpleNamespace(
+                scalar_one=lambda: {"status": "already_saved", "extraction_id": "internal"}
+            )
+    class Engine:
+        def begin(self):
+            class Transaction:
+                def __enter__(self): return Connection()
+                def __exit__(self, *_): return False
+            return Transaction()
+        def dispose(self): pass
+    monkeypatch.setattr(audit, "_audit_write_engine", Engine)
+    status = audit.save_audit(*sample, consent=True)
+    assert "ya está guardado" in status
+    assert "no se aplicaron" in status
+    assert "internal" not in status
 
 
 def test_migration_reuses_existing_demo_role_without_private_table_grants():
