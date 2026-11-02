@@ -20,6 +20,20 @@ from .extractor import MAX_UPLOAD_BYTES
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 
+# Official Google Developer API pricing (Nov 2026) documents a standard
+# free tier for these multimodal Flash models. Availability and actual
+# billing are per API key/project; a paid-tier project can still be billed.
+# Never display arbitrary models.list results as if they were free.
+FREE_INBODY_FLASH_MODELS = {
+    "gemini-3.8-flash": "Gemini 3.8 Flash · recomendado para tablas complejas",
+    "gemini-3.6-flash": "Gemini 3.6 Flash · multimodal",
+    "gemini-3.5-flash-lite": "Gemini 3.5 Flash-Lite · rápido",
+    "gemini-3.1-flash-lite": "Gemini 3.1 Flash-Lite · ligero",
+    "gemini-2.5-flash": "Gemini 2.5 Flash · acceso restringido en algunos proyectos",
+    "gemini-2.5-flash-lite": "Gemini 2.5 Flash-Lite · acceso restringido",
+}
+
+
 COLUMNS = ["exam_datetime", "filename", "person_id", "age", "section",
            "measurement", "value", "unit", "original_value", "was_corrected",
            "correction_comment", "reviewed"]
@@ -231,6 +245,42 @@ def available_flash_models(client) -> list[str]:
     return sorted(available)
 
 
+def free_model_options(available_names: list[str]) -> list[tuple[str, str]]:
+    """Intersection of Google documented Free Tier and the API-key model list.
+
+    Model listing does not reveal whether a project is billed or its remaining
+    free quota. Labels must not claim zero charges are guaranteed.
+    """
+    available = set(available_names)
+    return [
+        (label + " · Free Tier", model_id)
+        for model_id, label in FREE_INBODY_FLASH_MODELS.items()
+        if model_id in available
+    ]
+
+
+def get_free_inbody_models() -> list[tuple[str, str]]:
+    """Query server-side model metadata, never upload images or expose keys."""
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("Configura GEMINI_API_KEY en los Secrets del Space.")
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        result = free_model_options(available_flash_models(client))
+    except Exception as exc:
+        kind = type(exc)
+        if kind.__module__.startswith("google.genai"):
+            raise ValueError(gemini_api_error_message(getattr(exc, "code", None))) from None
+        raise ValueError("No se pudieron consultar los modelos de Gemini.") from None
+    if not result:
+        raise ValueError(
+            "Tu API key no devolvió modelos Flash compatibles con Free Tier. "
+            "Revisa permisos y cuotas en Google AI Studio."
+        )
+    return result
+
+
 def check_gemini_models() -> str:
     """Diagnostic only: lists accessible models; sends NO InBody document."""
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -262,7 +312,11 @@ def _fallback_model(primary_model: str) -> str | None:
         DEFAULT_GEMINI_FALLBACK_MODEL if configured is None
         else configured.strip()
     )
-    if candidate.lower() in ("", "off", "disabled", "none") or candidate == primary_model:
+    if (
+        candidate.lower() in ("", "off", "disabled", "none")
+        or candidate == primary_model
+        or candidate not in FREE_INBODY_FLASH_MODELS
+    ):
         return None
     return candidate
 
@@ -277,7 +331,7 @@ def _is_gemini_overloaded(exc: Exception) -> bool:
     )
 
 
-def extract_gemini(upload_state, consent=False):
+def extract_gemini(upload_state, consent=False, selected_model=None):
     if not upload_state:
         raise _ui_error("Primero carga un documento.")
     if consent is not True:
@@ -286,7 +340,11 @@ def extract_gemini(upload_state, consent=False):
     if not api_key:
         raise _ui_error("Falta GEMINI_API_KEY en los secretos del Space.")
     client = None
-    selected_model = _model_name()
+    selected_model = str(selected_model or _model_name()).strip()
+    if selected_model not in FREE_INBODY_FLASH_MODELS:
+        raise _ui_error(
+            "Selecciona un modelo Gemini Flash con Free Tier documentado."
+        )
     active_model = selected_model
     failover_used = False
     try:
