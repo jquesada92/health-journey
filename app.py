@@ -22,6 +22,9 @@ from inbody_mvp.public_dashboard import (
     PUBLIC_METRICS, public_dashboard_enabled, load_public_person_series,
 )
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
+from inbody_mvp.app_auth import (
+    authenticate_master_demo, password_login_enabled,
+)
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
@@ -57,18 +60,20 @@ def snapshot_upload(file_path):
         raise gr.Error("No se pudo recibir el archivo. Vuelve a cargarlo.") from exc
 
 
-def verify_neon_session(profile: gr.OAuthProfile | None = None) -> str:
+def verify_neon_session(
+    profile: gr.OAuthProfile | None = None, request: gr.Request | None = None
+) -> str:
     """Only checks HF OAuth and allowlist, never contacts Neon or logs secrets."""
     try:
-        require_database_access(profile)
+        require_database_access(profile, request=request)
     except PermissionError:
         return (
-            "No hay sesión Hugging Face autorizada para Neon. "
+            "No hay sesión de aplicación o Hugging Face autorizada para Neon. "
             "Inicia sesión desde una pestaña independiente con la cuenta "
             "incluida en HF_ALLOWED_USERS."
         )
     return (
-        "Sesión Hugging Face autorizada para operaciones privadas. "
+        "Sesión autorizada para operaciones privadas. "
         "La conexión SQL todavía no ha sido comprobada."
     )
 
@@ -89,6 +94,12 @@ OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
     gr.Markdown("# Health Journey · InBody Hub")
+    if password_login_enabled():
+        gr.Markdown(
+            "**Acceso protegido:** has iniciado sesión con el usuario de "
+            "la aplicación. El historial privado sigue sujeto a permisos "
+            "del servidor; cerrar sesión termina el acceso a los módulos."
+        )
     # The optional GPU callback keeps an existing ZeroGPU Space compatible.
     # It is NEVER invoked by the Gemini API or Neon audit workflows.
     with gr.Accordion("Diagnóstico ZeroGPU (opcional)", open=False):
@@ -323,10 +334,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             def show_progress(
                 person_id, start_date, end_date, section,
                 profile: gr.OAuthProfile | None = None,
+                request: gr.Request | None = None,
             ):
                 try:
                     records = load_reviewed_audit_history(
-                        person_id, oauth_profile=profile, limit=5000
+                        person_id, oauth_profile=profile, limit=500, request=request0, request=request
                     )
                     result = render_progress(records, start_date, end_date, section)
                 except (PermissionError, ValueError) as exc:
@@ -450,7 +462,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
                 'rel="noopener noreferrer">Iniciar sesión</a>.'
             )
-        if anonymous_demo_requested():
+        if anonymous_demo_requested() and not password_login_enabled():
             gr.Markdown(
                 "**Historial privado deshabilitado en demostración.** "
                 "Para verificar las mediciones publicadas, utiliza "
@@ -479,7 +491,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             )
             audit_button = gr.Button(
                 "Consultar mediciones Gemini revisadas",
-                interactive=not anonymous_demo_requested(),
+                interactive=(not anonymous_demo_requested() or password_login_enabled()),
             )
             audit_status = gr.Markdown("Sin consulta.")
             audit_chart = gr.Plot(label="Evolución de mediciones revisadas")
@@ -491,6 +503,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             def display_audit_history(
                 person_id, metric,
                 profile: gr.OAuthProfile | None = None,
+                request: gr.Request | None = None,
             ):
                 try:
                     records = load_reviewed_audit_history(
@@ -562,7 +575,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 value="", label="Región corporal",
             )
         load_button = gr.Button(
-            "Consultar Neon", interactive=not anonymous_demo_requested()
+            "Consultar Neon", interactive=(not anonymous_demo_requested() or password_login_enabled())
         )
         db_status = gr.Markdown("Sin consulta.")
         db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
@@ -574,6 +587,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         def display_history(
             person_id, metric, unit, segment,
             profile: gr.OAuthProfile | None = None,
+            request: gr.Request | None = None,
         ):
             try:
                 records = load_measurement_history(
@@ -625,4 +639,14 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0" if os.getenv("SPACE_ID") else "127.0.0.1", server_port=int(os.environ.get("PORT", "7860")), share=False, ssr_mode=False)
+    demo.launch(
+        server_name="0.0.0.0" if os.getenv("SPACE_ID") else "127.0.0.1",
+        server_port=int(os.environ.get("PORT", "7860")),
+        share=False,
+        ssr_mode=False,
+        auth=authenticate_master_demo if password_login_enabled() else None,
+        auth_message=(
+            "Health Journey · Inicia sesión con el usuario obs-master-demo "
+            "y su contraseña privada. La sesión protege todos los módulos."
+        ) if password_login_enabled() else None,
+    )
