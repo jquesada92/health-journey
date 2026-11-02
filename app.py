@@ -21,6 +21,7 @@ from inbody_mvp.extractor import DocumentError, MAX_UPLOAD_BYTES
 from inbody_mvp.public_dashboard import (
     PUBLIC_METRICS, public_dashboard_enabled, load_public_person_series,
 )
+from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
@@ -514,12 +515,102 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[db_status, db_chart, db_table],
             concurrency_limit=1,
         )
-    with gr.Tab("Dashboard (siguiente fase)"):
+    with gr.Tab("Progress Dashboard"):
         gr.Markdown(
-            "El dashboard se construirá en **Gradio + Plotly** después de verificar "
-            "y almacenar mediciones confirmadas. Tendrá filtros por fecha, variable, "
-            "unidad y región corporal, con tendencias y ángulo de fase. "
-            "Esta versión todavía no presenta series históricas."
+            "## Progreso histórico InBody\\n"
+            "Consulta las mediciones **revisadas y guardadas en Neon** con "
+            "acceso privado autorizado. La persona se presenta mediante "
+            "un alias; la cédula del reporte no aparece en gráficas ni tablas. "
+            "Los valores históricos dibujados en el PDF **no** se importan."
+        )
+        with gr.Row():
+            progress_person = gr.Textbox(
+                label="ID del reporte (solo búsqueda privada)",
+                placeholder="Introduce ID para consultar",
+                type="password", scale=3,
+            )
+            progress_start = gr.DateTime(
+                include_time=False, type="string",
+                label="Desde", scale=2,
+            )
+            progress_end = gr.DateTime(
+                include_time=False, type="string",
+                label="Hasta", scale=2,
+            )
+        progress_refresh = gr.Button(
+            "Consultar progreso", variant="primary",
+            interactive=database_enabled(),
+        )
+        if not database_enabled():
+            gr.Markdown(
+                "Para consultar historiales de auditoría, configura "
+                "`ENABLE_PERSISTENCE=1`, `DATABASE_URL` y `HF_ALLOWED_USERS`. "
+                "Aunque el modo demo permita guardar sin login, el acceso "
+                "al historial personal exige OAuth autorizado."
+            )
+        gr.Markdown(
+            "**Valores actuales** — cada flecha de Plotly muestra si la "
+            "medición subió o bajó y su diferencia porcentual contra la "
+            "fecha anterior **dentro del rango elegido**. "
+            "Las flechas son descriptivas, no indican si un cambio es saludable."
+        )
+        progress_status = gr.Markdown("Sin consulta.")
+        with gr.Row():
+            progress_kpis = [
+                gr.Plot(label=label, min_width=205)
+                for _, label, _ in METRICS
+            ]
+        gr.Markdown("### Historical Progress")
+        progress_trends = gr.Plot(label="Body Composition History")
+        progress_summary = gr.Dataframe(
+            label="Mediciones por fecha y cambio porcentual",
+            type="pandas", interactive=False,
+        )
+        gr.Markdown(
+            "### Detailed Exam Analysis\\n"
+            "Se toma automáticamente la medición más reciente de cada "
+            "variable en el rango seleccionado, y se compara con la anterior. "
+            "**No es necesario escoger un examen.**"
+        )
+        progress_section = gr.Dropdown(
+            label="Sección del reporte",
+            choices=list(SECTIONS), value=SECTIONS[0],
+        )
+        progress_detail = gr.Dataframe(
+            label="Valores actuales y comparación por sección",
+            type="pandas", interactive=False,
+        )
+        progress_detail_plot = gr.Plot(
+            label="Comparación de medidas de la sección"
+        )
+
+        def show_progress(
+            person_id, start_date, end_date, section,
+            profile: gr.OAuthProfile | None = None,
+        ):
+            try:
+                records = load_reviewed_audit_history(
+                    person_id, oauth_profile=profile, limit=5000
+                )
+                result = render_progress(records, start_date, end_date, section)
+            except (PermissionError, ValueError) as exc:
+                raise gr.Error(str(exc)) from None
+            except Exception:
+                raise gr.Error(
+                    "No se pudo consultar el progreso privado en Neon. "
+                    "Comprueba tu sesión autorizada y la conexión."
+                ) from None
+            if records:
+                alias = "Persona " + str(records[0]["anonymous_id"])[:8]
+                return (f"**{alias}** · " + result[0], *result[1:])
+            return result
+
+        progress_refresh.click(
+            fn=show_progress,
+            inputs=[progress_person, progress_start, progress_end, progress_section],
+            outputs=[progress_status, *progress_kpis, progress_trends,
+                     progress_summary, progress_detail, progress_detail_plot],
+            concurrency_limit=1,
         )
     with gr.Tab("Proyecto"):
         gr.Markdown(value=read_readme)
