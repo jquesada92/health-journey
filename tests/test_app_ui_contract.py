@@ -48,6 +48,14 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
     assert any(any(k.arg == "fn" and isinstance(k.value, ast.Name)
                    and k.value.id == "diagnose_zerogpu" for k in n.keywords)
                for n in handlers)
-    assert "fn=extract_gemini" in (Path(__file__).resolve().parents[1] / "app.py").read_text()
+    app = (Path(__file__).resolve().parents[1] / "app.py").read_text()
+    assert "fn=extract_with_popup" in app
+    assert "extract_gemini(state, consent)" in app
+    assert "popup_error(exc" in app
+    assert "return keep_components(3)" in app
+    assert "gr.Warning(message)" in app
+    assert "raise gr.Error(" not in app
+    assert "fn=review_with_popup" in app
+    assert "fn=save_review_and_clear" in app
     assert not any(isinstance(n, ast.FunctionDef) and n.name == "extract_gemini"
                    for n in TREE.body)
