@@ -582,7 +582,7 @@ def check_processed_filename(upload_state, profile=None, request=None):
     """
     if not upload_state:
         return "Carga un archivo para verificarlo."
-    from .storage import require_database_access
+    from .storage import require_database_access, _database_engine
 
     try:
         require_database_access(profile, request=request)
@@ -596,7 +596,7 @@ def check_processed_filename(upload_state, profile=None, request=None):
     if not name:
         return "No se pudo leer el nombre del archivo."
     try:
-        engine = _audit_write_engine()
+        engine = _database_engine()
         try:
             with engine.connect() as conn:
                 processed = conn.execute(
