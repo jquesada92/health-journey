@@ -22,8 +22,8 @@ Para activarlo en Hugging Face:
 4. Reiniciar el Space. Gradio muestra la pantalla de inicio de sesión
    antes de cualquier pestaña; el usuario accede con
    `obs-master-demo` y la contraseña inicial entregada por canal privado.
-5. Usar «Seguridad de la cuenta» para **cambiar la contraseña al primer
-   ingreso**. Nunca guardar contraseñas en README, Variables públicas,
+5. Rotar la contraseña mediante el procedimiento administrativo privado, fuera de la interfaz principal. El login se mantiene activo.
+
    archivos, capturas o logs.
 
 Con el login habilitado, **todos los módulos** quedan detrás de la
