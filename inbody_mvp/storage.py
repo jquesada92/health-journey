@@ -280,14 +280,14 @@ def load_reviewed_audit_history(
 
 
 def load_measurement_history(
-    person_id: str, oauth_profile=None, limit: int = 250
+    person_id: str, oauth_profile=None, limit: int = 250, request=None
 ) -> list[dict]:
     """Read confirmed measurements for the explicitly requested InBody ID.
 
     Single-owner MVP: the HF allowlist is the security boundary.
     A multiuser app must introduce owner-scoped row-level authorization.
     """
-    require_database_access(oauth_profile)
+    require_database_access(oauth_profile, request=request)
     person_id = str(person_id or "").strip()
     if not person_id or len(person_id) > 128:
         raise ValueError("Introduce un ID de persona válido para consultar el historial.")
