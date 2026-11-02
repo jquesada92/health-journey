@@ -48,7 +48,7 @@ def records():
 
 def test_indicators_use_previous_measurement_and_relative_difference(records):
     result = render_progress(records)
-    assert len(result) == 10
+    assert len(result) == 11
     assert len(METRICS) == 5
     weight_fig = result[1]
     assert isinstance(weight_fig, go.Figure)
@@ -150,3 +150,58 @@ def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     assert 'type="password"' in section
     assert len(METRICS) == 5
     assert SECTIONS[0] == "Todas las secciones"
+    assert 'progress_score = gr.Plot(' in app
+    assert 'progress_score],' in app
+
+
+@pytest.mark.parametrize("label,section,unit", [
+    ("InBody Score", "InBody Score", "points"),
+    ("Score", "InBody Score", "puntos"),
+    ("Puntaje InBody", "InBody Score", ""),
+])
+def test_score_line_accepts_variants_without_fabricating_data(label, section, unit):
+    points = [
+        {"exam_date": "2026-09-27", "section": section, "measurement": label,
+         "value": "82.00", "unit": unit, "anonymous_id": "synthetic"},
+        {"exam_date": "2026-10-04", "section": section, "measurement": label,
+         "value": "84.20", "unit": unit, "anonymous_id": "synthetic"},
+    ]
+    result = render_progress(points)
+    chart = result[10]
+    assert isinstance(chart, go.Figure)
+    assert chart.data[0].type == "scatter"
+    assert chart.data[0].mode == "lines+markers+text"
+    assert list(chart.data[0].y) == [82.0, 84.2]
+    assert list(chart.data[0].text) == ["82.00", "84.20"]
+    assert len(result[7]) == 0  # No full-body metrics fabricated
+
+
+def test_score_chart_respects_date_filter_and_keeps_private_ids_hidden():
+    report = [
+        {"exam_date": d, "section": "InBody Score",
+         "measurement": "InBody Score", "value": value, "unit": "points",
+         "person_id": "synthetic-person-private", "filename": "private.pdf"}
+        for d, value in [
+            ("2026-07-01", "72"),
+            ("2026-08-01", "79"),
+            ("2026-09-01", "81"),
+        ]
+    ]
+    chart = render_progress(report, "2026-08-01", "2026-09-30")[10]
+    assert list(chart.data[0].y) == [79.0, 81.0]
+    assert "synthetic-person-private" not in chart.to_json()
+    assert "private.pdf" not in chart.to_json()
+    missing = render_progress(report, "2025-01-01", "2025-12-31")[10]
+    assert not missing.data
+    assert "Todavía no hay puntajes" in str(missing.layout.annotations)
+
+
+def test_score_does_not_include_unrelated_scoring_measurements():
+    data = [
+        {"exam_date": "2026-09-01", "section": "Research Parameters",
+         "measurement": "Visceral Score", "value": "10", "unit": "points"},
+        {"exam_date": "2026-09-01", "section": "Research Parameters",
+         "measurement": "Score", "value": "20", "unit": "points"},
+    ]
+    assert not render_progress(data)[10].data
+
