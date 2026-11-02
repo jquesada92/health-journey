@@ -16,5 +16,13 @@ CREATE TABLE IF NOT EXISTS public.hj_app_accounts (
 REVOKE ALL ON TABLE public.hj_app_accounts FROM PUBLIC;
 REVOKE ALL ON TABLE public.hj_app_accounts FROM health_journey_demo_writer;
 REVOKE ALL ON TABLE public.hj_app_accounts FROM health_journey_public;
+-- The private application roles may read the password verifier and update
+-- only login security fields; never grant these permissions to demo/public.
+GRANT SELECT ON TABLE public.hj_app_accounts
+    TO health_journey_app, health_journey_runtime;
+GRANT UPDATE (password_hash, failed_attempts, locked_until,
+              last_login_at, password_changed_at)
+    ON TABLE public.hj_app_accounts
+    TO health_journey_app, health_journey_runtime;
 -- A single app account is provisioned separately by an authorized administrator.
 -- Disable the account by UPDATE enabled=false to revoke access.
