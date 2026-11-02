@@ -222,3 +222,33 @@ def test_both_consents_at_start_and_login_only_for_history():
     assert "inputs=[gemini_table, gemini_snapshot, gemini_consent, gemini_overwrite]" in upload
     assert "inicia sesión en pestaña nueva" not in upload
     assert 'with gr.Tab("Historial en Neon")' in app
+
+
+def test_migration_007_requires_confirmation_and_keeps_history():
+    migration = (ROOT / "migrations/007_idempotent_audit_save.sql").read_text()
+    assert "hj_audit_filename_processed" in migration
+    assert "hj_submit_reviewed_audit_receipt" in migration
+    assert "'filename_processed'" in migration
+    assert "'overwrite_required'" in migration
+    assert "p_confirm_overwrite IS NOT TRUE" in migration
+    assert "'overwritten'" in migration
+    assert "dense_rank() OVER" in migration
+    assert "version_rank = 1" in migration
+    assert "DELETE FROM" not in migration
+    assert "UPDATE public.hj_measurement_audits" not in migration
+    assert "GRANT EXECUTE ON FUNCTION public.hj_submit_reviewed_audit_receipt" in migration
+    assert "TO health_journey_demo_writer;" in migration
+
+
+def test_review_ui_clears_only_after_success():
+    source = (ROOT / "app.py").read_text()
+    assert 'def save_review_and_clear(table, snapshot, consent, overwrite):' in source
+    assert 'if message.startswith("Guardado en Neon:"):' in source
+    assert "pd.DataFrame(columns=GEMINI_COLUMNS)" in source
+    assert "gr.Info(message)" in source
+    assert "unchanged = gr.update()" in source
+    assert "gemini_upload.upload(" in source
+    assert "gemini_upload.change(" not in source
+    assert "gemini_overwrite = gr.Checkbox(" in source
+    assert "fn=show_processed_filename" in source
+
