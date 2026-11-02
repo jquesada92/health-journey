@@ -199,3 +199,12 @@ de un PR en una afirmación de despliegue.
 
 Ver también `harness/04_extraccion_y_normalizacion.md` y
 `harness/08_pruebas_y_criterios.md` para reglas y puertas de calidad.
+
+
+## Continuidad operativa — 2026-11-01 (instrucciones actuales para agentes)
+
+**Leer primero** [harness/10_continuidad_noviembre_2026.md](harness/10_continuidad_noviembre_2026.md). Este documento distingue solicitudes recientes, código observado y validación E2E pendiente. Si contradice secciones históricas que describen EasyOCR como runtime principal, CSV activo o ZeroGPU eliminado, prevalece el estado actual corroborado en código y las decisiones fechadas más recientes. **No reinterpretar deseos como funciones entregadas.**
+
+Al continuar el trabajo: inspeccionar rama/PR y Space antes de afirmar que algo funciona; mantener el flujo Gemini + revisión humana + consentimiento separado + auditoría privada; preservar decimales textuales, timestamp del examen, ID y unidades; no extraer el historial impreso. No añadir columnas de frecuencia artificiales a la tabla de mediciones. Respetar la distinción entre persistencia privada, demo y publicación pública.
+
+**Solicitudes abiertas que no deben perderse:** limpieza de UI después de guardar correctamente; duplicado exacto por nombre de archivo vs conflicto de clave (persona normalizada, fecha/hora de examen, medición) con confirmación explícita antes de sobrescribir; un único popup de errores por operación; selector de modelos Gemini gratuitos/elegibles sin suponer gratuidad permanente; dashboard de estilo InBody con ángulo de fase, comparativas y tendencia de InBody Score; no volver a introducir paneles/componentes retirados sin revisar el diseño vigente. Todo sujeto a pruebas, autorización, aislamiento por usuario y controles de acceso. Documentar resultado de cada entrega y pruebas antes de marcarla completa.
