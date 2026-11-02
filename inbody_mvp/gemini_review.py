@@ -502,13 +502,21 @@ def save_audit(table, snapshot, consent, profile=None):
         engine = _audit_write_engine()
         try:
             with engine.begin() as con:
-                audit_id = con.execute(
-                    text("SELECT public.hj_submit_reviewed_audit(CAST(:payload AS jsonb))"),
+                receipt = con.execute(
+                    text("SELECT public.hj_submit_reviewed_audit_receipt(CAST(:payload AS jsonb))"),
                     {"payload": json.dumps(body, ensure_ascii=False)},
                 ).scalar_one()
+            if isinstance(receipt, str):
+                receipt = json.loads(receipt)
+            if receipt["status"] == "already_saved":
+                return (
+                    "Este reporte ya está guardado en Neon. No se creó un "
+                    "duplicado ni se aplicaron nuevas correcciones."
+                )
+            if receipt["status"] != "saved":
+                raise RuntimeError("Unknown audit receipt status")
             return (
-                f"Auditoría guardada en Neon ({audit_id}): "
-                f"{len(rows)} mediciones; "
+                f"Auditoría guardada en Neon: {len(rows)} mediciones; "
                 f"{sum(r['was_corrected'] for r in rows)} corregidas."
             )
         finally:
