@@ -6,6 +6,7 @@ accept raw PDF history plots as datapoints or expose a real person ID.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -56,6 +57,8 @@ SECTIONS = (
     "Segmental Fat Analysis",
     "Segmental ECW Analysis",
     "ECW Ratio-Phase Angle",
+    "Phase Angle",
+    "Segmental Phase Angle",
     "Research Parameters",
     "Weight Control",
     "InBody Score",
@@ -101,7 +104,10 @@ def _number(value):
 
 
 def _slug(value):
-    return " ".join(re.findall(r"[a-z0-9]+", str(value).lower()))
+    folded = unicodedata.normalize("NFKD", str(value).lower())
+    return " ".join(re.findall(
+        r"[a-z0-9]+", "".join(c for c in folded if not unicodedata.combining(c))
+    ))
 
 
 def _base_metric(name):
