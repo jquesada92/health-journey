@@ -15,7 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .storage import _database_engine
 
 MAX_METRIC_DEFINITIONS = 18
-MAX_FIELD_DEFINITIONS = 20
+MAX_FIELD_DEFINITIONS = 30
 _MAX_DICTIONARY_ROWS = 200
 
 
