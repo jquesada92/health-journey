@@ -70,10 +70,17 @@ def test_coach_model_stays_separate_and_privacy_callbacks_preserved():
     assert 'layout="bubble"' in APP
     assert 'type="messages"' not in APP
     assert "session_coach_consent" in APP
-    assert "fn=ask_coach" in APP
+    assert "fn=enqueue_coach_message" in APP
+    assert "fn=complete_coach_message" in APP
+    assert "coach_history = gr.State(value=[])" in APP
+    assert "coach_pending_question = gr.State(value=\"\")" in APP
+    assert "concurrency_id=\"hj-fitness-chat-turn\"" in APP
     assert "fn=coach_refresh_model_options, outputs=[coach_model]" in APP
     assert "outputs=[gemini_model_selector, gemini_models_status]" in APP
-    assert "coach_question.submit(" in APP
-    assert "coach_send.click(" in APP
+    assert "triggers=[coach_send.click, coach_question.submit]" in APP
+    assert "gr.on(" in APP
+    assert ").success(" in APP
     assert "coach_clear.click(" in APP
-    assert "outputs=[coach_chat, coach_context_status, coach_question]" in APP
+    assert "append_assistant_message(messages, reply)" in APP
+    assert 'content": "Escribiendo…"' in APP
+    assert 'updated, updated, status, ""' in APP
