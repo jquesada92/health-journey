@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 
 from .gemini_review import check_processed_filename
+from .filename_timestamp import exam_datetime_from_filename
 
 
 def preflight_processed_upload(upload_state, *, profile=None, request=None) -> dict:
@@ -29,6 +30,11 @@ def preflight_processed_upload(upload_state, *, profile=None, request=None) -> d
             "message": "El archivo seleccionado es inválido. Cárgalo de nuevo.",
         }
     fingerprint = hashlib.sha256(data).hexdigest()
+    filename_timestamp = exam_datetime_from_filename(name)
+    date_hint = (
+        f" Fecha del nombre: {filename_timestamp}."
+        if filename_timestamp else ""
+    )
     message = check_processed_filename(
         upload_state, profile=profile, request=request
     )
@@ -40,19 +46,23 @@ def preflight_processed_upload(upload_state, *, profile=None, request=None) -> d
                 "'Reprocesar y reemplazar el archivo existente' y vuelve "
                 "a extraerlo (volver a extraer consume tokens). El anterior " 
                 "solo se sustituye al guardar "
-                "las mediciones revisadas."
+                "las mediciones revisadas." + date_hint
             ),
         }
     if message.startswith("Archivo nuevo:"):
         return {
             "status": "new", "sha256": fingerprint,
-            "message": "Archivo no registrado por nombre. Puedes extraer sus mediciones.",
+            "message": (
+                "Archivo no registrado por nombre. Puedes extraer sus mediciones."
+                + date_hint
+            ),
         }
     return {
         "status": "unverified", "sha256": fingerprint,
         "message": (
             "No fue posible verificar si este nombre ya existe en la base de datos. "
             "Puedes continuar, pero podrías consumir tokens de un archivo duplicado."
+            + date_hint
         ),
     }
 
