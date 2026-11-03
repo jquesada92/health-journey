@@ -72,7 +72,8 @@ def test_document_is_alongside_editable_table_without_collapsible_panel():
     assert '"Ver examen original y comparar las mediciones"' not in INBODY
     assert INBODY.count("gemini_preview = gr.Gallery(") == 1
     assert INBODY.count("gemini_table = gr.Dataframe(") == 1
-    assert "correction_comment" in table_code
+    assert "headers=GEMINI_DISPLAY_COLUMNS" in table_code
+    assert "correction_comment" in INBODY
     assert "**reviewed**" in INBODY
 
 
