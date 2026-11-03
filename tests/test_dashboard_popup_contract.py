@@ -28,7 +28,7 @@ def test_one_warning_popup_and_no_gr_error_callbacks():
         for node in ast.walk(TREE)
     )
     body = ast.unparse(_function("popup_error"))
-    assert "gr.Warning(str(message))" in body
+    assert "gr.Warning(str(message).replace('Neon', 'la base de datos'))" in body
     assert "fallback" in body
 
 
@@ -46,10 +46,10 @@ def test_failed_events_preserve_component_values():
         assert "try:" in body, name
         assert "except" in body, name
     save = ast.unparse(_function("save_review_and_clear"))
-    assert "return keep_components(12)" in save
+    assert "return keep_components(10)" in save
     assert "if message.startswith('Guardado en Neon:')" in save
-    assert "gr.Warning(message)" in save
-    assert "gr.Info(message)" in save
+    assert "gr.Warning(message.replace('Neon', 'la base de datos'))" in save
+    assert "gr.Info(message.replace('Neon', 'la base de datos'))" in save
     progress = ast.unparse(_function("show_progress"))
     assert "return keep_components(13)" in progress
 
