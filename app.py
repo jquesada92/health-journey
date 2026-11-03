@@ -39,7 +39,7 @@ from inbody_mvp.ai_coach import (
 )
 from inbody_mvp.prelogin_consent import (
     PrivacyFirstMiddleware, privacy_page, submit_consent,
-    current_choices, coach_choice, has_consent, set_consent,
+    current_choices, coach_choice, has_consent,
 )
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
@@ -166,78 +166,17 @@ with gr.Blocks(
         nav_coach = gr.Button("Chat con el asistente fitness", variant="secondary",
                               elem_classes="hj-nav-button")
 
-        # Gradio checkbox values are scoped to the current session and shared by tabs.
-        # Neither permission is stored in a database or persisted across logins.
-        with gr.Accordion("Permisos de esta sesión", open=False):
-            gr.Markdown(
-                "Tus permisos se eligen **antes de iniciar sesión** al revisar "
-                "el aviso de tratamiento de datos. La extracción InBody, el "
-                "almacenamiento en la base de datos y el envío de resúmenes al chat "
-                "fitness son tres permisos **independientes y opcionales**. "
-                "Puedes retirarlos durante esta sesión."
-            )
-            with gr.Column():
-                session_ai_consent = gr.Checkbox(
-                    label="Autorizo enviar mis documentos InBody a Google Gemini "
-                          "para extraer datos con inteligencia artificial",
-                    value=False,
-                    info="Solo al pulsar Extraer. El documento se envía al servicio "
-                         "externo de Google. El chat fitness tiene una autorización diferente.",
-                )
-                session_db_consent = gr.Checkbox(
-                    label="Autorizo guardar mis datos de InBody y entrenamiento "
-                          "en una base de datos",
-                    value=False,
-                    info="InBody: ID, edad, fecha, nombre del archivo, mediciones "
-                         "revisadas y respuesta de la IA. Entrenamientos: fechas, "
-                         "ejercicios, series, peso, repeticiones y comentarios.",
-                )
-                session_coach_consent = gr.Checkbox(
-                    label="Autorizo enviar resúmenes privados de mis mediciones "
-                          "InBody y entrenamientos a Gemini para el chat fitness",
-                    value=False,
-                    info="Solo cuando haces una pregunta. No se envían documentos, "
-                         "IDs de InBody ni comentarios del entrenamiento.",
-                )
-            gr.Markdown(
-                "**Tratamiento de datos:** el archivo subido llega al servidor "
-                "para su vista previa. Solo se envía a Google Gemini con "
-                "autorización de IA y al pulsar Extraer; solo se almacena en "
-                "la base de datos con permiso de guardado y al pulsar Guardar. "
-                "El chat fitness solo envía agregados y tus metas cuando lo autorizas "
-                "y haces una pregunta. El chat no se guarda automáticamente. "
-                "Lo almacenado en la base de datos permanece tras cerrar sesión; "
-                "retirar permisos detiene nuevos envíos, no borra datos previos. "
-                "Guardar no implica publicar."
-            )
+    # All three optional consents are explained and explicitly selected
+    # BEFORE Gradio login at /privacy. There are no duplicate checkboxes
+    # after login. Gradio States simply mirror that signed server-side choice;
+    # callbacks still verify has_consent(request, scope) on every operation.
+    session_ai_consent = gr.State(value=False)
+    session_db_consent = gr.State(value=False)
+    session_coach_consent = gr.State(value=False)
 
-        def restore_session_consents(request: gr.Request):
-            return current_choices(request)
-
-        def update_ai_session(value: bool, request: gr.Request):
-            set_consent(request, "ai", value)
-
-        def update_db_session(value: bool, request: gr.Request):
-            set_consent(request, "db", value)
-
-        def update_coach_session(value: bool, request: gr.Request):
-            set_consent(request, "coach", value)
-
-        # These changes are tied to a signed server-side session, not browser JS
-        # or a potentially forged input field.
-        session_ai_consent.change(
-            fn=update_ai_session, inputs=[session_ai_consent], outputs=[],
-            api_name=False, queue=False,
-        )
-        session_db_consent.change(
-            fn=update_db_session, inputs=[session_db_consent], outputs=[],
-            api_name=False, queue=False,
-        )
-
-        session_coach_consent.change(
-            fn=update_coach_session, inputs=[session_coach_consent], outputs=[],
-            api_name=False, queue=False,
-        )
+    def restore_session_consents(request: gr.Request):
+        ai, db = current_choices(request)
+        return ai, db, coach_choice(request)
 
 
     with gr.Column(elem_id="hj-module-content"):
@@ -1261,13 +1200,9 @@ with gr.Blocks(
     # tabs and keep subsequent changes server-side until logout.
     demo.load(
         fn=restore_session_consents,
-        outputs=[session_ai_consent, session_db_consent],
+        outputs=[session_ai_consent, session_db_consent, session_coach_consent],
         show_progress="hidden",
         api_name=False,
-    )
-    demo.load(
-        fn=coach_choice, outputs=[session_coach_consent],
-        show_progress="hidden", api_name=False,
     )
 
 
