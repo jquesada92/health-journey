@@ -1,5 +1,21 @@
 # 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
+> **Nueva opción de reingesta privada pendiente de merge y migración:**
+> El extractor ofrece `Reprocesar y reemplazar el archivo existente
+> en Neon` (desmarcado por defecto), permite nueva extracción de
+> archivo duplicado únicamente con autorización privada previa,
+> y reemplaza al pulsar `Guardar mediciones`, nunca durante
+> selección ni extracción. Migración 010 crea tabla privada de
+> recuperación y procedimiento de reemplazo por nombre,
+> idéntica persona y transacción atómica (archivar → borrar
+> antiguo activo → validar/insertar nuevo; rollback completo
+> ante errores). **No se ha ejecutado DELETE en Neon.**
+> Requiere rol privado, no el escritor demo. 
+> `inbody_mvp/upload_preflight.py`, `inbody_mvp/gemini_review.py`,
+> `app.py`, `migrations/010_private_inbody_filename_replace.sql`,
+> `tests/test_inbody_filename_replacement.py`.
+
+
 > **Normalización entre idiomas y arranque HF (2026-11-03; PR
 > propuesto):** vista InBody reconoce variantes ES/EN de métricas
 > y secciones. En Neon existen `Body Fat Percentage` (13),
