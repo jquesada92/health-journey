@@ -1,3 +1,34 @@
+## Prompts independientes y chat multi-turno (2026-11-03)
+
+**Prompts:** `inbody_mvp/prompts/inbody_extraction.md` solo controla la
+extracción y `inbody_mvp/prompts/fitness_coach.md` solo el chat.
+Ambos se leen mediante `inbody_mvp/prompt_loader.py` desde el repositorio
+y se incluyen en el despliegue Hugging Face. Para modificar la respuesta del
+coach, editar el segundo archivo; para normalizar medidas InBody, editar
+el primero. No introducir prompts largos incrustados en `.py`.
+
+**Chat:** `inbody_mvp/chat_session.py` separa el historial visual de
+los ocho mensajes recientes que Gemini recibe para dar contexto.
+Al enviar, la burbuja del usuario se muestra antes de la llamada,
+junto con un indicador temporal «Escribiendo…». Un único evento
+`gr.on(triggers=[Enviar, Enter])` evita dos rutas independientes.
+La respuesta o el fallo reemplaza el indicador, en orden, conservando
+la pregunta. Limpiar conversación borra el estado visible de esa sesión.
+El campo y los botones se bloquean mientras se espera al proveedor.
+No se persiste el chat en Neon, ni se elimina el consentimiento firmado.
+
+**Gemini:** la API usa `generate_content` con una lista de
+`types.Content` alternando `user` y `model`; las instrucciones
+del coach se envían como `system_instruction`. El contexto actual
+contiene solo objetivos, restricciones y los resúmenes privados
+autorizados. Las fuentes científicas no se descargan en tiempo real:
+el prompt pide explicar la calidad de la evidencia y no fabricar
+bibliografía. Ver `tests/test_coach_conversation.py` para una
+conversación de varias preguntas con proveedor completamente simulado.
+
+**Pendiente:** validación real en Space y móvil, con permiso y clave
+propios, tras aprobación y despliegue del PR.
+
 ## Interfaz de conversación estilo WhatsApp (cambio del 2026-11-02)
 
 El módulo Chat presenta un diseño de mensajería con cabecera
