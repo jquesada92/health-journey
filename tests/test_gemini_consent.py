@@ -46,4 +46,4 @@ def test_ui_supplies_explicit_remote_consent_and_preserves_it_on_upload():
     text = (ROOT / "app.py").read_text()
     assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in text
     assert "outputs=[gemini_snapshot]" in text
-    assert "session_ai_consent" not in text.split('gr.ClearButton(', 1)[1].split('value="Limpiar"', 1)[0]
+    assert "session_ai_consent" not in text.split('gr.ClearButton(', 1)[1].split('value="Limpiar examen (conservar permisos)"', 1)[0]

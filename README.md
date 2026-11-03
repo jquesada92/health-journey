@@ -28,6 +28,47 @@ nuevas pantallas de credenciales ni se cambia el acceso a Neon. Las futuras
 sugerencias serán informativas y no reemplazarán orientación profesional
 médica o nutricional.
 
+## Consentimiento y tratamiento de datos antes de iniciar sesión
+
+Antes de mostrar el login nativo de Gradio, un middleware del servidor
+redirige al visitante a `/privacy`, una pantalla sin acceso a datos privados
+que explica las categorías de datos personales y de salud, los fines
+(ingesta, revisión, historial y tendencias), los destinatarios externos,
+el tratamiento en el servidor, el tiempo de conservación y cómo solicitar
+la eliminación de registros. **No se afirma que el sistema tenga un flujo
+automático de eliminación si todavía no existe**.
+
+El formulario contiene **dos consentimientos independientes, opcionales y
+desmarcados**: enviar documentos InBody a Google Gemini para extraerlos y
+almacenar mediciones revisadas y registros de entrenamiento en una base de
+datos. Un tercer checkbox obligatorio solo confirma que el aviso se ha
+leído; no se interpreta como autorización de los otros dos permisos. Se
+puede iniciar sesión sin autorizar ninguna operación.
+
+El servidor recibe las opciones **antes del login** y crea una sesión
+aleatoria de duración limitada, identificada por una cookie de sesión
+firmada, `HttpOnly` y `SameSite=Lax` (además de `Secure` en el Space
+HTTPS). El identificador y las opciones residen únicamente en memoria del
+proceso; no se guardan contraseñas ni información de salud en la cookie.
+Al cerrar sesión la cookie y la sesión se revocan; al reiniciar el
+servidor también quedan invalidadas. No se comparte consentimiento entre
+navegadores o usuarios.
+
+Gradio conserva la autenticación original mediante
+`authenticate_master_demo`. Al iniciar sesión, los checkboxes de la
+aplicación restauran **las opciones declaradas antes del login**. Pueden
+modificarse durante la sesión; sus eventos actualizan el registro seguro del
+servidor. Los callbacks de extracción Gemini y los de guardado InBody y
+FitNotes requieren tanto el consentimiento actual de la interfaz como el
+permiso guardado en el servidor, evitando habilitarlos con parámetros
+forjados. Sin cookie válida no se puede acceder al login ni a las rutas
+de procesamiento de Gradio.
+
+Esta pantalla es un aviso de privacidad práctico, **no una declaración de
+cumplimiento legal completo**. Antes de producción con múltiples usuarios,
+revisar los avisos y procedimientos de derechos, conservación,
+transferencias internacionales y seguridad conforme a la normativa aplicable.
+
 ## Flujo de captura InBody — cinco pasos
 
 La pestaña **InBody Upload** sigue una guía secuencial visible también en

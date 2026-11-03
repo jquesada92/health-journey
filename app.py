@@ -14,6 +14,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dotenv import load_dotenv
+from starlette.middleware import Middleware
+from starlette.routing import Route
 
 load_dotenv(override=False)  # Local-only .env; do not commit credentials.
 
@@ -24,6 +26,10 @@ from inbody_mvp.public_dashboard import (
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
+from inbody_mvp.prelogin_consent import (
+    PrivacyFirstMiddleware, privacy_page, submit_consent,
+    current_choices, has_consent, set_consent,
+)
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
@@ -126,12 +132,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
 
     # Gradio checkbox values are scoped to the current session and shared by tabs.
     # Neither permission is stored in a database or persisted across logins.
-    with gr.Accordion("Privacidad y consentimiento de esta sesión", open=True):
+    with gr.Accordion("Privacidad y consentimiento de esta sesión", open=False):
         gr.Markdown(
-            "Elige por separado qué operaciones autorizas. Ambas opciones están "
-            "**desactivadas de forma predeterminada**. Se conservarán mientras "
-            "permanezca abierta esta sesión, incluso al cambiar de módulo "
-            "o cargar varios archivos. Puedes desmarcarlas cuando quieras."
+            "Tus permisos iniciales se eligen **antes de iniciar sesión**, "
+            "al leer el aviso de tratamiento de datos. Se aplican a InBody y "
+            "entrenamientos durante esta sesión. Puedes modificarlos aquí "
+            "en cualquier momento; ambos son independientes y opcionales."
         )
         with gr.Row():
             session_ai_consent = gr.Checkbox(
@@ -150,15 +156,34 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                      "ejercicios, series, peso, repeticiones y comentarios.",
             )
         gr.Markdown(
-            "**Importante:** al cargar un archivo, este llega al servidor de "
-            "la aplicación para su lectura y vista previa, pero no se envía "
-            "a Google Gemini hasta que lo autorices y pulses Extraer. "
-            "Guardar requiere pulsar el botón correspondiente. "
-            "Los datos almacenados permanecen en la base de datos después de "
-            "cerrar sesión; desmarcar un permiso detiene nuevos envíos, "
-            "pero no elimina datos ya enviados o guardados. "
-            "El permiso de guardado no autoriza publicar datos."
+            "**Tratamiento de datos:** el archivo subido llega al servidor "
+            "para su vista previa. Solo se envía a Google Gemini con "
+            "autorización de IA y al pulsar Extraer; solo se almacena en "
+            "la base de datos con permiso de guardado y al pulsar Guardar. "
+            "Lo guardado permanece después de cerrar sesión y retirar un "
+            "permiso detiene futuros envíos, sin borrar datos anteriores. "
+            "El almacenamiento no implica publicación."
         )
+
+    def restore_session_consents(request: gr.Request):
+        return current_choices(request)
+
+    def update_ai_session(value: bool, request: gr.Request):
+        set_consent(request, "ai", value)
+
+    def update_db_session(value: bool, request: gr.Request):
+        set_consent(request, "db", value)
+
+    # These changes are tied to a signed server-side session, not browser JS
+    # or a potentially forged input field.
+    session_ai_consent.change(
+        fn=update_ai_session, inputs=[session_ai_consent], outputs=[],
+        api_name=False, queue=False,
+    )
+    session_db_consent.change(
+        fn=update_db_session, inputs=[session_db_consent], outputs=[],
+        api_name=False, queue=False,
+    )
 
     with gr.Tab("InBody Upload"):
         from inbody_mvp.gemini_review import (
@@ -303,8 +328,14 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             static_columns=[0,1,2,3,8,9],
             label="Mediciones extraídas: revisa y edita cada fila",
         )
-        def extract_with_popup(state, consent, model):
+        def extract_with_popup(
+            state, consent, model, request: gr.Request | None = None,
+        ):
             try:
+                if consent is not True or not has_consent(request, "ai"):
+                    raise PermissionError(
+                        "Autoriza el envío a la IA antes de extraer el examen."
+                    )
                 if not model:
                     raise ValueError(
                         "Selecciona un modelo Gemini disponible antes de extraer."
@@ -378,8 +409,15 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "Sin datos guardados. Se mostrará una confirmación al completar el guardado."
         )
 
-        def save_review_and_clear(table, snapshot, consent, overwrite):
+        def save_review_and_clear(
+            table, snapshot, consent, overwrite,
+            request: gr.Request | None = None,
+        ):
             try:
+                if consent is not True or not has_consent(request, "db"):
+                    raise PermissionError(
+                        "Autoriza guardar datos en la base de datos antes de continuar."
+                    )
                 message = save_audit(table, snapshot, consent, overwrite)
             except Exception as exc:
                 popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
@@ -546,6 +584,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             request: gr.Request | None = None,
         ):
             try:
+                if consent is not True or not has_consent(request, "db"):
+                    raise PermissionError(
+                        "Autoriza guardar datos en la base de datos antes de continuar."
+                    )
                 result = save_training_import(
                     state, consent, overwrite, profile=profile, request=request,
                 )
@@ -998,6 +1040,14 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         outputs=[gemini_model_selector, gemini_models_status],
         show_progress="hidden",
     )
+    # Choices were explicitly submitted before login. Restore them in both
+    # tabs and keep subsequent changes server-side until logout.
+    demo.load(
+        fn=restore_session_consents,
+        outputs=[session_ai_consent, session_db_consent],
+        show_progress="hidden",
+        api_name=False,
+    )
 
 
 if __name__ == "__main__":
@@ -1008,4 +1058,11 @@ if __name__ == "__main__":
         ssr_mode=False,
         auth=authenticate_master_demo if password_login_enabled() else None,
         auth_message=LOGIN_AUTH_MESSAGE if password_login_enabled() else None,
+        app_kwargs={
+            "routes": [
+                Route("/privacy", privacy_page, methods=["GET"]),
+                Route("/privacy/consent", submit_consent, methods=["POST"]),
+            ],
+            "middleware": [Middleware(PrivacyFirstMiddleware)],
+        },
     )
