@@ -1,5 +1,8 @@
 # 07 — Manual de reconstrucción desde cero y operación
 
+> **Operación auditada (2026-11-03):** leer [00 — estado y criterios](00_estado_vigente_y_trazabilidad.md), `requirements.txt`, `app.py`, `inbody_mvp/` y migraciones 004–008. Python 3.12 en CI; Gradio 6, Gemini Flash API, PyMuPDF/Pillow, Pydantic/Pandas/Plotly, SQLAlchemy/psycopg/Neon; `spaces` solo se conserva por compatibilidad ZeroGPU. El deploy `.github/workflows/deploy-huggingface.yml` requiere `HF_TOKEN` (Secret) y `HF_SPACE_ID` (variable), sincroniza `main` a Hugging Face y usa allowlist explícita; confirmar en el Space antes de afirmar que funciona. El antiguo manual de OCR local, exportar CSV v1 y dashboard CSV+Neon **no es el plan de reconstrucción vigente**. Tres permisos opcionales antes del login, menú de cuatro módulos y reset solo tras guardar exitosamente. No cargar informes personales ni asumir migraciones aplicadas por existir su SQL.
+
+
 
 ## Flujo actual: extracción inglés + PDF y consentimiento (noviembre 2026)
 
