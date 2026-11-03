@@ -1,5 +1,21 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+## Nueva cobertura pendiente de merge: tendencias en Chat
+
+Nuevo archivo `inbody_mvp/coach_trends.py`: lector InBody autorizado,
+selección SQL del primer examen y de los últimos diez, deduplicación
+por fecha, 4 minigráficas Plotly y estados vacíos. Nuevas pruebas:
+`tests/test_coach_first_last_trends.py`. Se actualizan
+`inbody_mvp/progress_dashboard.py` (alias ES de variables),
+`inbody_mvp/coach_chat_ui.py` (CSS responsive),
+`app.py` (dos columnas y autocarga/refresh),
+`.github/workflows/deploy-huggingface.yml` (allowlist) y
+`.github/workflows/test-inbody.yml` (test). No se requiere
+migración SQL y las reglas de privacidad existentes se mantienen.
+La matriz histórica de archivos de main permanece intacta hasta
+integrar este PR.
+
+
 ## Nueva sección académica del Módulo 1 (cambio propuesto, todavía no en main)
 
 El inventario anterior corresponde al corte histórico de main del 03/11/2026. El PR de entregables añade los siguientes archivos al producto: `inbody_mvp/module1_deliverable.py` (contenido guiado, vista previa y DOCX), `tests/test_module1_deliverable.py` (validación sintética de ocho apartados y cuatro capturas), `docs/entregable-modulo1-obs.md` (especificación académica y criterios tomados del HTML proporcionado). Se conecta en `app.py`, añade `python-docx` a `requirements.txt` y amplía las allowlists de CI y despliegue de `.github/workflows/test-inbody.yml` y `.github/workflows/deploy-huggingface.yml`.
