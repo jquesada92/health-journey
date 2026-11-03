@@ -18,31 +18,32 @@ def _call(name):
             and n.func.attr == name]
 
 
-def test_five_vertical_sidebar_entries_and_tab_ids():
+def test_four_vertical_sidebar_entries_without_tab_overflow():
     assert tuple(key for key, _ in NAV_SECTIONS) == (
-        "inbody", "training", "dashboard", "history", "project"
+        "project", "inbody", "training", "coach"
     )
     assert len(_call("Sidebar")) == 1
     assert 'elem_id="hj-module-sidebar"' in SOURCE
-    assert 'with gr.Tabs(selected="inbody", elem_id="hj-module-tabs") as module_tabs:' in SOURCE
-    tabs = _call("Tab")
-    tab_ids = []
-    for t in tabs:
-        key = next((arg.value.value for arg in t.keywords
-                    if arg.arg == "id" and isinstance(arg.value, ast.Constant)), None)
-        if key:
-            tab_ids.append(key)
-    assert set(tab_ids) == {key for key, _ in NAV_SECTIONS}
-    assert SOURCE.count('elem_classes="hj-nav-button"') == 5
+    assert 'with gr.Column(elem_id="hj-module-content"):' in SOURCE
+    assert 'elem_id="hj-panel-project"' in SOURCE
+    assert 'visible=True, elem_id="hj-panel-project"' in SOURCE
+    assert 'elem_id="hj-panel-inbody"' in SOURCE
+    assert 'elem_id="hj-panel-training"' in SOURCE
+    assert 'elem_id="hj-panel-coach"' in SOURCE
+    assert len(_call("Tabs")) == 0
+    assert len(_call("Tab")) == 0
+    assert SOURCE.count('elem_classes="hj-nav-button"') == 4
+    assert 'with gr.Tab("Historial' not in SOURCE
+    assert 'gr.Markdown(PROJECT_OVERVIEW)' in SOURCE
 
 
-def test_sidebar_selection_updates_all_buttons_without_remounting_tabs():
-    assert "outputs=[module_tabs, *nav_buttons]" in SOURCE
+def test_sidebar_selection_updates_all_columns_without_remounting():
+    assert "outputs=[*module_panels, *nav_buttons]" in SOURCE
     assert "fn=lambda key=key: switch_module(key)" in SOURCE
-    assert 'gr.Tabs(selected=section)' in SOURCE
+    assert 'gr.update(visible=(key == section))' in SOURCE
     assert 'gr.update(variant="primary" if key == section else "secondary")' in SOURCE
     assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS" in SOURCE
-    assert "#hj-module-tabs [role=\"tablist\"]" in SIDEBAR_CSS
+    assert "#hj-module-content" in SIDEBAR_CSS
     assert "#hj-module-sidebar" in SIDEBAR_CSS
     assert "@media (max-width: 700px)" in SIDEBAR_CSS
 
