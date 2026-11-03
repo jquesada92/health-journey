@@ -9,6 +9,52 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Fechas InBody: dos formatos de origen y corrección histórica
+
+**Dentro del documento InBody** se imprime la fecha/hora como
+`DD.MM.AAAA HH:MM` (p. ej., `04.10.2026 10:04` o
+`04.10.2026. 10:04`, con punto final ocasional). El extractor
+normaliza este formato a `AAAA-MM-DD HH:MM:SS` y **no** lo interpreta
+como mes/día/año ni año/mes/día. Si el año se presenta con dos dígitos
+se interpreta explícitamente como 20AA. El reporte puede no incluir
+segundos: entonces se representa con `:00`.
+
+**En el nombre del archivo**, inmediatamente después del **primer**
+guion bajo, se utiliza otro formato: `AAAAMMDDHHMMSS` (14 dígitos).
+Cuando está presente y es válido, **tiene prioridad** para la fecha y
+hora del examen y aporta los segundos que no muestra el reporte. La
+respuesta original de Gemini se preserva como evidencia y el encabezado
+normalizado conserva una traza de la fecha propuesta. Si la marca
+del nombre contiene un día/hora imposible, se rechaza el archivo sin
+guardar una fecha inventada; si no hay marca válida en esa posición,
+se utiliza la fecha del encabezado impreso normalizada. En la UI
+esta fecha se muestra antes y después de extraer; el usuario la
+verifica junto al documento, sin poder sobrescribir arbitrariamente
+una marca válida del nombre.
+
+El inventario de Neon consultado en modo **solo lectura** registró
+**17 extracciones**, todas con marca de 14 dígitos en el nombre, y
+**17 discrepancias** entre la fecha/hora guardada y la marca del nombre.
+En 15 casos coincide el día pero no la hora y en dos cambia también
+el día. Se comprobaron las 17 marcas y no se encontraron horas
+imposibles ni colisiones de examen entre archivos en la consulta de
+diagnóstico. La reparación reproducible está versionada en
+`migrations/011_correct_inbody_dates_from_filenames.sql`, que
+inserta la fecha anterior y la corregida en una tabla privada
+`hj_exam_datetime_repair_history` **antes de actualizar el encabezado
+activo**, todo de forma transaccional. No toca mediciones, comentarios
+ni respuestas de IA originales. La migración **aún no se ha aplicado
+a Neon**: requiere autorización explícita para modificar los
+registros históricos; ninguna consulta previa realizó updates.
+
+La reingesta opcional de un archivo existente usa la misma prioridad
+de fecha y está protegida en `migrations/010_private_inbody_filename_replace.sql`.
+Regresiones sintéticas: `tests/test_inbody_filename_timestamp.py`,
+`tests/test_exam_timestamp.py` y
+`tests/test_inbody_filename_replacement.py`.
+La implementación de UI aún necesita merge y despliegue en HF.
+
+
 ## Volver a subir y reemplazar un InBody ya guardado
 
 La pestaña **Extractor de InBody** permite corregir un examen que ya
