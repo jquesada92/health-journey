@@ -235,7 +235,8 @@ def test_both_consents_at_start_and_login_only_for_history():
     assert "interactive=audit_write_enabled()" in upload
     assert '"gemini_table, gemini_snapshot, session_db_consent,"'.strip('"') in upload
     assert "header_exam_datetime, header_filename" in upload
-    assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in upload
+    assert "gemini_upload_state, session_ai_consent," in upload
+    assert "gemini_model_selector, gemini_upload_preflight," in upload
     assert "inicia sesión en pestaña nueva" not in upload
     assert 'with gr.Tab("Historial en base de datos", id="history")' not in app
     assert 'with gr.Accordion("Progreso histórico de InBody", open=False)' in app
