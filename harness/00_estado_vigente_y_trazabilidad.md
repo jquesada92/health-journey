@@ -1,5 +1,16 @@
 # 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
+> **Ajuste en PR (2026-11-03):** corregido el panel de tendencias
+> al lado del chat: CSS grid **2 columnas forzadas en escritorio**
+> y **1 en móvil**, con chat completo en la derecha y prueba AST del
+> anidamiento. El eje de las cuatro gráficas es de **posición de
+> examen** (no intervalos temporales): primera fecha más diez últimas,
+> marcador y etiqueta visibles para la primera y última, sin repetir.
+> Si la primera fecha carece de alguna medición se muestra un hueco
+> sin valor inventado. Pruebas: `tests/test_coach_first_last_trends.py`.
+> No se escribe en Neon ni se envía nada adicional a Gemini.
+
+
 > **Nueva funcionalidad de coach pendiente de merge:** panel izquierdo
 > de cuatro líneas compactas (peso, masa musculoesquelética, porcentaje
 > graso, puntaje InBody). Se usan solo la **primera fecha de examen y
