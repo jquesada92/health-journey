@@ -1,5 +1,17 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+## Estado de la migración 011 (Neon, 2026-11-03)
+
+`migrations/011_correct_inbody_dates_from_filenames.sql`
+**ya se aplicó y validó en Neon** (17/17 encabezados,
+1.087 filas asociadas, 0 diferencias, 17 backups), aunque
+la migración sigue sin existir en `main` hasta la
+fusión de este PR. `migrations/010_private_inbody_filename_replace.sql`
+**NO está aplicada** y no debe presuponerse activa
+en el Space. Los tests de PR #89 pasaron (424),
+y la auditoría estática del harness aprobó.
+
+
 ## Cambio pendiente de merge: dos formatos de fecha InBody
 
 `inbody_mvp/filename_timestamp.py` añade dos normalizadores:
