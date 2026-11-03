@@ -1,5 +1,30 @@
 # 03 — Modelo de datos, nomenclatura y contratos de intercambio
 
+## Reparación ejecutada en Neon y herencia por línea
+
+La migración `011_correct_inbody_dates_from_filenames.sql`
+**se aplicó de forma atómica en Neon** el 03/11/2026:
+17 exámenes reparados, 17 fechas previas respaldadas, 0
+desajustes y 1.087 líneas con la fecha corregida
+heredada de la tabla de extracción.
+`hj_measurement_audits` almacena `extraction_id`,
+pero **no tiene columna exam_datetime**: la fecha
+de cada medición se obtiene por JOIN con
+`hj_extraction_audits.exam_datetime`. La vista
+`hj_audit_reviewed_private` se recalcula y sigue
+exponiendo 1.087 filas con fechas corregidas.
+Ningún valor, unidad ni comentario se alteró.
+
+`hj_exams` y `hj_measurements` siguen sin filas;
+no hay que duplicar datos en esas tablas.
+`hj_exam_datetime_repair_history` contiene
+el timestamp antiguo y el nuevo para cada examen.
+La migración 010 de reemplazo por filename continúa
+sin aplicar. Los párrafos abajo que la citan como
+«propuesta no ejecutada» son anteriores al cambio
+de datos actual.
+
+
 ## Canonización de timestamp desde nombre y reporte (propuesta)
 
 Cuando `filename` cumple `^[^_]+_[0-9]{14}(?:[._-]|$)`,
