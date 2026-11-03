@@ -140,6 +140,14 @@ with gr.Blocks(
             concurrency_limit=1,
         )
 
+    # Independent top-level viewport navbar: no scrolling parent can trap
+    # a position:fixed descendant. It is hidden on all non-InBody modules.
+    with gr.Column(visible=False, elem_id="hj-inbody-fixedbar") as inbody_navbar:
+        inbody_flow = gr.HTML(
+            value=render_inbody_flow(1),
+            elem_id="hj-inbody-flow",
+        )
+
     # Only the vertical navigation is rendered. No Gradio Tab overflow (ellipsis).
     # Mounted Gradio Columns preserve extraction/chat state while navigating.
     with gr.Sidebar(label="Menú principal", open=True, width=284,
@@ -241,14 +249,8 @@ with gr.Blocks(
                 check_processed_filename,
                 audit_write_enabled,
             )
-            # The progress card is the FIRST visible element on the InBody
-            # page and stays sticky while the user scrolls the full form.
-            # It is scoped to this module rather than covering other modules.
-            with gr.Column(elem_id="hj-inbody-sticky"):
-                inbody_flow = gr.HTML(
-                    value=render_inbody_flow(1),
-                    elem_id="hj-inbody-flow",
-                )
+            # Top-level viewport navbar is displayed only for InBody.
+            # #hj-panel-inbody reserves vertical space for its fixed height.
             gr.Markdown("## InBody · Registrar un examen", elem_id="hj-inbody-title")
             gr.Markdown(
                 "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
@@ -1193,6 +1195,7 @@ with gr.Blocks(
         if section not in dict(NAV_SECTIONS):
             raise ValueError("Módulo no válido.")
         return (
+            gr.update(visible=(section == "inbody")),
             *(gr.update(visible=(key == section)) for key, _ in NAV_SECTIONS),
             *(gr.update(variant="primary" if key == section else "secondary")
               for key, _ in NAV_SECTIONS),
@@ -1201,7 +1204,7 @@ with gr.Blocks(
     for key, button in zip((item[0] for item in NAV_SECTIONS), nav_buttons):
         button.click(
             fn=lambda key=key: switch_module(key),
-            outputs=[*module_panels, *nav_buttons],
+            outputs=[inbody_navbar, *module_panels, *nav_buttons],
             show_progress="hidden", queue=False, api_name=False,
         )
 
