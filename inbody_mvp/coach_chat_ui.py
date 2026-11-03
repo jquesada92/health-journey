@@ -19,35 +19,52 @@ COACH_CHAT_CSS = """
 /* Compact InBody trend panel. Charts sit left of the conversation on
    desktop and above it in a short scroll area on small touch screens. */
 #hj-coach-layout {
-    display: flex;
-    align-items: stretch;
-    gap: .65rem;
+    /* Grid, rather than Gradio Row's wrapping flexbox, keeps the chat
+       alongside the charts on desktop even with wide Plotly children. */
+    display: grid !important;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    align-items: start;
+    gap: .75rem;
     width: 100%;
     min-width: 0;
 }
+#hj-coach-layout > #hj-coach-trends,
+#hj-coach-layout > #hj-coach-conversation {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: none !important;
+}
 #hj-coach-trends {
-    flex: 0 1 32%;
-    max-width: 350px;
-    min-width: 0;
+    grid-column: 1;
     border: 1px solid var(--border-color-primary, #d7dfda);
     border-radius: 14px;
     padding: .55rem;
     gap: .3rem;
     background: var(--background-fill-secondary, #fafcfb);
+    overflow: hidden;
 }
 #hj-coach-trends-title { font-size: .82rem; }
 #hj-coach-trends-status { font-size: .73rem; }
-#hj-coach-mini-plots { gap: .16rem; min-width: 0; }
-#hj-coach-mini-plots .plot-container { min-height: 0; }
-#hj-coach-mini-plots .plotly { width: 100%; }
-#hj-coach-conversation { flex: 1 1 68%; min-width: 0; }
+#hj-coach-mini-plots { gap: .16rem; min-width: 0; width: 100%; }
+#hj-coach-mini-plots .plot-container { min-height: 0; min-width: 0; }
+#hj-coach-mini-plots .plotly { width: 100% !important; min-width: 0; }
+#hj-coach-conversation {
+    grid-column: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 
 @media (max-width: 900px) {
-    #hj-coach-layout { flex-direction: column; }
-    #hj-coach-trends {
+    #hj-coach-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .55rem;
+    }
+    #hj-coach-trends,
+    #hj-coach-conversation {
+        grid-column: 1;
         width: 100%;
-        max-width: none;
-        flex: 0 0 auto;
+        min-width: 0;
     }
     #hj-coach-mini-plots {
         max-height: 295px;
@@ -55,7 +72,6 @@ COACH_CHAT_CSS = """
         overscroll-behavior: contain;
         scrollbar-width: thin;
     }
-    #hj-coach-conversation { width: 100%; flex: 1 1 auto; }
 }
 
 #hj-panel-coach {
