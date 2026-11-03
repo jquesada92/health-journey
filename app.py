@@ -455,7 +455,9 @@ with gr.Blocks(
                         type="pandas", interactive=True,
                         static_columns=[4],
                         show_row_numbers=True,
-                        row_limits=(1, None),
+                        # Gradio 6 currently warns that row_limits is not
+                        # implemented. Backend validation rejects an empty
+                        # review, so no client-side minimum is assumed.
                         label="Mediciones: edita o elimina filas en la propia tabla",
                     )
                 with gr.Column(
