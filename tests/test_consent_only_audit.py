@@ -216,8 +216,8 @@ def test_migration_reuses_existing_demo_role_without_private_table_grants():
 
 def test_both_consents_at_start_and_login_only_for_history():
     app = (ROOT / "app.py").read_text()
-    start = app.index('with gr.Tab("InBody Upload", id="inbody")')
-    end = app.index('with gr.Tab("Dashboard", id="dashboard")', start)
+    start = app.index('with gr.Column(visible=False, elem_id="hj-panel-inbody")')
+    end = app.index('with gr.Column(visible=False, elem_id="hj-panel-training")', start)
     upload = app[start:end]
     # Session-wide opt-ins appear before any upload; no file can reset them.
     assert app.index("session_ai_consent = gr.Checkbox") < start
@@ -227,7 +227,8 @@ def test_both_consents_at_start_and_login_only_for_history():
     assert "header_exam_datetime, header_filename" in upload
     assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in upload
     assert "inicia sesión en pestaña nueva" not in upload
-    assert 'with gr.Tab("Historial en base de datos", id="history")' in app
+    assert 'with gr.Tab("Historial en base de datos", id="history")' not in app
+    assert 'with gr.Accordion("Progreso histórico de InBody", open=False)' in app
 
 
 def test_migration_007_requires_confirmation_and_keeps_history():
