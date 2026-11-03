@@ -23,6 +23,7 @@ from inbody_mvp.public_dashboard import (
 )
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
+from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
 from inbody_mvp.storage import (
@@ -924,8 +925,5 @@ if __name__ == "__main__":
         share=False,
         ssr_mode=False,
         auth=authenticate_master_demo if password_login_enabled() else None,
-        auth_message=(
-            "Health Journey · Inicia sesión con el usuario obs-master-demo "
-            "y su contraseña privada. La sesión protege todos los módulos."
-        ) if password_login_enabled() else None,
+        auth_message=LOGIN_AUTH_MESSAGE if password_login_enabled() else None,
     )
