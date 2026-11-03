@@ -299,7 +299,9 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
             not result.header.exam_datetime and filename_datetime is None
         ):
             raise ValueError("No se identificó el ID o la fecha/hora del encabezado.")
-        if result.header.exam_datetime:
+        # A valid filename timestamp wins even if OCR returned a malformed
+        # date; only validate the AI value when it is the actual source.
+        if result.header.exam_datetime and filename_datetime is None:
             datetime.fromisoformat(result.header.exam_datetime)
         correct_datetime = filename_datetime or result.header.exam_datetime
         raw_header = result.header.model_dump()
