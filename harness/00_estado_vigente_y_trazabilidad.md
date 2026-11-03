@@ -1,5 +1,19 @@
 # 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
+> **Nueva funcionalidad de coach pendiente de merge:** panel izquierdo
+> de cuatro líneas compactas (peso, masa musculoesquelética, porcentaje
+> graso, puntaje InBody). Se usan solo la **primera fecha de examen y
+> las diez últimas fechas**, por lo que hay como máximo 11 fechas.
+> Se conserva orden cronológico, sin duplicados y sin ventana
+> 30/90/180/365 del chat. Lecturas privadas, sin identificador en la
+> UI ni envío a Gemini. En móvil el panel va arriba en un área
+> compacta desplazable. Limitación de origen: exámenes del mismo día
+> no son distinguibles en la vista auditada por fecha.
+> `inbody_mvp/coach_trends.py`,
+> `tests/test_coach_first_last_trends.py`, `app.py`
+> y `inbody_mvp/coach_chat_ui.py` documentan el contrato.
+
+
 > **Entregable académico del Módulo 1 (propuesta pendiente de fusionar):** el panel Proyecto incorporará un acordeón con los ocho apartados de la actividad principal de Fundamentos de la Programación, textos editables y precargados con funcionalidades verificadas de Health Journey, vista previa, cuatro capturas opcionales y un único botón `Generar Word (.docx)`. La consigna proviene del HTML del curso; no se recibió la plantilla visual de Blackboard. No se inventan pruebas ni capturas. Archivos: `inbody_mvp/module1_deliverable.py`, `tests/test_module1_deliverable.py`, `docs/entregable-modulo1-obs.md`. No envía datos a Gemini ni guarda el borrador en Neon.
 
 
