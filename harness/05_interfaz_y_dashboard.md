@@ -1,3 +1,16 @@
+## Pestaña nueva propuesta: Training Hub · FitNotes (no desplegada)
+
+Además de InBody, Gradio incorpora un módulo aislado para cargar
+CSV FitNotes y almacenar series de entrenamiento de un usuario autenticado.
+Incluye campo CSV, resumen de días/ejercicios, vista previa de 60 filas,
+consentimiento específico, confirmación separada de sobrescritura, botón de
+guardado en Neon y vista privada de últimas 60 series. Los CSV no se envían
+a Gemini. Diseño de columnas adaptable y tabla desplazable en móvil.
+El backend preserva decimales y valores negativos, evita duplicación por
+archivo o posición de serie y no escribe sin autorización. El DDL se
+preparó en rama temporal de Neon y requiere aprobación antes de producción.
+Guía: `docs/training-hub.md`.
+
 # 05 — Interfaz Gradio y dashboard de doble fuente
 
 ## Estado vigente — 1 de noviembre de 2026 (PR #38, pendiente de validación E2E)
