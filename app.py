@@ -57,7 +57,7 @@ def popup_error(exc: Exception, fallback: str = "No se pudo completar la operaci
         message = getattr(exc, "message", None) or str(exc).strip("'\\\"")
     else:
         message = fallback
-    gr.Warning(str(message))
+    gr.Warning(str(message).replace("Neon", "la base de datos"))
 
 
 def keep_components(count: int):
@@ -87,7 +87,7 @@ def verify_neon_session(
         require_database_access(profile, request=request)
     except PermissionError:
         gr.Warning(
-            "No hay sesión de aplicación o Hugging Face autorizada para Neon. "
+            "No hay sesión de aplicación o Hugging Face autorizada para la base de datos. "
             "Inicia sesión con la cuenta autorizada."
         )
         return gr.update()
@@ -369,7 +369,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                                        "No se pudo leer", "La verificación anticipada no")):
                     gr.Warning(message)
                     return gr.update()
-                return message
+                return message.replace("Neon", "la base de datos")
             except Exception as exc:
                 popup_error(exc, "No se pudo comprobar el nombre del archivo.")
                 return gr.update()
@@ -433,7 +433,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         if not database_enabled():
             gr.Markdown(
-                "Para importar a Neon necesitas configurar la conexión privada "
+                "Para importar a la base de datos necesitas configurar la conexión privada "
                 "DATABASE_URL y un inicio de sesión autorizado."
             )
         with gr.Row():
@@ -449,7 +449,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     value=False,
                 )
                 training_save = gr.Button(
-                    "Guardar entrenamiento en Neon",
+                    "Guardar entrenamiento en la base de datos",
                     variant="primary", interactive=database_enabled(),
                 )
             with gr.Column(min_width=300):
@@ -526,7 +526,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         training_recent_status = gr.Markdown("Sin consulta.")
         training_recent_table = gr.Dataframe(
             headers=list(TRAINING_COLUMNS),
-            label="Últimas 60 series en Neon", type="pandas", interactive=False,
+            label="Últimas 60 series en la base de datos", type="pandas", interactive=False,
         )
 
         def recent_training_with_popup(
@@ -557,7 +557,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         with gr.Accordion("Mi progreso histórico (acceso privado)", open=True):
             gr.Markdown(
                 "## Progreso histórico InBody\\n"
-                "Consulta las mediciones **revisadas y guardadas en Neon** con "
+                "Consulta las mediciones **revisadas y guardadas en la base de datos** con "
                 "acceso privado autorizado. La persona se presenta mediante "
                 "un alias; la cédula del reporte no aparece en gráficas ni tablas. "
                 "Los valores históricos dibujados en el PDF **no** se importan."
@@ -646,7 +646,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     result = render_progress(records, start_date, end_date, section)
                 except Exception as exc:
                     popup_error(
-                        exc, "No se pudo consultar el progreso privado en Neon."
+                        exc, "No se pudo consultar el progreso privado en la base de datos."
                     )
                     return keep_components(13)
                 if records:
@@ -753,7 +753,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 outputs=[public_status, public_plot, public_table],
                 concurrency_limit=1,
             )
-    with gr.Tab("Historial en Neon"):
+    with gr.Tab("Historial en base de datos"):
         if os.getenv("SPACE_ID") and OAUTH_URLS:
             gr.HTML(
                 "El historial privado sí requiere una sesión autorizada. "
@@ -779,7 +779,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         with gr.Accordion("Auditoría Gemini — identificador seudónimo", open=True):
             gr.Markdown(
-                "El ID original se usa únicamente para buscar en Neon. "
+                "El ID original se usa únicamente para buscar en la base de datos. "
                 "En la tabla y el gráfico se muestra un alias aleatorio "
                 "estable, sin archivo, edad ni hora exacta. "
                 "Solo usuarios autorizados pueden consultar estas auditorías."
@@ -869,7 +869,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 value="", label="Región corporal",
             )
         load_button = gr.Button(
-            "Consultar Neon", interactive=(not anonymous_demo_requested() or password_login_enabled())
+            "Consultar base de datos", interactive=(not anonymous_demo_requested() or password_login_enabled())
         )
         db_status = gr.Markdown("Sin consulta.")
         db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
@@ -888,7 +888,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     person_id, oauth_profile=profile, limit=500, request=request
                 )
             except Exception as exc:
-                popup_error(exc, "No se pudo consultar Neon. Revisa la conexión y los permisos.")
+                popup_error(exc, "No se pudo consultar la base de datos. Revisa la conexión y los permisos.")
                 return keep_components(3)
             frame = pd.DataFrame(records)
             fig = go.Figure()
