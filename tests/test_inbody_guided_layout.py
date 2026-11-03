@@ -27,7 +27,8 @@ def test_inbody_steps_follow_users_real_actions_in_order():
     )
     positions = [INBODY.index(title) for title in titles]
     assert positions == sorted(positions)
-    assert "flex-wrap:wrap" in INBODY  # step navigation wraps on mobile
+    assert 'elem_id="hj-inbody-flow"' in INBODY
+    assert "value=render_inbody_flow(1)" in INBODY
     assert INBODY.count('### 1. Carga tu examen') == 1
 
 
