@@ -339,9 +339,11 @@ with gr.Blocks(
             # Review the parsed values and their original source together.
             # The two panes stack on mobile instead of trapping the gallery
             # in a collapsed accordion. The PDF is rendered locally once.
+            # Only show the review panels after a successful AI extraction.
             with gr.Row(
-                elem_id="hj-inbody-review-layout", equal_height=False
-            ):
+                elem_id="hj-inbody-review-layout", equal_height=False,
+                visible=False,
+            ) as inbody_review_layout:
                 with gr.Column(
                     scale=7, min_width=420,
                     elem_id="hj-inbody-review-table",
@@ -366,9 +368,9 @@ with gr.Blocks(
                     gemini_preview = gr.Gallery(
                         label="Visor PDF / imagen",
                         columns=1,
-                        height=540,
+                        height=820,
                         selected_index=0,
-                        preview=True,
+                        preview=False,
                         allow_preview=True,
                         object_fit="contain",
                         buttons=["fullscreen"],
@@ -425,8 +427,14 @@ with gr.Blocks(
 
             def progress_after_extract(snapshot, upload):
                 if snapshot is not None:
-                    return render_inbody_flow(3), "hj-inbody-step-3"
-                return render_inbody_flow(2 if upload else 1), ""
+                    return (
+                        render_inbody_flow(3), "hj-inbody-step-3",
+                        gr.update(visible=True),
+                    )
+                return (
+                    render_inbody_flow(2 if upload else 1), "",
+                    gr.update(visible=False),
+                )
 
             gemini_extract.click(
                 fn=extract_with_popup,
@@ -443,7 +451,9 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_extract,
                 inputs=[gemini_snapshot, gemini_upload_state],
-                outputs=[inbody_flow, inbody_navigation_target],
+                outputs=[
+                    inbody_flow, inbody_navigation_target, inbody_review_layout,
+                ],
                 show_progress="hidden",
             ).then(
                 fn=None, js=INBODY_NEXT_STEP_JS,
@@ -645,11 +655,13 @@ with gr.Blocks(
             def progress_after_save(message):
                 if (isinstance(message, str)
                         and message.startswith("Guardado en la base de datos:")):
-                    # Save succeeded: the 16 exam fields were cleared by
-                    # save_review_and_clear. Reset to a fresh capture and
-                    # return to the upload section. Confirmation was a toast.
-                    return render_inbody_flow(1), "hj-inbody-step-1", ""
-                return gr.update(), "", gr.update()
+                    # Keep the document visible on failed saves; hide and reset
+                    # it only when the reviewed measurements were persisted.
+                    return (
+                        render_inbody_flow(1), "hj-inbody-step-1", "",
+                        gr.update(visible=False),
+                    )
+                return gr.update(), "", gr.update(), gr.update()
 
             gemini_save.click(
                 fn=save_review_and_clear,
@@ -670,7 +682,10 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_save,
                 inputs=[gemini_save_status],
-                outputs=[inbody_flow, inbody_navigation_target, gemini_save_status],
+                outputs=[
+                    inbody_flow, inbody_navigation_target,
+                    gemini_save_status, inbody_review_layout,
+                ],
                 show_progress="hidden",
             ).then(
                 fn=None, js=INBODY_NEXT_STEP_JS,
@@ -705,8 +720,13 @@ with gr.Blocks(
             def advance_after_duplicate_check(state, preflight):
                 if (not state or not isinstance(preflight, dict)
                         or preflight.get("status") in {"duplicate", "empty"}):
-                    return render_inbody_flow(1), ""
-                return render_inbody_flow(2), "hj-inbody-step-2"
+                    return (
+                        render_inbody_flow(1), "", gr.update(visible=False),
+                    )
+                return (
+                    render_inbody_flow(2), "hj-inbody-step-2",
+                    gr.update(visible=False),
+                )
 
             def upload_with_popup(file_path):
                 try:
@@ -754,7 +774,9 @@ with gr.Blocks(
             ).then(
                 fn=advance_after_duplicate_check,
                 inputs=[gemini_upload_state, gemini_upload_preflight],
-                outputs=[inbody_flow, inbody_navigation_target],
+                outputs=[
+                    inbody_flow, inbody_navigation_target, inbody_review_layout,
+                ],
                 show_progress="hidden",
             ).then(
                 fn=None, js=INBODY_NEXT_STEP_JS,
