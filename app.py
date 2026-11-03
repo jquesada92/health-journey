@@ -31,6 +31,7 @@ from inbody_mvp.inbody_flow import (
 )
 from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
 from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
+from inbody_mvp.upload_preflight import preflight_processed_upload
 from inbody_mvp.chat_session import enqueue_user_message, append_assistant_message
 from inbody_mvp.project_overview import PROJECT_OVERVIEW
 from inbody_mvp.ai_coach import (
@@ -189,7 +190,7 @@ with gr.Blocks(
                 extract_gemini, review_status,
                 remove_review_row, sync_review_corrections,
                 save_audit, get_free_inbody_models, render_document_preview,
-                check_processed_filename, preflight_processed_upload,
+                check_processed_filename,
                 audit_write_enabled,
             )
             # Top-level viewport navbar is displayed only for InBody.
