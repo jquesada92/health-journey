@@ -4,6 +4,7 @@ emoji: 💪
 colorFrom: blue
 colorTo: green
 sdk: gradio
+python_version: "3.12"
 app_file: app.py
 hf_oauth: true
 ---
