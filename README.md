@@ -9,6 +9,48 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Volver a subir y reemplazar un InBody ya guardado
+
+La pestaña **Extractor de InBody** permite corregir un examen que ya
+había sido registrado: selecciona el mismo nombre de archivo, activa
+**Reprocesar y reemplazar el archivo existente en Neon**, extrae de
+nuevo con Gemini, comprueba el documento y corrige la tabla,
+marca `reviewed` en todas las filas conservadas y pulsa el **único**
+botón **Guardar mediciones**.
+
+La opción está **desmarcada por defecto**: sin ella, un archivo
+duplicado sigue bloqueado antes de consumir tokens Gemini. Reprocesar
+requiere consentimiento firmado para IA y guardar requiere
+consentimiento independiente para Neon. Antes de enviar el archivo
+a Gemini se comprueba que el nombre pertenece a la identidad privada
+autorizada. El reemplazo final exige `DATABASE_URL` privado,
+autorización de sesión y coincidencia del ID revisado con la identidad
+privada `COACH_PERSON_ID` o el único propietario resuelto por Neon.
+
+**Operación transaccional:** una nueva función SQL privada,
+`migrations/010_private_inbody_filename_replace.sql`, bloquea
+competidores, verifica nombre y propietario, guarda una copia
+confidencial del antiguo header, JSON original y todas las mediciones
+en `hj_replaced_audit_backups`, elimina los registros activos
+`hj_measurement_audits` y `hj_extraction_audits` de ese archivo
+y llama al mismo validador del guardado original para insertar la
+nueva versión. Si cualquier paso falla, la transacción se revierte;
+no se eliminan datos existentes. El nombre se compara sin
+distinción de mayúsculas/minúsculas; no se modifica información de
+otros archivos, otros usuarios ni de las tablas del historial
+FitNotes. Las copias de recuperación solo pueden consultarse por
+el dueño administrativo de Neon.
+
+**Importante:** la función SQL se dejó como migración versionada,
+NO se ejecutó en Neon durante el desarrollo y NO se borró ningún
+registro existente. Aplicar la migración 010 en el entorno autorizado
+antes de habilitar el reemplazo en Hugging Face. El rol
+`health_journey_demo_writer` carece expresamente de permiso de
+ejecutar el reemplazo. Las pruebas sintéticas cubren consentimiento,
+autorización, rollback como contrato, aislamiento y que el
+guardado normal sigue intacto: `tests/test_inbody_filename_replacement.py`.
+
+
 ## Compatibilidad de arranque y normalización multilingüe (2026-11-03)
 
 El Space de Hugging Face indica por defecto Python 3.10 si su
