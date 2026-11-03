@@ -1,5 +1,8 @@
 ## Interfaz de conversación estilo WhatsApp (cambio del 2026-11-02)
 
+> **Estado al 2026-11-03:** el Chat fitness forma parte de `main` como interfaz de burbujas Gradio 6 y consulta resúmenes privados autorizados a Gemini Flash. Tiene dropdown de modelo independiente del extractor, objetivos/restricciones y consentimiento `coach` preguntado en `/privacy` antes del login. **PR #72 (abierto)** corrige secuencia de mensajes/multiturno y traslada cada prompt a un archivo; su CI dio 317 aprobadas, no equivalentes a E2E. No afirmar que el catálogo científico `fitness_evidence.py` ya está conectado al modelo: no se verificó integración de citas ni RAG. La autorización InBody por ID necesita ownership real antes de multiusuario. Los párrafos antiguos que afirman «rama sin fusionar» o permiso modificable dentro de Gradio son HISTÓRICOS; ver [matriz vigente](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 El módulo Chat presenta un diseño de mensajería con cabecera
 «Asistente fitness», burbujas de usuario a la derecha y Gemini a la
 izquierda, colores suaves y caja de mensajes accesible en la parte
