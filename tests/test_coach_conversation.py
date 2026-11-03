@@ -154,6 +154,7 @@ def test_gradio6_accepts_shared_send_and_enter_event_chain():
         question = gr.Textbox()
         send = gr.Button("Enviar")
         clear = gr.Button("Limpiar")
+        status = gr.Markdown()
         gr.on(
             triggers=[send.click, question.submit],
             fn=lambda q, h: (h, h, q, gr.update(value="", interactive=False),
@@ -166,7 +167,7 @@ def test_gradio6_accepts_shared_send_and_enter_event_chain():
             fn=lambda h, q: (h, h, "", q, gr.update(interactive=True),
                               gr.update(interactive=True), gr.update(interactive=True)),
             inputs=[model_history, pending],
-            outputs=[model_history, chatbot, question, pending, send, clear, clear],
+            outputs=[model_history, chatbot, status, pending, question, send, clear],
             concurrency_limit=1, concurrency_id="hj-fitness-chat-turn",
             api_name=False,
         )
