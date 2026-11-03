@@ -1,5 +1,15 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## Aceptación de entregables del Módulo 1 (propuesta)
+
+1. La vista del proyecto ofrece ocho apartados en el orden del HTML docente, con textos editables y vista previa.
+2. El pitch predeterminado contiene exactamente cinco frases; no se introducen pruebas de compañeros ni capturas supuestas.
+3. `Generar Word (.docx)` descarga un DOCX real con los ocho apartados y hasta cuatro capturas con descripción, o marcas de evidencia pendiente.
+4. No hay SQL ni envío a Gemini en el generador; se validan tipo, cantidad y tamaño de las imágenes.
+5. La rúbrica (10/10/25/20/15/10/10 %) suma 100 % y se documenta en `docs/entregable-modulo1-obs.md`.
+6. Tests: `tests/test_module1_deliverable.py`; dependencia `python-docx` y despliegue HF incluidos. E2E del Space y plantilla visual Blackboard son limitaciones pendientes.
+
+
 ## Contratos actuales y cobertura de CI · 2026-11-03
 
 Se distinguen tres niveles: **(1) inventario/código estático**
