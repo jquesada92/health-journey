@@ -204,3 +204,21 @@ def test_review_navigation_requires_actual_reviewed_measurements():
     assert review_step_ready(frame, {"sha256": "synthetic"}) == (True, "")
     assert review_step_ready(frame, None)[0] is False
     assert review_step_ready(pd.DataFrame(), {"sha256": "synthetic"})[0] is False
+
+
+def test_gradio6_accepts_client_navigation_followup_event():
+    """Instantiate the real Gradio 6 event chain; do not call Gemini or SQL."""
+    import gradio as gr
+
+    with gr.Blocks() as demo:
+        target = gr.State("")
+        button = gr.Button("Continuar")
+        button.click(
+            fn=lambda: "hj-inbody-step-2",
+            outputs=[target],
+        ).then(
+            fn=None, js=INBODY_NEXT_STEP_JS,
+            inputs=[target], outputs=[],
+            show_progress="hidden", queue=False, api_name=False,
+        )
+    assert demo is not None
