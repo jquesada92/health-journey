@@ -51,7 +51,10 @@ def test_two_independent_opt_in_controls_default_to_false():
             and keyword.value.value is False
             for keyword in component.keywords
         )
-    assert "Privacidad y consentimiento de esta sesión" in SOURCE
+    assert 'with gr.Accordion("Permisos de esta sesión", open=False)' in SOURCE
+    # Session controls remain accessible, but no full-width privacy strip
+    # precedes the module content anymore.
+    assert SOURCE.index("with gr.Sidebar(") < SOURCE.index('with gr.Accordion("Permisos de esta sesión"') < SOURCE.index('with gr.Column(elem_id="hj-module-content")')
     assert "en una base de datos" in SOURCE
 
 

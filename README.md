@@ -122,9 +122,14 @@ validando consentimiento y acceso privado del lado servidor.
 
 ## Flujo de captura InBody — cinco pasos
 
-El módulo **Extractor de InBody** presenta una guía de progreso
-**inmediatamente debajo del título «InBody · Registrar un examen»**:
-**1. Cargar → 2. Extraer → 3. Revisar → 4. Validar → 5. Guardar**.
+El módulo **Extractor de InBody** comienza directamente con la guía
+**1. Cargar → 2. Extraer → 3. Revisar → 4. Validar → 5. Guardar**,
+seguida del título «InBody · Registrar un examen» y las instrucciones.
+No se vuelve a mostrar la cabecera global «Health Journey · Asistente virtual
+de fitness y bienestar»: el nombre de la aplicación ya figura en la barra
+lateral. El acordeón para modificar los consentimientos firmados durante la
+sesión está colapsado **debajo de las cuatro opciones del menú lateral**,
+no por encima del contenido del módulo.
 La guía está montada en un contenedor Gradio `hj-inbody-sticky` con
 `position: sticky; top: 0`, por lo que continúa a la vista al
 desplazarse por el formulario y desaparece al cambiar de módulo.

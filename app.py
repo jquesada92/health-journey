@@ -129,7 +129,6 @@ with gr.Blocks(
     title="Health Journey", analytics_enabled=False,
     delete_cache=(60, 60),
 ) as demo:
-    gr.Markdown("# Health Journey · Asistente virtual de fitness y bienestar")
     # Infrastructure-only: this invisible registered handler is required by
     # existing ZeroGPU hardware. It never runs during Gemini extraction.
     # Keep it mounted so the Space boots, but show no technical controls to
@@ -140,79 +139,6 @@ with gr.Blocks(
             fn=diagnose_zerogpu, outputs=[], api_name=False,
             concurrency_limit=1,
         )
-
-    # Gradio checkbox values are scoped to the current session and shared by tabs.
-    # Neither permission is stored in a database or persisted across logins.
-    with gr.Accordion("Privacidad y consentimiento de esta sesión", open=False):
-        gr.Markdown(
-            "Tus permisos se eligen **antes de iniciar sesión** al revisar "
-            "el aviso de tratamiento de datos. La extracción InBody, el "
-            "almacenamiento en la base de datos y el envío de resúmenes al chat "
-            "fitness son tres permisos **independientes y opcionales**. "
-            "Puedes retirarlos durante esta sesión."
-        )
-        with gr.Row():
-            session_ai_consent = gr.Checkbox(
-                label="Autorizo enviar mis documentos InBody a Google Gemini "
-                      "para extraer datos con inteligencia artificial",
-                value=False,
-                info="Solo al pulsar Extraer. El documento se envía al servicio "
-                     "externo de Google. El chat fitness tiene una autorización diferente.",
-            )
-            session_db_consent = gr.Checkbox(
-                label="Autorizo guardar mis datos de InBody y entrenamiento "
-                      "en una base de datos",
-                value=False,
-                info="InBody: ID, edad, fecha, nombre del archivo, mediciones "
-                     "revisadas y respuesta de la IA. Entrenamientos: fechas, "
-                     "ejercicios, series, peso, repeticiones y comentarios.",
-            )
-            session_coach_consent = gr.Checkbox(
-                label="Autorizo enviar resúmenes privados de mis mediciones "
-                      "InBody y entrenamientos a Gemini para el chat fitness",
-                value=False,
-                info="Solo cuando haces una pregunta. No se envían documentos, "
-                     "IDs de InBody ni comentarios del entrenamiento.",
-            )
-        gr.Markdown(
-            "**Tratamiento de datos:** el archivo subido llega al servidor "
-            "para su vista previa. Solo se envía a Google Gemini con "
-            "autorización de IA y al pulsar Extraer; solo se almacena en "
-            "la base de datos con permiso de guardado y al pulsar Guardar. "
-            "El chat fitness solo envía agregados y tus metas cuando lo autorizas "
-            "y haces una pregunta. El chat no se guarda automáticamente. "
-            "Lo almacenado en la base de datos permanece tras cerrar sesión; "
-            "retirar permisos detiene nuevos envíos, no borra datos previos. "
-            "Guardar no implica publicar."
-        )
-
-    def restore_session_consents(request: gr.Request):
-        return current_choices(request)
-
-    def update_ai_session(value: bool, request: gr.Request):
-        set_consent(request, "ai", value)
-
-    def update_db_session(value: bool, request: gr.Request):
-        set_consent(request, "db", value)
-
-    def update_coach_session(value: bool, request: gr.Request):
-        set_consent(request, "coach", value)
-
-    # These changes are tied to a signed server-side session, not browser JS
-    # or a potentially forged input field.
-    session_ai_consent.change(
-        fn=update_ai_session, inputs=[session_ai_consent], outputs=[],
-        api_name=False, queue=False,
-    )
-    session_db_consent.change(
-        fn=update_db_session, inputs=[session_db_consent], outputs=[],
-        api_name=False, queue=False,
-    )
-
-    session_coach_consent.change(
-        fn=update_coach_session, inputs=[session_coach_consent], outputs=[],
-        api_name=False, queue=False,
-    )
 
     # Only the vertical navigation is rendered. No Gradio Tab overflow (ellipsis).
     # Mounted Gradio Columns preserve extraction/chat state while navigating.
@@ -229,6 +155,80 @@ with gr.Blocks(
         nav_coach = gr.Button("Chat con el asistente fitness", variant="secondary",
                               elem_classes="hj-nav-button")
 
+        # Gradio checkbox values are scoped to the current session and shared by tabs.
+        # Neither permission is stored in a database or persisted across logins.
+        with gr.Accordion("Permisos de esta sesión", open=False):
+            gr.Markdown(
+                "Tus permisos se eligen **antes de iniciar sesión** al revisar "
+                "el aviso de tratamiento de datos. La extracción InBody, el "
+                "almacenamiento en la base de datos y el envío de resúmenes al chat "
+                "fitness son tres permisos **independientes y opcionales**. "
+                "Puedes retirarlos durante esta sesión."
+            )
+            with gr.Column():
+                session_ai_consent = gr.Checkbox(
+                    label="Autorizo enviar mis documentos InBody a Google Gemini "
+                          "para extraer datos con inteligencia artificial",
+                    value=False,
+                    info="Solo al pulsar Extraer. El documento se envía al servicio "
+                         "externo de Google. El chat fitness tiene una autorización diferente.",
+                )
+                session_db_consent = gr.Checkbox(
+                    label="Autorizo guardar mis datos de InBody y entrenamiento "
+                          "en una base de datos",
+                    value=False,
+                    info="InBody: ID, edad, fecha, nombre del archivo, mediciones "
+                         "revisadas y respuesta de la IA. Entrenamientos: fechas, "
+                         "ejercicios, series, peso, repeticiones y comentarios.",
+                )
+                session_coach_consent = gr.Checkbox(
+                    label="Autorizo enviar resúmenes privados de mis mediciones "
+                          "InBody y entrenamientos a Gemini para el chat fitness",
+                    value=False,
+                    info="Solo cuando haces una pregunta. No se envían documentos, "
+                         "IDs de InBody ni comentarios del entrenamiento.",
+                )
+            gr.Markdown(
+                "**Tratamiento de datos:** el archivo subido llega al servidor "
+                "para su vista previa. Solo se envía a Google Gemini con "
+                "autorización de IA y al pulsar Extraer; solo se almacena en "
+                "la base de datos con permiso de guardado y al pulsar Guardar. "
+                "El chat fitness solo envía agregados y tus metas cuando lo autorizas "
+                "y haces una pregunta. El chat no se guarda automáticamente. "
+                "Lo almacenado en la base de datos permanece tras cerrar sesión; "
+                "retirar permisos detiene nuevos envíos, no borra datos previos. "
+                "Guardar no implica publicar."
+            )
+
+        def restore_session_consents(request: gr.Request):
+            return current_choices(request)
+
+        def update_ai_session(value: bool, request: gr.Request):
+            set_consent(request, "ai", value)
+
+        def update_db_session(value: bool, request: gr.Request):
+            set_consent(request, "db", value)
+
+        def update_coach_session(value: bool, request: gr.Request):
+            set_consent(request, "coach", value)
+
+        # These changes are tied to a signed server-side session, not browser JS
+        # or a potentially forged input field.
+        session_ai_consent.change(
+            fn=update_ai_session, inputs=[session_ai_consent], outputs=[],
+            api_name=False, queue=False,
+        )
+        session_db_consent.change(
+            fn=update_db_session, inputs=[session_db_consent], outputs=[],
+            api_name=False, queue=False,
+        )
+
+        session_coach_consent.change(
+            fn=update_coach_session, inputs=[session_coach_consent], outputs=[],
+            api_name=False, queue=False,
+        )
+
+
     with gr.Column(elem_id="hj-module-content"):
         with gr.Column(visible=True, elem_id="hj-panel-project") as project_panel:
             gr.Markdown(PROJECT_OVERVIEW)
@@ -241,15 +241,15 @@ with gr.Blocks(
                 check_processed_filename,
                 audit_write_enabled,
             )
-            # The title stays at the top of the extractor on entry; the
-            # progress card is the immediately following element and sticks
-            # within this module while users review the long InBody form.
-            gr.Markdown("## InBody · Registrar un examen", elem_id="hj-inbody-title")
+            # The progress card is the FIRST visible element on the InBody
+            # page and stays sticky while the user scrolls the full form.
+            # It is scoped to this module rather than covering other modules.
             with gr.Column(elem_id="hj-inbody-sticky"):
                 inbody_flow = gr.HTML(
                     value=render_inbody_flow(1),
                     elem_id="hj-inbody-flow",
                 )
+            gr.Markdown("## InBody · Registrar un examen", elem_id="hj-inbody-title")
             gr.Markdown(
                 "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
                 "Puedes consultar el documento original en cualquier momento. "
