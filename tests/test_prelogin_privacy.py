@@ -243,6 +243,22 @@ def test_missing_browser_cookie_after_consent_gets_single_actionable_message():
         assert check.status_code == 200
         assert "No se pudo mantener la sesión de consentimiento" in check.text
         assert "pestaña nueva" in check.text
+        assert 'href="/privacy" target="_blank"' in check.text
+        assert 'rel="noopener noreferrer"' in check.text
         assert check.headers["cache-control"] == "no-store"
         assert client.get("/", follow_redirects=False).status_code == 303
         assert not privacy.has_consent(_gradio_request(client), "ai")
+
+
+def test_foreign_origin_consent_is_still_rejected_but_explained():
+    with TestClient(make_test_app()) as client:
+        result = client.post(
+            "/privacy/consent",
+            data={"notice_read": "yes", "ai_consent": "yes"},
+            headers={"origin": "https://untrusted.example"},
+            follow_redirects=False,
+        )
+        assert result.status_code == 403
+        assert "Solicitud de otro origen rechazada." in result.text
+        assert 'target="_blank"' in result.text
+        assert client.get("/", follow_redirects=False).status_code == 303
