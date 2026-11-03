@@ -71,6 +71,10 @@ jobs:
               'inbody_mvp/demo_storage.py',
               'inbody_mvp/training_hub.py',
               'inbody_mvp/ai_coach.py',
+              'inbody_mvp/chat_session.py',
+              'inbody_mvp/prompt_loader.py',
+              'inbody_mvp/prompts/inbody_extraction.md',
+              'inbody_mvp/prompts/fitness_coach.md',
               'inbody_mvp/project_overview.py',
               'inbody_mvp/coach_chat_ui.py',
           ]

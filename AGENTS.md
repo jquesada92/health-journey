@@ -1,3 +1,40 @@
+## Prompts separados y conversación Gemini multi-turno (2026-11-03)
+
+Health Journey guarda ahora las instrucciones de cada modelo en **archivos independientes**:
+`inbody_mvp/prompts/inbody_extraction.md` para lectura de InBody y
+`inbody_mvp/prompts/fitness_coach.md` para el coach basado en evidencia
+(hipertrofia, fuerza, resistencia, composición corporal y recuperación).
+El loader `inbody_mvp/prompt_loader.py` solo acepta dos nombres explícitos,
+no rutas externas ni texto de usuarios. El prompt InBody conserva sus reglas
+de mediciones exactas y JSON; el prompt fitness prohíbe inventar referencias
+científicas, mediciones o diagnósticos. Los dos archivos se envían al Space
+mediante la allowlist de despliegue.
+
+El chat fitness utiliza un **historial canónico** en `gr.State` y presenta
+la nueva burbuja del usuario inmediatamente, seguida de «Escribiendo…»,
+antes de que Gemini responda. Una sola acción `gr.on` une clic en Enviar y
+Enter, evita duplicaciones y deshabilita los controles mientras se procesa.
+Si Gemini falla se conserva la pregunta, aparece una respuesta de error
+en el mismo chat y los controles vuelven a estar disponibles. Cada mensaje
+se muestra en orden; el historial visual no se trunca al recortar el
+contexto del modelo (que conserva solo los turnos recientes para limitar
+tokens). Al pulsar «Limpiar conversación» se borran estado y burbujas de
+esta sesión, no datos de Neon.
+
+`ai_coach.answer_coach_question` envía a Gemini `types.Content`
+con los roles `user/model` de las intervenciones anteriores y la pregunta
+actual en un nuevo turno. El archivo científico actúa como
+`system_instruction` de la llamada; el JSON de InBody/FitNotes
+sigue siendo información y NO instrucciones. **No incorpora un
+buscador científico**, así que no afirmar referencias exactas sin
+verificación. El selector Gemini sigue separado del extractor.
+
+Comprobar `tests/test_coach_conversation.py`, `tests/test_ai_coach.py`
+y `tests/test_coach_chat_ui.py`. Tras fusionar, validar en navegador
+la secuencia de cuatro turnos, errores de API/cuota, Enter y Enviar,
+limpieza del chat y móvil. No modificar consentimientos prelogin ni
+guardar chats en Neon.
+
 ## UX InBody guiada con avance automático y limpieza tras guardar (2026-11-03)
 
 Rama: `feature/inbody-auto-next-step-no-clear-20261103`. Solicitud más reciente:

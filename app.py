@@ -32,6 +32,7 @@ from inbody_mvp.inbody_flow import (
 )
 from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
 from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
+from inbody_mvp.chat_session import enqueue_user_message, append_assistant_message
 from inbody_mvp.project_overview import PROJECT_OVERVIEW
 from inbody_mvp.ai_coach import (
     answer_coach_question, coach_model_choices, default_coach_model,
@@ -1067,6 +1068,10 @@ with gr.Blocks(
                     lines=2, max_lines=4,
                 )
 
+            # Canonical, session-only history is separate from the visual Chatbot.
+            # This prevents later Gradio events from dropping or reordering turns.
+            coach_history = gr.State(value=[])
+            coach_pending_question = gr.State(value="")
             coach_chat = gr.Chatbot(
                 label=None,
                 show_label=False,
@@ -1115,60 +1120,106 @@ with gr.Blocks(
                     popup_error(exc, "No se pudieron consultar los modelos Gemini.")
                     return gr.update()
 
-            def ask_coach(
-                question, history, report_id, goals, restrictions, days,
+            def enqueue_coach_message(question, messages):
+                try:
+                    updated, pending = enqueue_user_message(question, messages)
+                except ValueError as exc:
+                    raise ValueError(str(exc)) from None
+                # Display the user's new message immediately and a temporary
+                # typing bubble. Only confirmed turns are stored in State.
+                typing = updated + [{"role": "assistant", "content": "Escribiendo…"}]
+                return (
+                    updated, typing, pending,
+                    gr.update(value="", interactive=False),
+                    gr.update(interactive=False),
+                    gr.update(interactive=False),
+                )
+
+            def complete_coach_message(
+                messages, pending, report_id, goals, restrictions, days,
                 model, consent,
                 profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
             ):
                 try:
-                    conversation, context, cleared = answer_coach_question(
-                        question, history, report_id, goals, restrictions,
+                    if not pending or not messages or messages[-1]["role"] != "user":
+                        raise ValueError("No hay una pregunta pendiente.")
+                    conversation, context, _ = answer_coach_question(
+                        pending, messages[:-1], report_id, goals, restrictions,
                         days, model, consent, profile=profile, request=request,
                     )
+                    reply = conversation[-1]["content"]
+                    updated = append_assistant_message(messages, reply)
                     counts = context["training"]
                     metrics = context["inbody"]
                     status = (
                         f"**Fuentes:** {counts['sets_recorded']} series del gym "
                         f"en {counts['days_recorded']} días; "
-                        f"{metrics['distinct_series']} series de mediciones InBody "
-                        f"en la ventana de {days} días. "
-                        f"{context['inbody_source_status']} "
-                        "El chat no se almacena en la base de datos."
+                        f"{metrics['distinct_series']} series InBody "
+                        f"en {days} días. {context['inbody_source_status']} "
+                        "Conversación conservada solo durante esta sesión."
                     )
-                    return conversation, status, cleared
                 except Exception as exc:
-                    popup_error(exc, "No se pudo generar la respuesta del asistente.")
-                    return keep_components(3)
+                    # Never lose the user's question on a failed model call.
+                    # Give one useful chat-level error rather than silently
+                    # reverting the interface with keep_components().
+                    detail = (
+                        str(exc)[:350] if isinstance(exc, (ValueError, PermissionError))
+                        else "Servicio temporalmente no disponible."
+                    )
+                    updated = append_assistant_message(
+                        messages, "No pude responder esta vez. "
+                        + detail + " Puedes volver a preguntarme.",
+                    )
+                    status = "No se completó la consulta. El mensaje sigue en el chat."
+                return (
+                    updated, updated, status, "",
+                    gr.update(interactive=True),
+                    gr.update(interactive=True),
+                    gr.update(interactive=True),
+                )
 
             coach_refresh_models.click(
                 fn=coach_refresh_model_options, outputs=[coach_model],
                 concurrency_limit=1,
             )
-            coach_send.click(
-                fn=ask_coach,
+            # One shared trigger handles both Enter and Enviar. The first
+            # callback paints bubbles BEFORE the slow Gemini request.
+            gr.on(
+                triggers=[coach_send.click, coach_question.submit],
+                fn=enqueue_coach_message,
+                inputs=[coach_question, coach_history],
+                outputs=[
+                    coach_history, coach_chat, coach_pending_question,
+                    coach_question, coach_send, coach_clear,
+                ],
+                trigger_mode="once",
+                concurrency_limit=1,
+                concurrency_id="hj-fitness-chat-turn",
+                api_name=False,
+            ).success(
+                fn=complete_coach_message,
                 inputs=[
-                    coach_question, coach_chat, coach_report_id,
+                    coach_history, coach_pending_question, coach_report_id,
                     coach_goals, coach_restrictions, coach_window,
                     coach_model, session_coach_consent,
                 ],
-                outputs=[coach_chat, coach_context_status, coach_question],
-                concurrency_limit=1,
-            )
-            coach_question.submit(
-                fn=ask_coach,
-                inputs=[
-                    coach_question, coach_chat, coach_report_id,
-                    coach_goals, coach_restrictions, coach_window,
-                    coach_model, session_coach_consent,
+                outputs=[
+                    coach_history, coach_chat, coach_context_status,
+                    coach_pending_question, coach_question, coach_send, coach_clear,
                 ],
-                outputs=[coach_chat, coach_context_status, coach_question],
                 concurrency_limit=1,
+                concurrency_id="hj-fitness-chat-turn",
+                api_name=False,
             )
             coach_clear.click(
-                fn=lambda: ([], "Conversación limpiada.", ""),
-                outputs=[coach_chat, coach_context_status, coach_question],
+                fn=lambda: ([], [], "Conversación limpiada.", "", "",),
+                outputs=[
+                    coach_history, coach_chat, coach_context_status,
+                    coach_pending_question, coach_question,
+                ],
                 queue=False,
+                api_name=False,
             )
     nav_buttons = [nav_project, nav_inbody, nav_training, nav_coach]
     module_panels = [project_panel, inbody_panel, training_panel, coach_panel]

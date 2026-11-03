@@ -8,6 +8,31 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Arquitectura de prompts y chat conversacional · noviembre 2026
+
+Los dos módulos Gemini utilizan archivos de instrucciones separados,
+versionados y desplegados junto con el código: `inbody_mvp/prompts/inbody_extraction.md`
+(extracción estricta de resultados InBody) y
+`inbody_mvp/prompts/fitness_coach.md` (asistente basado en literatura
+sobre entrenamiento, hipertrofia, fuerza, resistencia, composición
+corporal y recuperación). `inbody_mvp/prompt_loader.py` solo permite
+leer los prompts declarados. No se guardan claves en estos archivos.
+
+El chat fitness conserva los mensajes en orden dentro de la sesión:
+muestra inmediatamente tu burbuja a la derecha y un aviso «Escribiendo…»
+mientras espera a Gemini. Enter y Enviar utilizan la misma secuencia
+de eventos para evitar duplicados. Gemini recibe una conversación real
+con roles `user/model` (historial reciente) y el prompt científico como
+`system_instruction`. La historia que ve el usuario se conserva de
+manera independiente del contexto abreviado enviado a Gemini.
+Si falla una respuesta, la pregunta no desaparece y el error se muestra
+dentro del chat, permitiendo formular otra pregunta sin reiniciar.
+No se guardan mensajes en Neon. La bibliografía no se busca
+automáticamente: el modelo tiene instrucciones expresas de no inventar
+fuentes o DOI.
+
+
+
 ## Health Journey · motivación y propósito
 
 Health Journey integra **mediciones InBody** y **registros de entrenamiento**

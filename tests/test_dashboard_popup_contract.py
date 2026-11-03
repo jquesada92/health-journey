@@ -37,7 +37,7 @@ def test_failed_events_preserve_component_values():
         "save_review_and_clear", "extract_with_popup",
         "review_with_popup", "preview_with_popup",
         "show_public_dashboard", "show_progress",
-        "ask_coach", "recent_training_with_popup",
+        "complete_coach_message", "recent_training_with_popup",
         "show_processed_filename",
         "upload_with_popup", "check_models_with_popup",
     ):
