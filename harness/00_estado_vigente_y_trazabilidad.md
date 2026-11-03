@@ -1,3 +1,11 @@
+> **Ajuste de UX propuesto (2026-11-03, aún no desplegado):** retirar las
+> marcas/recuadros de validación por componente de Gradio 6, conservar
+> un único popup de error (`gr.Warning`) o el mensaje contextual del
+> archivo, y mantener oculto el estado interno de validación. La
+> comprobación de mediciones, `original_value`, consentimiento y
+> deduplicación continúa en backend. Contratos en
+> `tests/test_dashboard_popup_contract.py`. Requiere CI y prueba en Space.
+
 > **Actualización de consolidación (2026-11-03):** este documento conserva la fotografía de la auditoría original realizada sobre `main` (commit 5f8ea83). Los PR #71, #72, #74 y #75 ya se fusionaron posteriormente. El PR consolidado actual integra la auditoría de #73, las correcciones en línea de #76 y la verificación de duplicados antes de Gemini. Las descripciones de PR pendientes de fusión incluidas en secciones históricas deben interpretarse respecto a la fecha de aquella auditoría. El código de la rama consolidada y sus pruebas constituyen la referencia funcional del cambio; el Space aún requiere validación E2E.\n\n# 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
 **Auditoría documental:** 2026-11-03 (UTC). **Base contrastada:** `main`
