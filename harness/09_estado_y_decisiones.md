@@ -7,8 +7,8 @@
 - 1 fila = 1 serie: conservar orden y duplicados reales, decimales y negativos.
 - Importar solo con consentimiento y autenticación verificada en servidor;
   sin llamada a Gemini, sin publicación pública.
-- Migración aditiva `migrations/008_fitnotes_training_hub.sql` preparada
-  y probada en rama temporal de Neon, **no aplicada a la base principal**.
+- Migración aditiva `migrations/008_fitnotes_training_hub.sql` probada en rama temporal y **aplicada a Neon principal con autorización
+  del usuario**, sin importar ningún registro real.
 - Idempotencia por hash de archivo + identidad de serie por dueño/fecha/
   ejercicio/posición. Si hay cambios, exigir casilla de confirmación.
 - Código en rama `feature/training-fitnotes-neon-import-20261102`,
