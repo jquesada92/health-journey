@@ -1,3 +1,13 @@
+## Estado actual del coach y navegación (consolidación 2026-11-03)
+
+El chat fitness Gemini de esta rama **incluye** las mejoras ya fusionadas:
+prompts independientes, historial multiturno, burbujas ordenadas, selector
+de modelo integrado en el compositor y protección del consentimiento. Las
+afirmaciones anteriores sobre PR #72 abierto son históricas. Para el
+inventario completo consultar
+[harness/00_estado_vigente_y_trazabilidad.md](../harness/00_estado_vigente_y_trazabilidad.md).
+Los cambios actuales de InBody no alteran el chat ni su persistencia.
+
 ## Prompts independientes y chat multi-turno (2026-11-03)
 
 **Prompts:** `inbody_mvp/prompts/inbody_extraction.md` solo controla la
