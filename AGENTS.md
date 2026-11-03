@@ -1,5 +1,10 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Entregables académicos Módulo 1 (propuesta en PR)
+
+El archivo `docs/entregable-modulo1-obs.md` es el contrato derivado de la consigna HTML proporcionada por el alumno, y `inbody_mvp/module1_deliverable.py` genera un DOCX real de ocho apartados desde la vista Proyecto, sin Gemini/Neon. El usuario revisa texto, completa el nombre y agrega cuatro capturas; ninguna prueba de terceros o evidencia ausente se inventa. Mantener los tests `tests/test_module1_deliverable.py`, dependencia `python-docx`, archivos de deployment y matriz `harness/11_cobertura_codigo_main.md` sincronizados.
+
+
 Revisar primero [harness/00](harness/00_estado_vigente_y_trazabilidad.md)
 y [harness/11](harness/11_cobertura_codigo_main.md). Cada archivo
 `app.py`, `inbody_mvp/**`, `tests/**`, `docs/**`,
