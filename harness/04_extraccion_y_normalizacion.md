@@ -1,5 +1,33 @@
 # 04 — Motor de extracción, OCR, plantillas e idioma
 
+## Extracción real y control de resultados en main · 2026-11-03
+
+Ruta actual: `app.py → gemini_review.extract_gemini → Google Gemini Flash →
+Pydantic (header + measurements) → Dataframe revisable → save_audit`.
+La entrada PDF/JPG/PNG y sus páginas se inspeccionan sin persistir
+hasta que el usuario autoriza a Gemini y pulsa Extraer. El chequeo de
+archivo previamente procesado se realiza **antes** de gastar tokens.
+El visor original se muestra al lado de la tabla. `value` y
+`correction_comment` son editables, `original_value` preserva la
+lectura y `was_corrected` refleja diferencias. El usuario confirma
+`reviewed` antes del único guardado. El extractor **no procesa los
+históricos impresos** del reporte como datos nuevos.
+
+Los prompts de extracción y chat ya están en `inbody_mvp/prompts/`
+dentro de `main`. Modelos Gemini disponibles están restringidos a
+allowlist con cuota según proveedor. Pydantic, PyMuPDF/Pillow, Decimal
+y verificaciones de 404/429/503 son parte de la ruta activa. Las
+plantillas OCR espaciales, secciones de IA local y EasyOCR/PaddleOCR
+que se explican más abajo son **legacy/experimentales**.
+
+Las métricas canónicas/alias con explicación en Neon provienen de la
+migración 009 ya aplicada; el uso automático del diccionario por el
+coach está pendiente del merge del PR #84. Consultar [11](11_cobertura_codigo_main.md).
+
+
+---
+
+
 > **Extractor activo (2026-11-03):** `inbody_mvp/gemini_review.py` usa Gemini Flash de Google, con selección de modelo independiente, respuesta estructurada Pydantic, vista previa PyMuPDF/Pillow, revisión humana, encabezado único y conservación de los ceros decimales (ej. `8.20`). Solo captura el **examen actual**; etiquetas canónicas de sección/medición en inglés, unidad literal, frecuencia y fase angular como mediciones independientes. La selección de modelo no implica que su uso sea gratuito; depende de la cuota Gemini. `inbody_mvp/extractor.py` y los motores espaciales/OCR heredados permanecen en pruebas; su comportamiento no debe atribuirse al UI principal. **PR #72 (abierto)** propone mover el prompt incrustado del extractor a `prompts/inbody_extraction.md`; no existe aún así en `main`. Referencia: [inventario actual](00_estado_vigente_y_trazabilidad.md). Los estudios de OCR o instrucciones de vista por secciones posteriores son históricos/experimentales.
 
 
