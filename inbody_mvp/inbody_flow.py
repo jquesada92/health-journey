@@ -248,7 +248,7 @@ INBODY_NEXT_STEP_JS = """(target) => {
         "(prefers-reduced-motion: reduce)"
     ).matches;
     section.scrollIntoView({
-        behavior: reducedMotion ? "instant" : "smooth",
+        behavior: reducedMotion ? "auto" : "smooth",
         block: "start",
         inline: "nearest",
     });
