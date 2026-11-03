@@ -77,7 +77,10 @@ def test_single_documented_feature_flag():
     assert "ENABLE_ANONYMOUS_AUDIT" not in example + module + app
     assert example.count("ENABLE_ANONYMOUS_DEMO=0") == 1
     assert "ENABLE_ANONYMOUS_DEMO" in module
-    assert "ENABLE_ANONYMOUS_DEMO" in app
+    # Runtime still uses the feature flag, while UI shows a human-friendly
+    # message and disables saving when that configuration is absent.
+    assert 'interactive=audit_write_enabled()' in app
+    assert "El guardado no está disponible en este entorno." in app
 
 
 def test_consent_rejected_before_database_connection(monkeypatch, sample):
