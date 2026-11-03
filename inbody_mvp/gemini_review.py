@@ -17,7 +17,9 @@ from sqlalchemy import text
 
 from .extractor import MAX_UPLOAD_BYTES
 from .prompt_loader import load_prompt
-from .filename_timestamp import exam_datetime_from_filename
+from .filename_timestamp import (
+    exam_datetime_from_filename, normalize_report_exam_datetime,
+)
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
@@ -301,10 +303,21 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
             raise ValueError("No se identificó el ID o la fecha/hora del encabezado.")
         # A valid filename timestamp wins even if OCR returned a malformed
         # date; only validate the AI value when it is the actual source.
-        if result.header.exam_datetime and filename_datetime is None:
-            datetime.fromisoformat(result.header.exam_datetime)
-        correct_datetime = filename_datetime or result.header.exam_datetime
+        # Reports print DD.MM.YYYY HH:MM, sometimes followed by a dot after
+        # the year (e.g., 04.10.2026. 10:04). Normalize before comparing it
+        # with the 14-digit filename token, which includes seconds.
         raw_header = result.header.model_dump()
+        report_datetime = None
+        try:
+            report_datetime = normalize_report_exam_datetime(
+                result.header.exam_datetime
+            )
+        except ValueError:
+            # A reliable filename token can resolve an OCR-format error.
+            # Without one, fail instead of saving an invented date.
+            if filename_datetime is None:
+                raise
+        correct_datetime = filename_datetime or report_datetime
         canonical_header = dict(raw_header, exam_datetime=correct_datetime)
         rows = []
         for m in result.measurements:
@@ -320,6 +333,7 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
                     "header": canonical_header,
                     "ai_header": raw_header,
                     "datetime_source": "filename" if filename_datetime else "report",
+                    "report_exam_datetime": report_datetime,
                     "raw_response": response.text,
                     "rows": rows, "filename": name,
                     "model": active_model,
@@ -332,8 +346,23 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
                 " Fecha y hora tomadas del nombre del archivo: "
                 f"{filename_datetime}."
             )
-            if result.header.exam_datetime != filename_datetime:
-                message += " Se corrigió la fecha propuesta por la IA."
+            if report_datetime and (
+                report_datetime[:16] != filename_datetime[:16]
+            ):
+                message += (
+                    " La fecha/hora del reporte es distinta; "
+                    "se utilizó la marca del nombre."
+                )
+            elif report_datetime is None:
+                message += (
+                    " La fecha del reporte no pudo normalizarse; "
+                    "se utilizó la marca válida del nombre."
+                )
+            else:
+                message += (
+                    " El reporte muestra horas y minutos; los segundos "
+                    "se conservaron del nombre del archivo."
+                )
         if failover_used:
             message += f" Modelo principal sin capacidad (503); extracción con {active_model}."
         if result.missing_or_unreadable:
