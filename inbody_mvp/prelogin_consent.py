@@ -238,6 +238,29 @@ async def privacy_page(request):
     return response
 
 
+async def verify_consent_session(request):
+    """Verify that the browser returned its signed cookie after consent.
+
+    In embedded browser contexts some clients block third-party cookies, so
+    submission might succeed but the next protected request returns 403.
+    Give one actionable page instead of an unexplained redirect loop.
+    This endpoint never creates, changes, or grants consent.
+    """
+    if _consent_session(request) is not None:
+        response = RedirectResponse("/", status_code=303)
+    else:
+        response = HTMLResponse(
+            render_privacy_page(
+                "No se pudo mantener la sesión de consentimiento. "
+                "Abre Health Journey directamente en una pestaña nueva "
+                "y permite las cookies de sesión antes de continuar."
+            ),
+            status_code=200,
+        )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 async def submit_consent(request):
     """The browser form is the source of pre-login opt-in; never auto-opt in."""
     origin = request.headers.get("origin")
@@ -269,7 +292,8 @@ async def submit_consent(request):
             "db": form.get("db_consent") == ["yes"],
             "coach": form.get("coach_consent") == ["yes"],
         }
-    response = RedirectResponse("/", status_code=303)
+    # Verify browser cookie persistence before exposing the Gradio app.
+    response = RedirectResponse("/privacy/verify", status_code=303)
     response.set_cookie(
         COOKIE_NAME, _cookie_value(sid), path="/", httponly=True,
         secure=bool(os.environ.get("SPACE_ID")), samesite="lax",
@@ -311,6 +335,8 @@ class PrivacyFirstMiddleware(BaseHTTPMiddleware):
         if path == "/privacy" and request.method == "GET":
             return await call_next(request)
         if path == "/privacy/consent" and request.method == "POST":
+            return await call_next(request)
+        if path == "/privacy/verify" and request.method == "GET":
             return await call_next(request)
         if _consent_session(request) is None:
             if request.method in ("GET", "HEAD"):
