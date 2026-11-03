@@ -187,7 +187,7 @@ with gr.Blocks(
                 COLUMNS as GEMINI_COLUMNS, DISPLAY_COLUMNS as GEMINI_DISPLAY_COLUMNS,
                 compact_review_table, header_for_review,
                 extract_gemini, review_status,
-                remove_review_row, correct_review_value,
+                remove_review_row, sync_review_corrections,
                 save_audit, get_free_inbody_models, render_document_preview,
                 check_processed_filename,
                 audit_write_enabled,
@@ -340,46 +340,28 @@ with gr.Blocks(
                 "**Cómo revisar las mediciones:** compara **original_value** "
                 "(lectura de la IA, no editable) con **value** (valor corregible), "
                 "**unit**, **measurement** y **section**. Si corriges una "
-                "medición, escribe su **correction_comment**. "
-                "Marca **reviewed** en todas las filas."
+                "medición, explica el cambio en **correction_comment**. "
+                "**was_corrected** se marca automáticamente cuando una medición "
+                "es distinta de la lectura original. Marca **reviewed** en "
+                "cada fila que hayas comprobado y pulsa **Guardar cambios**."
             )
             gemini_table = gr.Dataframe(
                 headers=GEMINI_DISPLAY_COLUMNS,
                 datatype=["str", "str", "str", "str", "str", "bool", "str", "bool"],
                 type="pandas", interactive=True,
-                static_columns=[4, 5],
+                static_columns=[4],
                 label="Mediciones: revisa y edita cada fila",
             )
-            # Keep an explicit selected row for correction or deletion.
-            # Values and reasons can also be edited through this accessible form
-            # when Gradio's inline grid editor rejects malformed AI output.
+            # A selected row is only needed for deletion; all edits belong in
+            # the table, never in a duplicate correction form.
             selected_review_row = gr.State(value=None)
-            with gr.Accordion("Corregir o eliminar una fila", open=False):
-                gr.Markdown(
-                    "Selecciona una celda de la fila en la tabla. Puedes "
-                    "corregir su valor y escribir el motivo, o quitarla del "
-                    "examen **antes de guardar**. El valor original de IA "
-                    "permanece en la evidencia de extracción."
-                )
+            with gr.Row():
                 selected_review_label = gr.Markdown(
-                    "Ninguna fila seleccionada."
+                    "Para eliminar una medición, selecciona su fila en la tabla."
                 )
-                with gr.Row():
-                    row_corrected_value = gr.Textbox(
-                        label="Valor numérico corregido",
-                        placeholder="Ej.: 8.20 o -0.370", scale=2,
-                    )
-                    row_correction_reason = gr.Textbox(
-                        label="Motivo de corrección",
-                        placeholder="Explica el cambio de la IA", scale=3,
-                    )
-                with gr.Row():
-                    apply_row_correction = gr.Button(
-                        "Aplicar corrección", variant="secondary",
-                    )
-                    delete_review_row = gr.Button(
-                        "Eliminar fila seleccionada", variant="stop",
-                    )
+                delete_review_row = gr.Button(
+                    "Eliminar fila seleccionada", variant="stop", scale=0,
+                )
             def extract_with_popup(
                 state, consent, model, request: gr.Request | None = None,
             ):
@@ -430,37 +412,35 @@ with gr.Blocks(
 
             gr.Markdown(
                 "### 4. Valida todas las mediciones\n"
-                "Cuando termines de corregir o eliminar las filas incorrectas, "
-                "marca **reviewed** en las mediciones conservadas y pulsa "
-                "**Validar revisión**. Si hay un error, se indicará la fila. "
-                "Validar no guarda ni envía datos a la base de datos.",
+                "Edita **value** y **correction_comment** directamente en la tabla. "
+                "La casilla **was_corrected** se actualiza automáticamente al "
+                "comparar cada medición con su valor original. Cuando todas las "
+                "filas conservadas estén marcadas como **reviewed**, pulsa "
+                "**Guardar cambios** para confirmar la revisión y avanzar. "
+                "Esta acción no escribe en la base de datos.",
                 elem_id="hj-inbody-step-4"
             )
-            gemini_check = gr.Button("Validar revisión", variant="secondary")
+            gemini_check = gr.Button("Guardar cambios", variant="secondary")
             gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
             def select_review_row(table, snapshot, evt: gr.SelectData):
                 index = evt.index
                 row = index[0] if isinstance(index, (tuple, list)) else index
                 if not isinstance(row, int) or isinstance(row, bool):
-                    return None, "Selecciona una celda de una fila.", "", ""
+                    return None, "Selecciona una celda de una fila."
                 if not snapshot or table is None or row < 0 or row >= len(table):
-                    return None, "Selecciona una fila válida.", "", ""
+                    return None, "Selecciona una fila válida."
                 frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(
                     table, columns=GEMINI_DISPLAY_COLUMNS
                 )
                 return (
                     {"row": row, "source": snapshot.get("sha256")},
-                    f"Fila {row + 1}: **{str(frame.iloc[row]['measurement'])[:90]}**",
-                    str(frame.iloc[row]["value"] or ""),
-                    str(frame.iloc[row]["correction_comment"] or ""),
+                    f"Seleccionada: fila {row + 1}, "
+                    f"**{str(frame.iloc[row]['measurement'])[:90]}**",
                 )
 
             gemini_table.select(
                 fn=select_review_row, inputs=[gemini_table, gemini_snapshot],
-                outputs=[
-                    selected_review_row, selected_review_label,
-                    row_corrected_value, row_correction_reason,
-                ],
+                outputs=[selected_review_row, selected_review_label],
                 show_progress="hidden", queue=False, api_name=False,
             )
 
@@ -473,35 +453,6 @@ with gr.Blocks(
                     )
                 return selected.get("row")
 
-            def apply_value_with_popup(table, snapshot, selected, value, reason):
-                try:
-                    row_number = checked_selected_row(selected, snapshot)
-                    updated = correct_review_value(
-                        table, snapshot, row_number, value, reason
-                    )
-                except Exception as exc:
-                    popup_error(exc, "No se pudo corregir la fila.")
-                    return keep_components(4)
-                return (
-                    updated,
-                    f"Fila {row_number + 1} corregida. Verifica **reviewed**.",
-                    render_inbody_flow(3),
-                    "Revisión pendiente: valida las filas antes de guardar.",
-                )
-
-            apply_row_correction.click(
-                fn=apply_value_with_popup,
-                inputs=[
-                    gemini_table, gemini_snapshot, selected_review_row,
-                    row_corrected_value, row_correction_reason,
-                ],
-                outputs=[
-                    gemini_table, selected_review_label,
-                    inbody_flow, gemini_review_status,
-                ],
-                concurrency_limit=1, api_name=False,
-            )
-
             def delete_row_with_popup(table, snapshot, selected):
                 try:
                     row_number = checked_selected_row(selected, snapshot)
@@ -510,12 +461,14 @@ with gr.Blocks(
                     )
                 except Exception as exc:
                     popup_error(exc, "No se pudo eliminar la fila.")
-                    return keep_components(8)
+                    return keep_components(6)
+                # Preserve already-edited values and rederive correction flags.
+                frame = sync_review_corrections(frame, new_snapshot)
                 return (
                     frame, new_snapshot, None,
                     f"Fila {row_number + 1} eliminada solo de esta revisión.",
-                    "", "", render_inbody_flow(3),
-                    "Revisión pendiente: valida las filas antes de guardar.",
+                    render_inbody_flow(3),
+                    "Revisión pendiente: guarda los cambios antes de continuar.",
                 )
 
             delete_review_row.click(
@@ -523,8 +476,7 @@ with gr.Blocks(
                 inputs=[gemini_table, gemini_snapshot, selected_review_row],
                 outputs=[
                     gemini_table, gemini_snapshot, selected_review_row,
-                    selected_review_label, row_corrected_value,
-                    row_correction_reason, inbody_flow, gemini_review_status,
+                    selected_review_label, inbody_flow, gemini_review_status,
                 ],
                 concurrency_limit=1, api_name=False,
             )
@@ -539,18 +491,22 @@ with gr.Blocks(
             def review_with_popup(table, snapshot, exam_datetime, filename,
                                   person_id, age, reason):
                 try:
+                    # Recompute flags server-side even if the user submits before
+                    # the Dataframe.edit UI event finishes.
+                    updated = sync_review_corrections(table, snapshot)
                     result = review_status(
-                        table, snapshot, header_edits=exam_header_edits(
+                        updated, snapshot, header_edits=exam_header_edits(
                             exam_datetime, filename, person_id, age, reason
                         ),
                     )
                     if result.startswith("Revisión pendiente:"):
                         gr.Warning(result.removeprefix("Revisión pendiente:").strip())
-                        return gr.update()
-                    return result
+                        return updated, gr.update()
+                    gr.Info("Cambios de revisión confirmados. Continúa a guardar el examen.")
+                    return updated, result
                 except Exception as exc:
-                    popup_error(exc, "No se pudo validar la revisión.")
-                    return gr.update()
+                    popup_error(exc, "No se pudieron confirmar los cambios.")
+                    return gr.update(), gr.update()
 
             def progress_after_validation(message, snapshot):
                 if snapshot is None:
@@ -566,7 +522,7 @@ with gr.Blocks(
                     header_filename, header_person_id, header_age,
                     header_correction_reason,
                 ],
-                outputs=[gemini_review_status],
+                outputs=[gemini_table, gemini_review_status],
             ).then(
                 fn=progress_after_validation,
                 inputs=[gemini_review_status, gemini_snapshot],
@@ -582,12 +538,29 @@ with gr.Blocks(
                 # A user correction invalidates the previous review result.
                 return (
                     render_inbody_flow(3),
-                    "Revisión pendiente: valida las filas antes de guardar.",
+                    "Revisión pendiente: guarda los cambios antes de continuar.",
+                )
+
+            def sync_inline_table_edit(table, snapshot):
+                try:
+                    updated = sync_review_corrections(table, snapshot)
+                except Exception as exc:
+                    popup_error(exc, "No se pudo actualizar la tabla.")
+                    return (
+                        gr.update(),
+                        render_inbody_flow(3),
+                        "Revisión pendiente: guarda los cambios antes de continuar.",
+                    )
+                return (
+                    updated, render_inbody_flow(3),
+                    "Revisión pendiente: guarda los cambios antes de continuar.",
                 )
 
             gemini_table.edit(
-                fn=progress_after_table_edit,
-                outputs=[inbody_flow, gemini_review_status],
+                fn=sync_inline_table_edit,
+                inputs=[gemini_table, gemini_snapshot],
+                outputs=[gemini_table, inbody_flow, gemini_review_status],
+                trigger_mode="always_last",
                 show_progress="hidden", queue=False,
             )
             for field in (
