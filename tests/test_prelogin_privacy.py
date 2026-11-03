@@ -18,12 +18,17 @@ async def logout(_):
     return PlainTextResponse("logged out")
 
 
+async def startup_events(_):
+    return PlainTextResponse("startup ready")
+
+
 def make_test_app():
     return Starlette(
         routes=[
             Route("/privacy", privacy.privacy_page, methods=["GET"]),
             Route("/privacy/consent", privacy.submit_consent, methods=["POST"]),
             Route("/", protected),
+            Route("/gradio_api/startup-events", startup_events, methods=["GET"]),
             Route("/login", protected, methods=["POST"]),
             Route("/api/predict", protected, methods=["POST"]),
             Route("/logout", logout),
@@ -139,3 +144,46 @@ def test_source_requires_signed_session_at_actual_ai_and_db_callbacks():
     assert "set_consent(request, \"ai\", value)" in source
     assert "set_consent(request, \"db\", value)" in source
     assert "auth=authenticate_master_demo if password_login_enabled() else None" in source
+
+
+def test_gradio_local_startup_endpoint_works_before_privacy_consent():
+    """Regression: Gradio launch() GET to localhost must return 200, not 303."""
+    with TestClient(make_test_app(), client=("127.0.0.1", 43112)) as client:
+        response = client.get("/gradio_api/startup-events", follow_redirects=False)
+        assert response.status_code == 200
+        assert response.text == "startup ready"
+        # Only the internal startup GET is exempt; credentials and data remain gated.
+        assert client.get("/", follow_redirects=False).status_code == 303
+        assert client.post("/api/predict").status_code == 403
+        assert client.post("/login").status_code == 403
+
+
+def test_startup_exemption_does_not_trust_forged_proxy_headers():
+    """External users cannot bypass consent by spoofing localhost headers."""
+    with TestClient(make_test_app(), client=("203.0.113.10", 50700)) as client:
+        response = client.get(
+            "/gradio_api/startup-events",
+            headers={
+                "Host": "localhost:7860",
+                "X-Forwarded-For": "127.0.0.1",
+                "X-Real-IP": "127.0.0.1",
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/privacy"
+
+
+def test_internal_startup_exception_is_only_exact_get_and_loopback():
+    from types import SimpleNamespace
+    fake = lambda ip, method="GET": SimpleNamespace(
+        method=method, client=SimpleNamespace(host=ip),
+    )
+    allow = privacy._internal_startup_request
+    assert allow(fake("::1"), "/gradio_api/startup-events")
+    assert allow(fake("127.0.0.2"), "/gradio_api/startup-events")
+    assert not allow(fake("203.0.113.10"), "/gradio_api/startup-events")
+    assert not allow(fake("localhost"), "/gradio_api/startup-events")
+    assert not allow(fake("127.0.0.1", "POST"), "/gradio_api/startup-events")
+    assert not allow(fake("127.0.0.1"), "/gradio_api/predict")
+    assert not allow(fake("127.0.0.1"), "/login")
