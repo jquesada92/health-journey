@@ -1,5 +1,8 @@
 # Training Hub — FitNotes CSV → Neon (propuesta de incorporación)
 
+> **Estado al 2026-11-03:** el Captador FitNotes ya existe en `main`, con lectura/validación de CSV de diez columnas, una fila por serie, negativos y decimales, vista previa limitada, `owner_key`, consentimiento de almacenamiento previo al login y escrituras controladas a Neon mediante `training_hub.py` + `migrations/008_fitnotes_training_hub.sql`. El título «propuesta de incorporación» más abajo es HISTÓRICO: no volver a crear una pestaña horizontal ni un checkbox independiente dentro de Training Hub. La ejecución SQL live, la existencia de registros y el E2E del Space no se han comprobado en esta auditoría. Ver [F-08 y AC-V-06](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 ## Estado (2 noviembre 2026)
 
 Código desarrollado en la rama `feature/training-fitnotes-neon-import-20261102`.
