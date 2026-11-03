@@ -333,8 +333,9 @@ with gr.Blocks(
                 "**was_corrected** se marca automáticamente cuando una medición "
                 "es distinta de la lectura original. Usa el menú de la fila "
                 "en la tabla para **eliminar** mediciones incorrectas, sin "
-                "botones adicionales. Marca **reviewed** en cada fila "
-                "conservada y pulsa **Guardar cambios**."
+                "botones adicionales. Pulsa **Guardar cambios** para confirmar "
+                "todas las filas conservadas de una sola vez; no necesitas "
+                "marcar **reviewed** fila por fila."
             )
             # Review the parsed values and their original source together.
             # The two panes stack on mobile instead of trapping the gallery
@@ -387,9 +388,14 @@ with gr.Blocks(
                 request: gr.Request | None = None,
             ):
                 try:
-                    if consent is not True or not has_consent(request, "ai"):
+                    # The signed pre-login choice is authoritative. The Gradio
+                    # State can be stale during asynchronous page initialization;
+                    # never reject a consented extraction because of that cache.
+                    consent = has_consent(request, "ai")
+                    if not consent:
                         raise PermissionError(
-                            "Autoriza el envío a la IA antes de extraer el examen."
+                            "Para extraer con Gemini, habilita el consentimiento "
+                            "de IA en Privacidad."
                         )
                     if not state or not isinstance(state.get("data"), bytes):
                         raise ValueError("Primero selecciona un examen válido.")
@@ -466,9 +472,10 @@ with gr.Blocks(
                 "Edita **value** y **correction_comment** directamente en la tabla. "
                 "La casilla **was_corrected** se actualiza automáticamente al "
                 "comparar cada medición con su valor original. Cuando todas las "
-                "filas conservadas estén marcadas como **reviewed**, pulsa "
-                "**Guardar cambios** para confirmar la revisión y avanzar. "
-                "Esta acción no escribe en la base de datos.",
+                "filas estén correctas, pulsa **Guardar cambios**. Esta "
+                "única acción acepta las correcciones y marca todas las filas "
+                "conservadas como **reviewed**. No necesitas confirmarlas "
+                "individualmente ni se escribe todavía en la base de datos.",
                 elem_id="hj-inbody-step-4"
             )
             gemini_check = gr.Button("Guardar cambios", variant="secondary")
@@ -493,8 +500,13 @@ with gr.Blocks(
                     updated, new_snapshot = reconcile_native_review_rows(
                         table, snapshot
                     )
+                    # Guardar cambios is the explicit approval for every
+                    # retained row. Validate the approved copy first so an
+                    # incomplete review never commits a partial approval.
+                    confirmed = updated.copy()
+                    confirmed.loc[:, "reviewed"] = True
                     result = review_status(
-                        updated, new_snapshot, header_edits=exam_header_edits(
+                        confirmed, new_snapshot, header_edits=exam_header_edits(
                             exam_datetime, filename, person_id, age, reason
                         ),
                     )
@@ -504,7 +516,7 @@ with gr.Blocks(
                         # validation while showing only one warning popup.
                         return updated, new_snapshot, ""
                     gr.Info("Cambios de revisión confirmados. Continúa a guardar el examen.")
-                    return updated, new_snapshot, result
+                    return confirmed, new_snapshot, result
                 except Exception as exc:
                     popup_error(exc, "No se pudieron confirmar los cambios.")
                     return gr.update(), gr.update(), ""
