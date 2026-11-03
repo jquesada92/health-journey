@@ -247,8 +247,8 @@ def test_review_ui_clears_only_after_success():
     assert 'def save_review_and_clear(table, snapshot, consent, overwrite):' in source
     assert 'if message.startswith("Guardado en Neon:"):' in source
     assert "pd.DataFrame(columns=GEMINI_COLUMNS)" in source
-    assert 'gr.Info(message.replace("Neon", "la base de datos"))' in source
-    assert "return keep_components(10)" in source
+    assert "gr.Info(visible_message)" in source
+    assert "return keep_components(11)" in source
     assert "gemini_consent" not in source
     assert "gemini_upload.upload(" in source
     assert "gemini_upload.change(" not in source
