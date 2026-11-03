@@ -1,3 +1,27 @@
+## UI chat fitness tipo mensajería · 2 de noviembre de 2026 (PR pendiente)
+
+La rama `feature/whatsapp-style-fitness-chat-20261102` introduce una
+presentación visual inspirada en WhatsApp en **Chat con el asistente fitness**:
+cabecera compacta, burbujas derecha/izquierda, altura flexible, compositor
+persistente y diseño adaptable al celular. Las clases y colores están
+aislados en `inbody_mvp/coach_chat_ui.py`, cargados mediante
+`COACH_CHAT_CSS`; no modificar los componentes InBody ni el menú lateral.
+
+**No hacer selector Gemini global:** el extractor conserva
+`gemini_model_selector` y el chat usa su propio `coach_model`.
+El acordeón de objetivos, restricciones y privacidad permanece opcional
+y colapsado; el consentimiento de chat se sigue comprobando en el servidor.
+Se preservan exactamente los callbacks existentes: enviar mediante botón
+o Enter, actualizar modelos, mostrar resumen de datos y limpiar chat.
+Gradio 6 usa mensajes con roles y `gr.Chatbot(layout="bubble")`; no
+reintroducir el parámetro `type` eliminado. El chat sigue usando la
+API Gemini Flash, no un modelo servido por Gradio.
+
+La lista de archivos del Space incluye `coach_chat_ui.py` y CI ejecuta
+`tests/test_coach_chat_ui.py`. El diseño no equivale a una validación
+en navegador móvil o en el Space; comprobar visualmente antes de
+declarar desplegado.
+
 ## Cambio en desarrollo · Menú simplificado, página Proyecto y chat fitness (2 noviembre 2026)
 
 Rama: `feature/ai-coach-simplified-navigation-20261102`, **sin merge ni despliegue verificado**.

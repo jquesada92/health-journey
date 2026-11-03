@@ -42,7 +42,7 @@ def test_sidebar_selection_updates_all_columns_without_remounting():
     assert "fn=lambda key=key: switch_module(key)" in SOURCE
     assert 'gr.update(visible=(key == section))' in SOURCE
     assert 'gr.update(variant="primary" if key == section else "secondary")' in SOURCE
-    assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS" in SOURCE
+    assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS" in SOURCE
     assert "#hj-module-content" in SIDEBAR_CSS
     assert "#hj-module-sidebar" in SIDEBAR_CSS
     assert "@media (max-width: 700px)" in SIDEBAR_CSS

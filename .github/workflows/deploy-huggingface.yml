@@ -72,6 +72,7 @@ jobs:
               'inbody_mvp/training_hub.py',
               'inbody_mvp/ai_coach.py',
               'inbody_mvp/project_overview.py',
+              'inbody_mvp/coach_chat_ui.py',
           ]
           # Avoid pushing a Space that imports a runtime module omitted
           # from this explicit deployment allowlist (prevents stale HF UI).

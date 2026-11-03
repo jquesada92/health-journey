@@ -121,7 +121,9 @@ def test_project_is_initial_and_coach_has_controls():
     assert "coach_restrictions = gr.Textbox(" in app
     # Gradio 6 uses the messages format by default; the old type keyword crashes startup.
     assert 'coach_chat = gr.Chatbot(' in app
-    assert 'label="Asistente fitness", height=430,' in app
+    assert 'layout="bubble"' in app
+    assert 'height="min(64dvh, 660px)"' in app
+    assert 'elem_id="hj-coach-chatbot"' in app
     assert 'type="messages"' not in app
     assert 'with gr.Tab(' not in app
 

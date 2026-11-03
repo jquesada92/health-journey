@@ -68,7 +68,7 @@ def test_sticky_style_targets_gradio_root_and_has_mobile_grid():
     assert "@media (max-width: 600px)" in INBODY_FLOW_CSS
     assert '<nav aria-label="Progreso del registro InBody"' in render_inbody_flow()
     assert 'elem_id="hj-inbody-flow"' in INBODY
-    assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS" in APP
+    assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS" in APP
 
 
 def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
