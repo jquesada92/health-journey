@@ -1,3 +1,30 @@
+## Interfaz de conversación estilo WhatsApp (cambio del 2026-11-02)
+
+El módulo Chat presenta un diseño de mensajería con cabecera
+«Asistente fitness», burbujas de usuario a la derecha y Gemini a la
+izquierda, colores suaves y caja de mensajes accesible en la parte
+inferior. Se usa el **modo nativo `layout="bubble"` de Gradio 6**,
+con CSS adicional limitado al componente y una media query móvil.
+
+El desplegable **Modelo Gemini Flash para el chat** es local a esta
+sección. No reemplaza ni sincroniza el selector independiente del
+extractor InBody. Los objetivos, el ID de reporte, período y restricciones
+se mantienen detrás de un acordeón que inicia cerrado, para priorizar
+la conversación. El mensaje se envía mediante el botón Enviar o Enter;
+se puede vaciar el hilo con Limpiar conversación. La cabecera es
+texto HTML estático; no introduce un endpoint, JavaScript ni recursos
+de terceros.
+
+Los estilos y la cabecera están en
+`inbody_mvp/coach_chat_ui.py`. Se incluyó el módulo en
+`.github/workflows/deploy-huggingface.yml` y una prueba que instancia
+el Chatbot con Gradio 6 en `tests/test_coach_chat_ui.py`.
+
+**Estado:** pendiente de CI, revisión, merge y validación móvil en Space.
+Las pruebas automatizadas no verifican píxeles ni tamaños reales en
+iOS/Android. Esta UI no modifica los permisos, consultas SQL ni el
+proveedor de IA Gemini.
+
 # Chat con el asistente fitness · Health Journey
 
 **Estado:** implementación propuesta en rama `feature/ai-coach-simplified-navigation-20261102`.
