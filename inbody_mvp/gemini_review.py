@@ -391,7 +391,8 @@ def _mutation_review_grid(table, snapshot):
                 )
         if _string(row.get("original_value")) != _string(original["original_value"]):
             raise ValueError(
-                f"Fila {index}: el valor original no se puede cambiar ni reordenar."
+                f"Fila {index}: no se permiten cambios en datos originales; " 
+                "el valor original no se puede cambiar ni reordenar."
             )
     return frame.reindex(columns=DISPLAY_COLUMNS).reset_index(drop=True)
 
