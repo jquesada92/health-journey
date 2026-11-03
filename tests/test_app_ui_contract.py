@@ -66,7 +66,8 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
     assert "return keep_components(8)" in app
     assert 'gr.Warning(str(message).replace("Neon", "la base de datos"))' in app
     assert "raise gr.Error(" not in app
-    assert "fn=review_with_popup" in app
+    assert "fn=review_with_popup" not in app
+    assert 'gemini_check.click(' not in app
     assert "fn=save_review_and_clear" in app
     assert not any(isinstance(n, ast.FunctionDef) and n.name == "extract_gemini"
                    for n in TREE.body)
