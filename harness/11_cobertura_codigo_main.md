@@ -1,5 +1,22 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+## Cambio pendiente de merge: reingesta de archivo InBody
+
+Se incorpora `migrations/010_private_inbody_filename_replace.sql`,
+procedimiento privado de reemplazo atómico por nombre y copia
+de recuperación `hj_replaced_audit_backups`; nuevo contrato
+`tests/test_inbody_filename_replacement.py` en la suite CI.
+Cambios relacionados en `inbody_mvp/upload_preflight.py`
+(autorización y estado de archivo duplicado),
+`inbody_mvp/gemini_review.py` (guardar reemplazo por
+`DATABASE_URL` privado), `app.py` (checkbox opt-in
+y un único botón Guardar), tests existentes de revisión,
+`README.md`, `AGENTS.md` y harness. El inventario
+corresponde al main histórico; estos archivos nuevos
+se documentan en esta sección hasta su integración.
+No se aplica automáticamente migración ni DELETE en Neon.
+
+
 ## Propuesta 2026-11-03 — normalización InBody y avisos HF
 
 La auditoría anterior se conserva como corte de `main`.
