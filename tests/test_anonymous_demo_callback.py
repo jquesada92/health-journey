@@ -13,7 +13,9 @@ def test_no_legacy_demo_save_callback_in_gemini_flow():
                      and k.value.id == "save_review_and_clear" for k in n.keywords)]
     assert len(calls) == 1
     assert "save_demo_exam" not in MODULE
-    assert "save_audit(table, snapshot, consent, overwrite)" in APP
+    assert 'save_audit(' in APP
+    assert 'table, snapshot, consent, overwrite,' in APP
+    assert 'header_edits=exam_header_edits(' in APP
 
 def test_consent_checked_before_private_access():
     node = next(n for n in ast.walk(ast.parse(MODULE))

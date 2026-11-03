@@ -46,7 +46,7 @@ def test_failed_events_preserve_component_values():
         assert "try:" in body, name
         assert "except" in body, name
     save = ast.unparse(_function("save_review_and_clear"))
-    assert "return keep_components(11)" in save
+    assert "return keep_components(16)" in save
     assert "if message.startswith('Guardado en Neon:')" in save
     assert "gr.Warning(message.replace('Neon', 'la base de datos'))" in save
     assert "gr.Info(visible_message)" in save
@@ -55,7 +55,7 @@ def test_failed_events_preserve_component_values():
 
 
 def test_plotly_report_row_and_score_display_within_same_dashboard():
-    assert SOURCE.count('with gr.Tab("Dashboard")') == 1
+    assert SOURCE.count('with gr.Tab("Dashboard", id="dashboard")') == 1
     assert 'progress_score = gr.Plot(' in SOURCE
     assert 'progress_section_history = gr.Plot(' in SOURCE
     assert 'progress_trends = gr.Plot(' in SOURCE

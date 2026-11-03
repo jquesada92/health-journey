@@ -37,6 +37,10 @@ FREE_INBODY_FLASH_MODELS = {
 COLUMNS = ["exam_datetime", "filename", "person_id", "age", "section",
            "measurement", "value", "unit", "original_value", "was_corrected",
            "correction_comment", "reviewed"]
+# UI displays per-exam metadata only once above the measurement table.
+# Keep full COLUMNS as the backend interchange contract for existing clients.
+DISPLAY_COLUMNS = [name for name in COLUMNS
+                   if name not in ("exam_datetime", "filename", "person_id", "age")]
 PROMPT = """You are an expert visual document parser for InBody body-composition reports.
 Your task is to extract ALL legible numeric measurements from the CURRENT examination
 and return the requested JSON only. Reports may be in Spanish, English or another
@@ -452,52 +456,146 @@ def _decimal(value):
         raise ValueError("Valor no finito.")
     return number
 
-def validate_review(table, snapshot):
+def compact_review_table(table):
+    """Hide repeated exam metadata from the editable measurements grid."""
+    frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=COLUMNS)
+    return frame.reindex(columns=DISPLAY_COLUMNS).copy()
+
+
+def header_for_review(snapshot):
+    """Return one editable exam header, plus a blank correction reason.
+
+    Filename remains read-only: it is original file provenance, not a metric.
+    """
+    if not snapshot:
+        return ("", "", "", "", "")
+    original = snapshot.get("header") or snapshot["rows"][0]
+    return (
+        _string(original.get("exam_datetime")),
+        _string(snapshot.get("filename") or snapshot["rows"][0].get("filename")),
+        _string(original.get("person_id")),
+        _string(original.get("age")),
+        "",
+    )
+
+
+def _effective_header(snapshot, header_edits):
+    """Validate a single correction and apply it to every exported record.
+
+    The original extraction is never rewritten; snapshot.raw_response remains
+    the AI evidence. A header correction requires only ONE UI comment.
+    """
+    base = (snapshot.get("header") or snapshot["rows"][0])
+    old = {
+        "exam_datetime": _string(base.get("exam_datetime")),
+        "person_id": _string(base.get("person_id")),
+        "age": base.get("age"),
+        "filename": _string(snapshot.get("filename") or snapshot["rows"][0]["filename"]),
+    }
+    if header_edits is None:
+        return old, False, ""
+    if not isinstance(header_edits, dict):
+        raise ValueError("Encabezado inválido.")
+    if _string(header_edits.get("filename")) != old["filename"]:
+        raise ValueError("El nombre original del archivo no puede modificarse.")
+    timestamp = _string(header_edits.get("exam_datetime"))
+    try:
+        datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+    except ValueError as exc:
+        raise ValueError("Fecha/hora inválida: usa YYYY-MM-DD HH:MM:SS.") from exc
+    person = _string(header_edits.get("person_id"))
+    if not person or len(person) > 80:
+        raise ValueError("El ID de persona es obligatorio (máximo 80 caracteres).")
+    age_value = _string(header_edits.get("age"))
+    if age_value:
+        try:
+            age = int(age_value)
+        except ValueError as exc:
+            raise ValueError("La edad debe ser un número entero.") from exc
+        if not 0 <= age <= 120:
+            raise ValueError("La edad debe estar entre 0 y 120 años.")
+    else:
+        age = None
+    effective = dict(old, exam_datetime=timestamp, person_id=person, age=age)
+    changed = any(
+        _string(effective[k]) != _string(old[k])
+        for k in ("exam_datetime", "person_id", "age")
+    )
+    comment = _string(header_edits.get("correction_comment"))
+    if changed and not comment:
+        raise ValueError("Describe una sola vez el motivo de la corrección del encabezado.")
+    if len(comment) > 1200:
+        raise ValueError("El comentario de encabezado supera 1200 caracteres.")
+    return effective, changed, comment
+
+
+def validate_review(table, snapshot, header_edits=None):
     if not snapshot:
         raise ValueError("Primero extrae un documento.")
-    frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=COLUMNS)
+    frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=DISPLAY_COLUMNS)
     original = snapshot["rows"]
     if len(frame) != len(original):
         raise ValueError("No se permite agregar o eliminar filas de auditoría.")
+    header, header_changed, header_reason = _effective_header(snapshot, header_edits)
     verified = []
     for i, (row, base) in enumerate(zip(frame.to_dict("records"), original), start=1):
-        # Prevent changing the original provenance, including original AI value.
+        # Legacy full-width callers cannot forge original headers or AI values.
         for key in ("exam_datetime", "filename", "person_id", "age", "original_value"):
-            if _string(row.get(key)) != _string(base.get(key)):
+            if key in row and _string(row.get(key)) != _string(base.get(key)):
                 raise ValueError(f"Fila {i}: no se permiten cambios en datos originales.")
         if not _string(row.get("section")) or not _string(row.get("measurement")):
             raise ValueError(f"Fila {i}: sección y medición obligatorias.")
         _decimal(row.get("value"))
-        corrected = any(_string(row.get(k)) != _string(base.get(k))
-                        for k in ("value", "unit", "section", "measurement"))
+        measurement_changed = any(_string(row.get(k)) != _string(base.get(k))
+                                  for k in ("value", "unit", "section", "measurement"))
         comment = _string(row.get("correction_comment"))
-        if corrected and not comment:
+        if measurement_changed and not comment:
             raise ValueError(f"Fila {i}: describe la corrección en el comentario.")
         reviewed = row.get("reviewed") is True or str(row.get("reviewed")).lower() == "true"
         if not reviewed:
             raise ValueError(f"Fila {i}: marca revisado antes de guardar.")
+        # The change is entered once in the UI, then propagated as a
+        # comment across measurements. Keep was_corrected tied ONLY to
+        # measurement changes: the database validates that invariant.
+        note = ("Corrección de encabezado: " + header_reason) if header_changed else ""
+        combined_comment = "; ".join(part for part in (comment, note) if part)
         verified.append({
             "row_number": i,
-            "exam_datetime": base["exam_datetime"], "filename": base["filename"],
-            "person_id": base["person_id"], "age": base["age"],
+            "exam_datetime": header["exam_datetime"], "filename": header["filename"],
+            "person_id": header["person_id"], "age": header["age"],
             "section": _string(row["section"]),
             "measurement": _string(row["measurement"]),
             "value": _string(row["value"]), "unit": _string(row.get("unit")) or None,
             "original_value": base["original_value"], "original_section": base["section"],
             "original_measurement": base["measurement"], "original_unit": base["unit"],
-            "was_corrected": corrected, "correction_comment": comment or None,
+            "was_corrected": measurement_changed,
+            "correction_comment": combined_comment or None,
         })
     if not verified:
         raise ValueError("No hay mediciones para guardar.")
     return verified
 
-def review_status(table, snapshot):
+
+def review_status(table, snapshot, header_edits=None):
     try:
-        rows = validate_review(table, snapshot)
-        changed = sum(r["was_corrected"] for r in rows)
-        return f"Revisión completa: {len(rows)} filas, {changed} correcciones, {len(rows)-changed} sin cambios."
+        rows = validate_review(table, snapshot, header_edits)
+        header_changed = bool(header_edits is not None and
+                              _effective_header(snapshot, header_edits)[1])
+        measurement_changes = sum(
+            any(_string(display_row.get(k)) != _string(base.get(k))
+                for k in ("value", "unit", "section", "measurement"))
+            for display_row, base in zip(
+                (table if isinstance(table, pd.DataFrame)
+                 else pd.DataFrame(table, columns=DISPLAY_COLUMNS)).to_dict("records"),
+                snapshot["rows"],
+            )
+        )
+        note = ", encabezado corregido" if header_changed else ""
+        return (f"Revisión completa: {len(rows)} filas, "
+                f"{measurement_changes} correcciones de medición{note}.")
     except ValueError as exc:
         return "Revisión pendiente: " + str(exc)
+
 
 def audit_write_enabled() -> bool:
     """Never accept administrator credentials for consent-only audit writes."""
@@ -531,7 +629,8 @@ def _audit_write_engine():
     return create_engine(uri, pool_pre_ping=True, pool_size=1, max_overflow=0)
 
 
-def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None):
+def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
+               header_edits=None):
     """Consent-based write-only submission; never grants private read access.
 
     The anonymous database role has EXECUTE only on a validated stored
@@ -540,7 +639,7 @@ def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None):
     if consent is not True:
         raise _ui_error("Debes autorizar el envío de las mediciones a Neon.")
     try:
-        rows = validate_review(table, snapshot)
+        rows = validate_review(table, snapshot, header_edits=header_edits)
         if not audit_write_enabled():
             raise PermissionError(
                 "La escritura por consentimiento no está configurada. "
@@ -550,9 +649,9 @@ def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None):
         body = {
             "source_sha256": snapshot["sha256"],
             "filename": snapshot["filename"],
-            "person_id": snapshot["header"]["person_id"],
-            "exam_datetime": snapshot["header"]["exam_datetime"],
-            "age": snapshot["header"]["age"],
+            "person_id": rows[0]["person_id"],
+            "exam_datetime": rows[0]["exam_datetime"],
+            "age": rows[0]["age"],
             "model_name": snapshot["model"],
             "raw_response": json.loads(snapshot["raw_response"]),
             "measurements": rows,

@@ -92,8 +92,11 @@ def test_no_invented_time_or_date(header):
         source_exam_timestamp(result.model_dump(mode="json"))
 
 
-def test_gemini_exam_datetime_is_from_extraction_snapshot_only():
+def test_gemini_exam_datetime_is_sourced_from_extraction_then_explicitly_reviewed():
     source = (ROOT / "inbody_mvp/gemini_review.py").read_text()
     assert 'result.header.exam_datetime' in source
     assert 'datetime.fromisoformat(result.header.exam_datetime)' in source
-    assert '"exam_datetime": base["exam_datetime"]' in source
+    assert 'datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")' in source
+    assert '"exam_datetime": header["exam_datetime"]' in source
+    assert 'header_edits=None' in source
+    assert 'snapshot["raw_response"]' not in source.split('def _effective_header(', 1)[1].split('def validate_review(', 1)[0]

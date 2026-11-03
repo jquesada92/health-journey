@@ -7,7 +7,7 @@ SQL = (BASE / "migrations/008_fitnotes_training_hub.sql").read_text(encoding="ut
 
 
 def test_gradio_upload_preview_consent_save_and_read():
-    assert 'with gr.Tab("Training Hub"):' in APP
+    assert 'with gr.Tab("Training Hub", id="training"):' in APP
     assert 'file_types=[".csv"]' in APP
     assert "fn=parse_training_with_popup" in APP
     assert "fn=save_training_with_popup" in APP

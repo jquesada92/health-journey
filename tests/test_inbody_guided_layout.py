@@ -7,8 +7,8 @@ from pathlib import Path
 
 SOURCE = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
-INBODY = SOURCE.split('with gr.Tab("InBody Upload"):', 1)[1].split(
-    'with gr.Tab("Training Hub"):', 1
+INBODY = SOURCE.split('with gr.Tab("InBody Upload", id="inbody"):', 1)[1].split(
+    'with gr.Tab("Training Hub", id="training"):', 1
 )[0]
 
 
@@ -56,13 +56,13 @@ def test_success_clears_document_but_keeps_visible_receipt_and_session_optins():
     callback = _function("save_review_and_clear")
     body = ast.unparse(callback)
     assert "gr.Info(visible_message)" in body
-    assert "return keep_components(11)" in body
+    assert "return keep_components(16)" in body
     success_returns = [
         node.value for node in ast.walk(callback)
         if isinstance(node, ast.Return) and isinstance(node.value, ast.Tuple)
     ]
     assert len(success_returns) == 1
-    assert len(success_returns[0].elts) == 11
+    assert len(success_returns[0].elts) == 16
     assert isinstance(success_returns[0].elts[0], ast.Name)
     assert success_returns[0].elts[0].id == "visible_message"
     assert "session_ai_consent" not in body
