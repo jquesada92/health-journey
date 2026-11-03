@@ -139,3 +139,8 @@ en el Space hasta pasar pruebas de exactitud, privacidad y recursos.
 Los criterios para aceptar esta nueva arquitectura están en
 [04 — OCR y normalización](04_extraccion_y_normalizacion.md) y
 [08 — Calidad y aceptación](08_pruebas_y_criterios.md).
+
+
+## Punto de reanudación — 1 de noviembre de 2026
+
+Leer [10 — Continuidad y solicitudes recientes](10_continuidad_noviembre_2026.md) **antes** de implementar requisitos posteriores al PR #38. Allí se separa estado documentado, decisiones consolidadas, nuevas peticiones, criterios de prueba y discrepancias históricas. Las secciones de este harness sobre CSV, EasyOCR, ZeroGPU y tipos de dashboard pueden expresar **contratos históricos o metas**, no el runtime actual; comprobar siempre el commit y el Space antes de concluir que están implementadas. No efectuar cambios de funcionalidad ni migraciones basándose solo en el inventario.
