@@ -1,5 +1,24 @@
 # 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
+> **Regla de fechas de InBody (2026-11-03, propuesta pendiente de merge):**
+> El reporte impreso usa **día.mes.año hora:minuto**
+> (`DD.MM.AAAA HH:MM`, a veces `DD.MM.AAAA. HH:MM`),
+> mientras el nombre después del primer `_` usa
+> `AAAAMMDDHHMMSS` (incluye segundos). El token válido
+> del nombre predomina al guardar; el original Gemini se
+> conserva. Si no hay token en esa posición se normaliza
+> la fecha del encabezado impreso; formatos imposibles
+> se rechazan. En Neon se comprobaron 17 exámenes con token
+> válido: los 17 difieren de la fecha/hora guardada y dos
+> difieren de día. `migrations/011_correct_inbody_dates_from_filenames.sql`
+> permite reparar de forma atómica manteniendo backup;
+> **no se ejecutó la migración contra Neon ni se
+> modificó data histórica durante esta revisión**. Los
+> archivos de origen permanecen inalterados. Tests
+> `tests/test_inbody_filename_timestamp.py` y
+> `tests/test_exam_timestamp.py`.
+
+
 > **Nueva opción de reingesta privada pendiente de merge y migración:**
 > El extractor ofrece `Reprocesar y reemplazar el archivo existente
 > en Neon` (desmarcado por defecto), permite nueva extracción de
