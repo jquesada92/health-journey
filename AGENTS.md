@@ -1,3 +1,23 @@
+## Fuente de verdad del proyecto (auditoría 2026-11-03)
+
+Leer **[harness/00_estado_vigente_y_trazabilidad.md](harness/00_estado_vigente_y_trazabilidad.md)**
+y [docs/indice_actual.md](docs/indice_actual.md) antes de modificar código.
+`main` auditado en `5f8ea83a5041`: cuatro módulos (Proyecto, InBody,
+FitNotes, Chat), Gemini Flash por API con selectores independientes,
+revisión humana, Neon privado, Plotly, barra fija de cinco pasos, reset
+tras guardado y tres consentimientos opcionales **antes del login**.
+Las secciones antiguas aquí que hablan de «rama nueva», dos checkboxes
+intrasesión, EasyOCR/PaddleOCR como runtime o CSV v1 como interfaz son
+históricas. PR #72 (prompts separados y multi-turno Gemini) sigue
+**sin fusionar** al corte; no asumirlo en `main`.
+Los workflows/pytest solo aportan evidencia sintética, no E2E del Space.
+
+Cada PR debe actualizar funcionalidades F, criterios AC-V, pruebas,
+tecnologías, DDL y estado de despliegue pertinentes. No afirmar que la
+auditoría de datos Neon ni el isolation multiusuario están validados sin
+evidencia. No mezclar datos privados, credenciales o informes personales
+en los commits. No hacer merge/despliegue no autorizado.
+
 ## UX InBody guiada con avance automático y limpieza tras guardar (2026-11-03)
 
 Rama: `feature/inbody-auto-next-step-no-clear-20261103`. Solicitud más reciente:
