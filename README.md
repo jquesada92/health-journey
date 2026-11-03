@@ -69,6 +69,26 @@ cumplimiento legal completo**. Antes de producción con múltiples usuarios,
 revisar los avisos y procedimientos de derechos, conservación,
 transferencias internacionales y seguridad conforme a la normativa aplicable.
 
+## Navegación vertical y extracción IA integrada
+
+Health Journey utiliza ahora un **menú lateral** nativo de Gradio
+(`gr.Sidebar`) para elegir entre InBody, Entrenamientos, Dashboard,
+Historial y Proyecto. Es plegable, por lo que en celulares puede
+cerrarse para maximizar el espacio de lectura y edición. El módulo activo
+queda resaltado; las pestañas horizontales originales ya no se muestran.
+
+Internamente se conservan las pestañas de los módulos, con IDs estables
+y navegación programática por `gr.Tabs(selected=...)`, para mantener el
+estado de las mediciones, modelos seleccionados, registros y consentimientos
+al cambiar de sección sin recargar la aplicación.
+
+En InBody, el **paso 2** concentra la selección del modelo Gemini, la
+actualización de los modelos compatibles, el botón **Extraer mediciones
+con IA** y el resultado de la extracción dentro de una misma sección.
+El indicador de progreso de cinco pasos sigue visible en la pestaña
+InBody. Las verificaciones del consentimiento de IA y las operaciones
+en la base de datos continúan haciéndose en el servidor.
+
 ## Flujo de captura InBody — cinco pasos
 
 La pestaña **InBody Upload** presenta una guía de progreso
