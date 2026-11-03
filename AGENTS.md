@@ -20,7 +20,12 @@ de Neon. El historial del chat y las metas no se almacenan automáticamente.
 El permiso `coach` es **tercero e independiente**, con opt-in previo al login
 en `inbody_mvp/prelogin_consent.py` y verificación de cookie firmada
 en cada llamada. No compartir raw OCR, IDs, comentarios del entrenamiento,
-documentos ni credenciales con Gemini. No fusionar ni activar el chat en
+documentos ni credenciales con Gemini. **Validación del PR #64 (2026-11-02):** CI de `Test InBody MVP` en el commit
+`a6a37ee0` completado con **305 pruebas aprobadas**, `ruff F821`
+y compilación Python correctas. El harness de reconstrucción también pasó.
+Esto NO certifica ejecución de Gradio en Space ni una conversación real con Gemini.
+
+No fusionar ni activar el chat en
 producción multiusuario sin resolver antes la relación owner / persona InBody.
 Los resultados son informativos, nunca diagnósticos ni prescripciones médicas.
 
