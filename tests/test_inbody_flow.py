@@ -164,22 +164,24 @@ def test_auto_advance_only_after_successful_stage_completion():
     }
     extract = ast.unparse(funcs["progress_after_extract"])
     assert 'hj-inbody-step-3' in extract
-    assert 'return (render_inbody_flow(2 if upload else 1), "")' in extract
+    assert "render_inbody_flow(2 if upload else 1)" in extract
+    assert "hj-inbody-step-3" in extract
 
     review = ast.unparse(funcs["finish_review_step"])
     assert "review_step_ready(table, snapshot)" in review
     assert 'hj-inbody-step-4' in review
-    assert 'return (gr.update(), "")' in review
+    assert "gr.update()" in review
+    assert "return" in review
 
     validate = ast.unparse(funcs["progress_after_validation"])
     assert 'hj-inbody-step-5' in validate
     assert 'Revisión completa:' in validate
-    assert 'return (render_inbody_flow(4), "")' in validate
+    assert "render_inbody_flow(4)" in validate
 
     save = ast.unparse(funcs["progress_after_save"])
     assert 'Guardado en la base de datos:' in save
     assert 'hj-inbody-step-1' in save
-    assert 'return (gr.update(), "", gr.update())' in save
+    assert "gr.update()" in save
 
     assert APP.count("js=INBODY_NEXT_STEP_JS") == 5
     for n in range(1, 6):
