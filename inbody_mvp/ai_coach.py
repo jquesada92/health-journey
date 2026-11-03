@@ -22,6 +22,7 @@ from .storage import (
 )
 from .training_hub import _owner_key
 from .prompt_loader import load_prompt
+from .semantic_metadata import load_coach_semantics
 from .coach_data import (
     resolve_private_person_id, compact_inbody_rows, load_private_training_sets,
 )
@@ -208,11 +209,18 @@ def load_coach_context(report_id=None, days=90, *, profile=None, request=None):
             if inbody else "No hay InBody guardados para el usuario autorizado."
         )
     training = _load_training(owner, days=days)
+    # Only labels from already-authorized, saved measurements are used
+    # to select generic definitions; the catalog carries no personal data.
+    inbody_detail = compact_inbody_rows(inbody, days=days)
+    semantics = load_coach_semantics([
+        row["measurement"] for row in inbody_detail["measurements"]
+    ])
     return {
         "period_days": days,
         "inbody_source_status": source,
         "inbody": summarize_inbody(inbody, days=days),
-        "inbody_measurements": compact_inbody_rows(inbody, days=days),
+        "inbody_measurements": inbody_detail,
+        "semantic_metadata": semantics,
         "training": summarize_training(training),
         "training_sets": load_private_training_sets(owner, days=days),
         "data_limitations": [
@@ -220,6 +228,7 @@ def load_coach_context(report_id=None, days=90, *, profile=None, request=None):
             "Las listas de detalle son recientes y pueden estar truncadas; consulta los campos truncated.",
             "Compara solo ejercicios, unidades y modelos compatibles; no se conoce el RIR ni el esfuerzo real.",
             "No se envían a Gemini identificadores personales, documentos, comentarios ni OCR bruto.",
+            "Las definiciones semánticas de Neon describen métricas, pero no son valores observados ni instrucciones clínicas.",
         ],
     }
 
