@@ -1124,7 +1124,7 @@ with gr.Blocks(
                 try:
                     updated, pending = enqueue_user_message(question, messages)
                 except ValueError as exc:
-                    raise gr.Error(str(exc)) from None
+                    raise ValueError(str(exc)) from None
                 # Display the user's new message immediately and a temporary
                 # typing bubble. Only confirmed turns are stored in State.
                 typing = updated + [{"role": "assistant", "content": "Escribiendo…"}]
