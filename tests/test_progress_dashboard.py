@@ -127,8 +127,8 @@ def test_history_is_date_separated_and_never_uses_pdf_trend_values(records):
 
 def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     app = (ROOT / "app.py").read_text()
-    assert 'with gr.Tab("Dashboard")' in app
-    assert app.count('with gr.Tab("Dashboard")') == 1
+    assert 'with gr.Tab("Dashboard", id="dashboard")' in app
+    assert app.count('with gr.Tab("Dashboard", id="dashboard")') == 1
     assert 'with gr.Tab("Dashboard público")' not in app
     assert 'with gr.Tab("Progress Dashboard")' not in app
     assert 'with gr.Tab("Dashboard (siguiente fase)")' not in app
@@ -142,7 +142,7 @@ def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     assert "progress_refresh.click(" in app
     assert "load_reviewed_audit_history(" in app
     assert "profile: gr.OAuthProfile | None = None" in app
-    section = app[app.index('with gr.Tab("Dashboard")'):app.index('with gr.Tab("Historial en base de datos")')]
+    section = app[app.index('with gr.Tab("Dashboard", id="dashboard")'):app.index('with gr.Tab("Historial en base de datos", id="history")')]
     assert "exam_selector" not in section
     assert "alias privado test" in section
     assert "Exam selector" not in section
