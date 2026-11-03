@@ -4,10 +4,11 @@ Rama de trabajo: `feature/training-fitnotes-neon-import-20261102`.
 Se añadió un módulo separado `inbody_mvp/training_hub.py` y pestaña
 `Training Hub` en Gradio. Se procesan CSV FitNotes UTF-8 de 10 columnas
 con límite 10 MiB/100.000 series, vista previa de 60, consentimiento
-explícito, escritura transaccional y consulta privada. **No se aplicó la
-migración a Neon principal, no se fusionó el PR ni se importó la data real.**
+explícito, escritura transaccional y consulta privada. **La migración fue aplicada a Neon principal con autorización y verificada
+(ambas tablas con cero filas); no se fusionó el PR ni se importó la data real.**
 La migración aditiva `migrations/008_fitnotes_training_hub.sql` está
-preparada y comprobada en rama Neon temporal, pendiente de autorización.
+probada en rama temporal y aplicada a Neon principal el 2 de noviembre de
+2026, con autorización expresa del usuario.
 
 Se mantienen varias series idénticas como eventos distintos: el identificador
 es propietario + fecha + ejercicio normalizado + número de serie en orden
