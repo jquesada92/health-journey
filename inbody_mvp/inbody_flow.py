@@ -1,7 +1,7 @@
 """Accessible, responsive InBody progress indicator.
 
 Rendered only from trusted, fixed labels. Progress is controlled by the actual
-upload, extraction, review, validation and save events (not scroll position).
+upload, extraction, reviewed-row confirmation and save events (not scroll position).
 The Gradio HTML component uses `elem_id="hj-inbody-flow"` inside
 a top-level Gradio Column `hj-inbody-fixedbar`. Its visibility is driven by
 the selected module, not scroll state. Fixed placement is viewport-relative,
@@ -9,7 +9,7 @@ not sticky within the scrolling InBody form.
 """
 from __future__ import annotations
 
-STEPS = ("Cargar", "Extraer", "Revisar", "Validar", "Guardar")
+STEPS = ("Cargar", "Extraer", "Revisar", "Guardar")
 
 INBODY_FLOW_CSS = """
 /* The navbar belongs to the top-level Blocks tree (NOT the InBody scrolling
@@ -61,8 +61,7 @@ INBODY_FLOW_CSS = """
 #hj-inbody-step-1,
 #hj-inbody-step-2,
 #hj-inbody-step-3,
-#hj-inbody-step-4,
-#hj-inbody-step-5 {
+#hj-inbody-step-4 {
     scroll-margin-top: 175px;
 }
 #hj-inbody-flow .hj-flow-head {
@@ -81,7 +80,7 @@ INBODY_FLOW_CSS = """
 }
 #hj-inbody-flow .hj-flow-track {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     list-style: none;
     padding: 0;
     margin: 0;
@@ -163,7 +162,7 @@ INBODY_FLOW_CSS = """
 }
 #hj-inbody-review-document {
     position: sticky;
-    top: 175px; /* Leave room for the fixed five-step navigation. */
+    top: 175px; /* Leave room for the fixed four-step navigation. */
     align-self: flex-start;
 }
 #hj-inbody-document-gallery {
@@ -199,8 +198,7 @@ INBODY_FLOW_CSS = """
     #hj-inbody-step-1,
     #hj-inbody-step-2,
     #hj-inbody-step-3,
-    #hj-inbody-step-4,
-    #hj-inbody-step-5 {
+    #hj-inbody-step-4 {
         scroll-margin-top: 145px;
     }
     #hj-panel-inbody {
@@ -246,10 +244,10 @@ INBODY_FLOW_CSS = """
 def render_inbody_flow(active_step: int = 1, *, saved: bool = False) -> str:
     """Show completed steps, a single current step, and upcoming steps.
 
-    During a successful save all five steps become completed; subsequent file
+    During a successful save all four steps become completed; subsequent file
     uploads reset the progress to step 2. No user document data is displayed.
     """
-    if not isinstance(active_step, int) or isinstance(active_step, bool) or not 1 <= active_step <= 5:
+    if not isinstance(active_step, int) or isinstance(active_step, bool) or not 1 <= active_step <= 4:
         raise ValueError("Invalid InBody progress step.")
 
     nodes = []
@@ -267,7 +265,7 @@ def render_inbody_flow(active_step: int = 1, *, saved: bool = False) -> str:
             f'<span class="hj-flow-label">{label}</span>'
             "</li>"
         )
-    caption = "Examen guardado" if saved else f"Paso {active_step} de 5"
+    caption = "Examen guardado" if saved else f"Paso {active_step} de 4"
     return (
         '<nav aria-label="Progreso del registro InBody" aria-live="polite" '
         'aria-atomic="true">'
@@ -284,7 +282,7 @@ def render_inbody_flow(active_step: int = 1, *, saved: bool = False) -> str:
 INBODY_NEXT_STEP_JS = """(target) => {
     const allowed = new Set([
         "hj-inbody-step-1", "hj-inbody-step-2", "hj-inbody-step-3",
-        "hj-inbody-step-4", "hj-inbody-step-5",
+        "hj-inbody-step-4",
     ]);
     if (typeof target !== "string" || !allowed.has(target)) return [];
     const panel = document.getElementById("hj-panel-inbody");
@@ -306,8 +304,8 @@ INBODY_NEXT_STEP_JS = """(target) => {
 def review_step_ready(table, snapshot) -> tuple[bool, str]:
     """Only mark step 3 complete when there are rows and all are reviewed.
 
-    This is a lightweight navigation gate, NOT the full measurement/header
-    validation. The next step retains the existing review_status checks.
+    This is a lightweight progress gate, NOT full measurement/header
+    validation. The single save action performs all backend validations.
     """
     if snapshot is None:
         return False, "Primero carga y extrae un examen InBody."

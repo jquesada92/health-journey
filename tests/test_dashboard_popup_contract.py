@@ -35,7 +35,7 @@ def test_one_warning_popup_and_no_gr_error_callbacks():
 def test_failed_events_preserve_component_values():
     for name in (
         "save_review_and_clear", "extract_with_popup",
-        "review_with_popup", "preview_with_popup",
+        "preview_with_popup",
         "show_public_dashboard", "show_progress",
         "complete_coach_message", "recent_training_with_popup",
         "show_processed_filename",
@@ -81,12 +81,15 @@ def test_component_validation_badges_are_hidden_but_single_toast_is_preserved():
     assert "visible=False" in review_status
 
 
-def test_review_error_is_one_toast_and_discards_previous_success():
-    body = ast.unparse(_function("review_with_popup"))
-    assert body.count("gr.Warning(") == 1
-    assert "return (updated, new_snapshot, '')" in body
-    assert "return (gr.update(), gr.update(), '')" in body
-    assert "popup_error(" in body
+def test_save_reconciles_review_grid_before_persisting_and_uses_one_popup():
+    body = ast.unparse(_function("save_review_and_clear"))
+    assert "reconcile_native_review_rows(table, snapshot)" in body
+    assert body.index("reconcile_native_review_rows(table, snapshot)") < body.index("save_audit(")
+    assert "return keep_components(16)" in body
+    assert "popup_error(exc" in SOURCE
+    assert "def review_with_popup(" not in SOURCE
+    assert "fn=review_with_popup" not in SOURCE
+    assert 'gemini_check.click(' not in SOURCE
 
 
 def test_file_preflight_error_is_not_both_status_and_toast():

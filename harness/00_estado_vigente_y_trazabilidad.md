@@ -1,3 +1,17 @@
+> **Flujo único de revisión y guardado (2026-11-03, PR en validación):**
+> Se reducen cinco etapas a cuatro: Cargar → Extraer → Revisar → Guardar.
+> La tabla conserva el indicador `reviewed` y correcciones editables;
+> al marcar todas las filas, se puede presionar **Guardar mediciones**
+> sin un paso de validación duplicado. El botón único reconcilia
+> eliminaciones, valida columnas y encabezado mediante `save_audit`
+> y persiste solo con consentimiento válido para Neon. Si falla, no
+> borra el formulario; si tiene éxito, limpia y vuelve a Cargar.
+> No se altera el flujo de consentimiento a Gemini, detección de
+> duplicados ni auditoría de valores originales. Contratos:
+> `tests/test_inbody_one_click_review.py`, `test_inbody_flow.py`,
+> `test_inbody_guided_layout.py`, `test_inbody_row_actions.py`.
+> Pendiente prueba visual y persistencia real en Space.
+
 > **Asistente fitness con datos privados automáticos (2026-11-03, PR #82, verificación pendiente):**
 > El chat elimina el campo de ID de InBody. Cada turno lee el historial
 > autorizado de InBody (auditoría revisada, o confirmado heredado si no

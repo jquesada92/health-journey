@@ -22,8 +22,7 @@ def test_inbody_steps_follow_users_real_actions_in_order():
         "### 1. Carga tu examen",
         "### 2. Selecciona la IA y extrae las mediciones",
         "### 3. Revisa y corrige los resultados",
-        "### 4. Valida todas las mediciones",
-        "### 5. Guarda el examen en la base de datos",
+        "### 4. Guarda el examen en la base de datos",
     )
     positions = [INBODY.index(title) for title in titles]
     assert positions == sorted(positions)
@@ -92,13 +91,17 @@ def test_extraction_passes_duplicate_preflight_to_callback():
     assert "gemini_model_selector" in extract_binding
 
 
-def test_validation_has_own_feedback_without_reusing_extraction_status():
-    validate = INBODY.split('gemini_check.click(', 1)[1].split(
-        'gr.Markdown(', 1
+def test_review_and_validation_are_one_save_action():
+    assert 'gemini_check.click(' not in INBODY
+    assert 'Guardar cambios' not in INBODY
+    assert 'gemini_save = gr.Button(' in INBODY
+    assert 'fn=save_review_and_clear' in INBODY
+    assert 'table, snapshot = reconcile_native_review_rows(table, snapshot)' in INBODY
+    assert 'save_audit(' in INBODY
+    assert 'gemini_review_status = gr.Markdown(' in INBODY
+    assert 'gemini_status' not in INBODY.split('gemini_save.click(', 1)[1].split(
+        'outputs=[', 1
     )[0]
-    assert "outputs=[gemini_table, gemini_snapshot, gemini_review_status]" in validate
-    assert "gemini_status" not in validate
-    assert "gemini_review_status = gr.Markdown(" in INBODY
 
 
 def test_success_clears_document_but_keeps_visible_receipt_and_session_optins():
@@ -129,7 +132,7 @@ def test_new_file_resets_review_only_and_not_session_permissions():
     assert "Limpiar examen (conservar permisos)" not in INBODY
     assert "session_ai_consent" not in INBODY.split("def upload_with_popup(", 1)[1]
     assert "session_db_consent" not in INBODY.split("def upload_with_popup(", 1)[1]
-    assert "outputs=[inbody_flow, inbody_navigation_target]" in INBODY
+    assert "fn=progress_after_save" in INBODY
     assert "js=INBODY_NEXT_STEP_JS" in INBODY
     # User header edits must remain interactive; programmatic form clearing
     # after save may not reactivate step 3 or undo the reset to step 1.
@@ -158,7 +161,7 @@ def test_reviewer_appears_only_after_successful_ai_extraction_and_resets():
     assert "visible=False" in extracted
     assert "inbody_review_layout" in INBODY
     extract_event = INBODY.split("gemini_extract.click(", 1)[1].split(
-        "gemini_check.click(", 1
+        "gemini_save.click(", 1
     )[0]
     assert "inbody_review_layout" in extract_event
     saved = ast.unparse(_function("progress_after_save"))

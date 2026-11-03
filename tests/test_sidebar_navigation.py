@@ -69,7 +69,7 @@ def test_model_picker_refresh_extract_and_feedback_inside_one_group():
 def test_existing_shared_consent_and_inbody_sticky_progress_remain():
     assert "fn=restore_session_consents" in SOURCE
     assert 'fn=progress_after_extract' in SOURCE
-    assert 'fn=progress_after_validation' in SOURCE
+    assert 'fn=progress_after_validation' not in SOURCE
     assert 'fn=progress_after_save' in SOURCE
     assert 'elem_id="hj-inbody-flow"' in SOURCE
     assert "gemini_upload_state, session_ai_consent," in SOURCE

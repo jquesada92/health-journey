@@ -1,3 +1,21 @@
+## InBody: un único botón Guardar mediciones (2026-11-03)
+
+El flujo actualizado tiene cuatro pasos: **Cargar → Extraer → Revisar →
+Guardar**. El usuario edita la tabla, marca cada fila `reviewed`, y
+el único botón **Guardar mediciones** realiza reconciliación nativa,
+validación exhaustiva y persistencia consentida; no existe botón
+intermedio `Guardar cambios` ni etapa separada Validar. El cambio de
+`value` determina `was_corrected`, `original_value` no se edita,
+y una corrección requiere comentario. Errores no vacían datos ni
+anulan consentimientos. Al guardar, se limpia la captura y se
+reinicia la navegación. No confundir el consentimiento de Gemini
+con el de Neon. `render_inbody_flow` usa cuatro pasos y el
+panel del documento debe permanecer junto a la tabla.
+Pruebas sintéticas: `tests/test_inbody_one_click_review.py`,
+`tests/test_inbody_flow.py` y `tests/test_inbody_guided_layout.py`.
+La documentación más antigua de cinco pasos es histórica, no el
+contrato actual.
+
 ## Chat fitness automático con InBody y FitNotes (2026-11-03)
 
 El chat ya no pide `coach_report_id`; no reintroducir filtros por

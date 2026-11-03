@@ -8,6 +8,31 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Flujo InBody simplificado: una sola confirmación y guardado (2026-11-03)
+
+**Vigente en esta propuesta:** Cargar → Extraer → Revisar → Guardar.
+Revisar y Validar ya no son dos pasos. La comparación con el visor original
+y las correcciones de `value`, unidad, descripción y comentario se hacen
+en la misma tabla. La marca `was_corrected` se sincroniza con el
+`original_value` inmutable; el usuario marca `reviewed` al verificar
+cada fila. Cuando todas las filas conservadas están revisadas, la barra
+avanza visualmente a **Guardar**, sin otro botón ni llamado a Gemini.
+
+Solo existe **Guardar mediciones**: al pulsarlo, el servidor primero
+reconcilia cualquier eliminación nativa pendiente y valida todas las
+filas y datos generales con `save_audit`; luego escribe en la base de
+datos **una sola vez** si el permiso de almacenamiento sigue vigente.
+No existe el paso ni botón **Guardar cambios**. Errores de validación
+o duplicados se comunican mediante un solo aviso, sin limpiar la tabla.
+Tras guardado exitoso, se limpia el examen y el flujo vuelve a Cargar.
+El consentimiento de almacenamiento sigue separado del de extracción.
+
+Pruebas: `tests/test_inbody_one_click_review.py`,
+`tests/test_inbody_flow.py`, `tests/test_inbody_guided_layout.py`,
+`tests/test_inbody_row_actions.py`. El comportamiento en Hugging Face
+requiere validación manual después del despliegue.
+
+
 ## Estado consolidado y trazabilidad · 2026-11-03
 
 El estado vigente de capacidades, criterios y documentación se encuentra en
