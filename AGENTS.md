@@ -1,5 +1,33 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Reingesta segura InBody por nombre de archivo (propuesta 2026-11-03)
+
+Sin opt-in, el preflight de duplicados **bloquea** volver a gastar tokens.
+Un archivo existente se puede volver a subir con el checkbox
+`gemini_replace_existing`, que debe comenzar en false y comprobar
+autorización de identidad **antes de Gemini**. Tras completar la tabla
+y revisar cada `reviewed`, el único botón `Guardar mediciones`
+invoca `save_audit(..., replace_filename=True)` por la conexión
+privada `DATABASE_URL`, no por `DEMO_DATABASE_URL`. El nuevo
+procedimiento `hj_replace_reviewed_audit_filename` sólo es
+ejecutable por roles privados y compara nombre y persona; archiva
+el original, borra exclusivamente filas activas del nombre elegido,
+vuelve a validar e insertar la captura corregida **en la misma
+transacción**. Un fallo hace rollback de todo. No extender el
+permiso al demo writer ni a PUBLIC. El nuevo SQL 010 **NO está
+aplicado en Neon** durante este PR: desplegar solamente tras
+aplicarlo por una persona autorizada.
+
+Conservar `source_sha256`, el payload original y los comentarios
+de corrección en backup privado. No usar `DELETE` directo fuera
+del procedimiento ni cambiar la vista privada auditada en otro
+commit. No permitir sobreescritura si el nombre coincide con otro
+usuario, si el documento pertenece a otro nombre o hay métricas
+del mismo examen asociadas a otro archivo. Tests:
+`tests/test_inbody_filename_replacement.py`; inventario
+`harness/11_cobertura_codigo_main.md`.
+
+
 ## Normalización y arranque HF (2026-11-03; propuesta)
 
 En `inbody_mvp/progress_dashboard.py` se usan alias explícitos
