@@ -286,35 +286,11 @@ with gr.Blocks(
                 )
             gr.Markdown(
                 "### 3. Revisa y corrige los resultados\n"
-                "Compara los valores extraídos con el examen original. "
-                "**No guardes datos sin comprobarlos.** "
-                "La tabla ocupa todo el ancho de la pantalla para facilitar "
-                "su lectura y edición, también desde el celular.",
+                "Compara las mediciones extraídas con el documento original "
+                "**al lado de la tabla**, sin cambiar de pantalla. "
+                "Puedes ampliar las páginas del examen para verificar los valores.",
                 elem_id="hj-inbody-step-3"
             )
-            with gr.Accordion(
-                "Ver examen original y comparar las mediciones",
-                open=False,
-            ):
-                gr.Markdown(
-                    "Abre este panel cuando necesites ampliar una página del examen "
-                    "y verificar un valor. No se envía nuevamente a la IA."
-                )
-                gemini_preview = gr.Gallery(
-                    label="Visor PDF / imagen",
-                    columns=1,
-                    height=420,
-                    selected_index=0,
-                    preview=True,
-                    allow_preview=True,
-                    object_fit="contain",
-                    buttons=["fullscreen"],
-                    interactive=False,
-                    format="png",
-                )
-                gemini_preview_status = gr.Markdown(
-                    "Carga un PDF o imagen para visualizarlo."
-                )
             gr.Markdown(
                 "#### Datos generales del examen\\n"
                 "Los datos siguientes se aplican a **todas las mediciones**. "
@@ -360,15 +336,49 @@ with gr.Blocks(
                 "botones adicionales. Marca **reviewed** en cada fila "
                 "conservada y pulsa **Guardar cambios**."
             )
-            gemini_table = gr.Dataframe(
-                headers=GEMINI_DISPLAY_COLUMNS,
-                datatype=["str", "str", "str", "str", "str", "bool", "str", "bool"],
-                type="pandas", interactive=True,
-                static_columns=[4],
-                show_row_numbers=True,
-                row_limits=(1, None),
-                label="Mediciones: edita o elimina filas en la propia tabla",
-            )
+            # Review the parsed values and their original source together.
+            # The two panes stack on mobile instead of trapping the gallery
+            # in a collapsed accordion. The PDF is rendered locally once.
+            with gr.Row(
+                elem_id="hj-inbody-review-layout", equal_height=False
+            ):
+                with gr.Column(
+                    scale=7, min_width=420,
+                    elem_id="hj-inbody-review-table",
+                ):
+                    gemini_table = gr.Dataframe(
+                        headers=GEMINI_DISPLAY_COLUMNS,
+                        datatype=["str", "str", "str", "str", "str", "bool", "str", "bool"],
+                        type="pandas", interactive=True,
+                        static_columns=[4],
+                        show_row_numbers=True,
+                        row_limits=(1, None),
+                        label="Mediciones: edita o elimina filas en la propia tabla",
+                    )
+                with gr.Column(
+                    scale=5, min_width=300,
+                    elem_id="hj-inbody-review-document",
+                ):
+                    gr.Markdown(
+                        "**Documento original** · cambia de página o "
+                        "abre la vista completa para comprobar cada medición."
+                    )
+                    gemini_preview = gr.Gallery(
+                        label="Visor PDF / imagen",
+                        columns=1,
+                        height=540,
+                        selected_index=0,
+                        preview=True,
+                        allow_preview=True,
+                        object_fit="contain",
+                        buttons=["fullscreen"],
+                        interactive=False,
+                        format="png",
+                        elem_id="hj-inbody-document-gallery",
+                    )
+                    gemini_preview_status = gr.Markdown(
+                        "Carga un PDF o imagen para visualizarlo."
+                    )
             def extract_with_popup(
                 state, consent, model, preflight,
                 profile: gr.OAuthProfile | None = None,
@@ -420,7 +430,10 @@ with gr.Blocks(
 
             gemini_extract.click(
                 fn=extract_with_popup,
-                inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
+                inputs=[
+                    gemini_upload_state, session_ai_consent,
+                    gemini_model_selector, gemini_upload_preflight,
+                ],
                 outputs=[
                     gemini_table, gemini_snapshot, gemini_status,
                     header_exam_datetime, header_filename, header_person_id,
