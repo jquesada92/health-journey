@@ -8,13 +8,26 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Estado vigente de GitHub main (auditoría 2026-11-03)
+
+El árbol `main` `4944fbe5355d66da94290c510e5e0393487f2918` contiene cuatro módulos,
+InBody de **cuatro pasos**, un solo botón **Guardar mediciones**,
+FitNotes y chat Gemini multiturno con lectura automática privada
+InBody/FitNotes y prompts separados. La fuente normativa de cobertura
+es [harness/11_cobertura_codigo_main.md](harness/11_cobertura_codigo_main.md),
+complementada por [estado 00](harness/00_estado_vigente_y_trazabilidad.md).
+El diccionario semántico fue aplicado en Neon; el código lector está
+propuesto en PR #84, no debe considerarse desplegado hasta fusionar
+GitHub y comprobar Hugging Face. Las referencias antiguas a PRs
+abiertos, cinco pasos, OCR/CSV principales son históricas.
+
 ## Diccionario semántico InBody y FitNotes en Neon (2026-11-03)
 
 La migración **`migrations/009_ai_semantic_metadata.sql` ya fue aplicada** a
 `health_journey` en la rama principal de Neon, sin actualizar datos de
-exámenes o series. Define 27 conceptos de InBody con nombre, unidad
+exámenes o series. Define 35 conceptos de InBody con nombre, unidad
 orientativa, definición, comparabilidad, interpretación y limitaciones.
-Incluye 39 alias normalizados de etiquetas, 24 descripciones de campos y
+Incluye 47 alias normalizados de etiquetas, 24 descripciones de campos y
 `COMMENT ON` en las tablas y columnas relevantes. Se reutiliza
 `hj_measurement_catalog`; los alias viven en `hj_measurement_aliases`
 y el glosario de campos en `hj_ai_field_dictionary`.
