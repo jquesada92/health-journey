@@ -101,8 +101,12 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
     assert "gemini_table.edit(" in INBODY
     assert "fn=progress_after_table_edit" in INBODY
     assert "inbody_clear.click(" not in INBODY
-    assert "gemini_review_continue.click(" in INBODY
-    assert "finish_review_step" in INBODY
+    assert "gemini_review_continue.click(" not in INBODY
+    assert "finish_review_step" not in INBODY
+    assert "gemini_table.select(" in INBODY
+    assert "delete_review_row.click(" in INBODY
+    assert "apply_row_correction.click(" in INBODY
+    assert INBODY.count('"Validar revisión"') == 1
     assert "INBODY_NEXT_STEP_JS" in APP
 
     tree = ast.parse(APP)
@@ -172,12 +176,8 @@ def test_auto_advance_only_after_successful_stage_completion():
     assert "render_inbody_flow(2 if upload else 1)" in extract
     assert "hj-inbody-step-3" in extract
 
-    review = ast.unparse(funcs["finish_review_step"])
-    assert "review_step_ready(table, snapshot)" in review
-    assert 'hj-inbody-step-4' in review
-    assert "gr.update()" in review
-    assert "return" in review
-
+    assert "finish_review_step" not in funcs
+    assert "gemini_review_continue" not in INBODY
     validate = ast.unparse(funcs["progress_after_validation"])
     assert 'hj-inbody-step-5' in validate
     assert 'Revisión completa:' in validate
@@ -188,7 +188,7 @@ def test_auto_advance_only_after_successful_stage_completion():
     assert 'hj-inbody-step-1' in save
     assert "gr.update()" in save
 
-    assert APP.count("js=INBODY_NEXT_STEP_JS") == 5
+    assert APP.count("js=INBODY_NEXT_STEP_JS") == 4
     for n in range(1, 6):
         assert f'elem_id="hj-inbody-step-{n}"' in INBODY
         assert f'"hj-inbody-step-{n}"' in INBODY_NEXT_STEP_JS
