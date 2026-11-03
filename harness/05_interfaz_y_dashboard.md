@@ -1,5 +1,23 @@
 # 05 — Interfaz actual, navegación y dashboard
 
+## Panel compacto de tendencias junto al chat (propuesta)
+
+En escritorio: una columna izquierda con cuatro gráficas de 140 px
+de alto y el chat a la derecha. En móvil, panel encima del chat,
+con desplazamiento interno a un máximo de 295 px. Orden fijo:
+**Peso, Masa musculoesquelética, % grasa corporal, Puntaje InBody**.
+
+Puntos visibles = primera prueba registrada + diez últimas fechas de
+pruebas; nunca más de 11 fechas, sin repetir la primera si queda entre
+las últimas diez. Se grafican en orden ascendente. La selección se hace
+antes del filtro de medidas y no depende del período del chat; cada
+métrica puede tener menos puntos si falta en una prueba. Las filas de
+auditoría solo muestran fecha, no hora; misma fecha = una coordenada
+temporal. Ver `inbody_mvp/coach_trends.py` y las pruebas
+`tests/test_coach_first_last_trends.py`.
+El botón Actualizar tendencias no llama a Gemini.
+
+
 ## Proyecto: entregables académicos del primer módulo (propuesta 2026-11-03)
 
 Dentro del módulo Proyecto se incorpora el acordeón `Entregables académicos · Módulo 1`, no una ruta adicional. Tiene ocho campos editables ordenados según la actividad de Fundamentos de la Programación, nombre del autor, cuatro capturas PNG/JPG con pies explicativos, botón `Actualizar vista previa` y botón `Generar Word (.docx)` que proporciona el fichero descargable. Se precargan enlaces y contenido contrastado con el código del producto. Faltantes quedan visibles como pendientes y no se inventan evidencias de compañeros. No se guarda la edición en Neon; solo se exporta el Word de manera temporal.
