@@ -5,7 +5,7 @@ No internet, Gemini key, personal report or Gradio runtime is needed.
 import io
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 import pytest
 from PIL import Image
 

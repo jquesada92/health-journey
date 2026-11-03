@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 import pandas as pd
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field

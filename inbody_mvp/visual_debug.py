@@ -9,7 +9,7 @@ import io
 import os
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from .extractor import MAX_UPLOAD_BYTES, DocumentError, validate_file

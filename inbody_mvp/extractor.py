@@ -14,7 +14,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Callable, Any
 
-import fitz
+import pymupdf as fitz
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 from .language import ReportLanguage, detect_report_language
