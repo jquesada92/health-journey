@@ -8,6 +8,33 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Corrección de visualización del Coach (2026-11-03)
+
+Las cuatro mini-gráficas del asistente se alinean **a la izquierda
+del chat** mediante una cuadrícula CSS de dos columnas: ancho compacto
+de 260–320 px para tendencias y espacio restante para el chat completo.
+Solo se apilan en pantallas de 900 px o menos, con desplazamiento
+vertical dentro del panel de tendencias. El encabezado, privacidad,
+historial de burbujas y composer deben permanecer juntos en la
+columna derecha; no se modifica la secuencia de mensajes.
+
+Se conservan **exactamente la primera fecha histórica y las diez
+más recientes**, sin duplicados (menos puntos si hay menos pruebas).
+Para que la primera sea visualmente reconocible, cada minigráfica
+presenta los exámenes como posiciones ordinales de igual anchura;
+el primer punto se distingue con rombo y color cálido, y las fechas
+inicial y final se etiquetan explícitamente en el eje horizontal.
+Esto NO es una escala de tiempo proporcional a días. Si una variable
+no existe en el primer examen, su posición se mantiene como ausente
+(`None`) y se muestra «1.ª prueba: sin esta medida», nunca se crea
+un valor ficticio. El texto del panel muestra la fecha inicial y final.
+
+No cambian los permisos privados de Neon ni se consume Gemini para
+actualizar tendencias. Pruebas sintéticas y de estructura AST:
+`tests/test_coach_first_last_trends.py`. Validación visual de HF
+pendiente de despliegue.
+
+
 ## Asistente fitness: minigráficas de la primera y las diez últimas pruebas InBody
 
 El módulo Chat presenta un panel compacto **a la izquierda** del diálogo con
