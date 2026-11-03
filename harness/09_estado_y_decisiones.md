@@ -1,3 +1,21 @@
+## Actualización propuesta 2026-11-02 — Training Hub FitNotes (rama, no producción)
+
+- El MVP se expande con pestaña **Training Hub** en Gradio y módulo
+  `inbody_mvp/training_hub.py`; **InBody Hub permanece separado**.
+- Formato de entrada: CSV FitNotes de 10 columnas (Date, Exercise, Category,
+  Weight, Weight Unit, Reps, Distance, Distance Unit, Time, Comment).
+- 1 fila = 1 serie: conservar orden y duplicados reales, decimales y negativos.
+- Importar solo con consentimiento y autenticación verificada en servidor;
+  sin llamada a Gemini, sin publicación pública.
+- Migración aditiva `migrations/008_fitnotes_training_hub.sql` preparada
+  y probada en rama temporal de Neon, **no aplicada a la base principal**.
+- Idempotencia por hash de archivo + identidad de serie por dueño/fecha/
+  ejercicio/posición. Si hay cambios, exigir casilla de confirmación.
+- Código en rama `feature/training-fitnotes-neon-import-20261102`,
+  todavía sin merge, despliegue o prueba E2E con credenciales reales.
+- La importación del CSV personal recibido está **pendiente**.
+- Guía operativa: `docs/training-hub.md`.
+
 # 09 — Estado verificado, decisiones técnicas y deuda pendiente
 
 
