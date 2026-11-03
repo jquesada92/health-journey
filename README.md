@@ -8,7 +8,7 @@ app_file: app.py
 hf_oauth: true
 ---
 
-## Estado consolidado y trazabilidad · 3 de noviembre de 2026
+## Estado consolidado y trazabilidad · 2026-11-03
 
 El estado vigente de capacidades, criterios y documentación se encuentra en
 [harness/00_estado_vigente_y_trazabilidad.md](harness/00_estado_vigente_y_trazabilidad.md)
