@@ -1141,25 +1141,20 @@ with gr.Blocks(
             gr.HTML(COACH_CHAT_HEADER_HTML, elem_id="hj-chat-header-host")
             with gr.Accordion("Mis objetivos, contexto y privacidad", open=False):
                 gr.Markdown(
-                    "El asistente analiza mediciones InBody revisadas y "
-                    "entrenamientos FitNotes **guardados** para orientar "
-                    "tus metas. No reemplaza una valoración médica.\n\n"
+                    "El asistente consulta automáticamente tus mediciones "
+                    "InBody revisadas y series FitNotes **guardadas** en la "
+                    "base de datos privada. No necesitas introducir un ID. "
+                    "No reemplaza una valoración médica.\n\n"
                     "**Privacidad:** los resúmenes solo se envían a Gemini "
                     "al pulsar Enviar y con el permiso específico del chat. "
                     "No se envían documentos, identificadores de InBody, "
                     "comentarios FitNotes ni OCR bruto. La conversación "
                     "permanece únicamente en esta sesión."
                 )
-                with gr.Row():
-                    coach_report_id = gr.Textbox(
-                        label="ID del reporte InBody (consulta privada)",
-                        type="password", placeholder="ID usado en tus exámenes",
-                        max_lines=1, scale=2,
-                    )
-                    coach_window = gr.Dropdown(
-                        label="Período de análisis (días)",
-                        choices=list(SUPPORTED_WINDOWS), value=90, scale=1,
-                    )
+                coach_window = gr.Dropdown(
+                    label="Período de análisis (días)",
+                    choices=list(SUPPORTED_WINDOWS), value=90,
+                )
                 coach_goals = gr.Textbox(
                     label="Mis objetivos",
                     placeholder="Por ejemplo: aumentar masa muscular y fuerza, con énfasis en piernas y hombros",
@@ -1270,7 +1265,7 @@ with gr.Blocks(
                 )
 
             def complete_coach_message(
-                messages, pending, report_id, goals, restrictions, days,
+                messages, pending, goals, restrictions, days,
                 model, consent,
                 profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
@@ -1279,7 +1274,7 @@ with gr.Blocks(
                     if not pending or not messages or messages[-1]["role"] != "user":
                         raise ValueError("No hay una pregunta pendiente.")
                     conversation, context, _ = answer_coach_question(
-                        pending, messages[:-1], report_id, goals, restrictions,
+                        pending, messages[:-1], None, goals, restrictions,
                         days, model, consent, profile=profile, request=request,
                     )
                     reply = conversation[-1]["content"]
@@ -1338,7 +1333,7 @@ with gr.Blocks(
             ).success(
                 fn=complete_coach_message,
                 inputs=[
-                    coach_history, coach_pending_question, coach_report_id,
+                    coach_history, coach_pending_question,
                     coach_goals, coach_restrictions, coach_window,
                     coach_pending_model, session_coach_consent,
                 ],
