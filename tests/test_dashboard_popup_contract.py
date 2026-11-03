@@ -46,10 +46,10 @@ def test_failed_events_preserve_component_values():
         assert "try:" in body, name
         assert "except" in body, name
     save = ast.unparse(_function("save_review_and_clear"))
-    assert "return keep_components(10)" in save
+    assert "return keep_components(11)" in save
     assert "if message.startswith('Guardado en Neon:')" in save
     assert "gr.Warning(message.replace('Neon', 'la base de datos'))" in save
-    assert "gr.Info(message.replace('Neon', 'la base de datos'))" in save
+    assert "gr.Info(visible_message)" in save
     progress = ast.unparse(_function("show_progress"))
     assert "return keep_components(13)" in progress
 

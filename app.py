@@ -168,40 +168,64 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             audit_write_enabled,
         )
         gr.Markdown(
-            "### InBody Hub · Gemini Flash\n"
-            "Carga un PDF o imagen, extrae las mediciones y revisa **cada fila**. "
-            "El visor de secciones se ha retirado. No se extraen historiales. "
-            "**Secciones y mediciones normalizadas en inglés.** "
-            "**Privacidad:** en un Space público, utiliza únicamente reportes anonimizados. "
-            "Gemini procesa la imagen en el servicio de Google."
+            "## InBody · Registrar un examen\n"
+            "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
+            "Puedes consultar el documento original en cualquier momento. "
+            "Las mediciones se guardan únicamente después de tu revisión."
+        )
+        gr.HTML(
+            '<nav aria-label="Pasos para registrar un examen InBody" '
+            'style="width:100%;box-sizing:border-box;margin:8px 0 18px;">'
+            '<ol style="padding:0;margin:0;list-style:none;display:flex;'
+            'flex-wrap:wrap;gap:8px;">'
+            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
+            'border-radius:10px;font-size:13px;">1. Cargar</li>'
+            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
+            'border-radius:10px;font-size:13px;">2. Extraer</li>'
+            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
+            'border-radius:10px;font-size:13px;">3. Revisar</li>'
+            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
+            'border-radius:10px;font-size:13px;">4. Validar</li>'
+            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
+            'border-radius:10px;font-size:13px;">5. Guardar</li>'
+            '</ol></nav>'
         )
         gr.Markdown(
-            "Los permisos para IA y base de datos se configuran en la sección "
-            "**Privacidad y consentimiento de esta sesión**, encima de las pestañas. "
-            "No necesitas volver a marcarlos para cada examen."
+            "### 1. Carga tu examen\n"
+            "Selecciona un archivo **PDF, JPG o PNG** de InBody. "
+            "La aplicación mostrará una vista previa y, si tienes una sesión "
+            "autorizada, comprobará si el nombre del archivo ya se procesó. "
+            "**Todavía no se enviará a la IA ni se guardará en la base de datos.**"
         )
         gemini_upload = gr.File(
-            label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
+            label="Seleccionar examen InBody (PDF o imagen)",
+            file_types=[".pdf", ".jpg", ".jpeg", ".png"],
             type="filepath",
         )
         gemini_upload_state = gr.State(value=None)
-        gemini_file_status = gr.Markdown("Sin archivo para verificar.")
+        gemini_file_status = gr.Markdown("Sin archivo seleccionado.")
         gemini_snapshot = gr.State(value=None)
-        gr.Markdown("### Modelo Gemini para extraer este reporte")
+        gr.Markdown(
+            "### 2. Selecciona la IA y extrae las mediciones\n"
+            "Comprueba que activaste el **permiso para enviar datos a la IA** "
+            "en la sección de privacidad, encima de las pestañas. "
+            "Elige un modelo y pulsa **Extraer mediciones**. "
+            "Google Gemini recibirá el documento solo cuando solicites la extracción."
+        )
         with gr.Row():
             gemini_model_selector = gr.Dropdown(
-                label="Modelo Flash disponible con Free Tier documentado",
+                label="Modelo de IA para la extracción",
                 choices=[], value=None,
                 interactive=True, scale=4,
-                info="Solo modelos multimodales que tu API key puede listar.",
+                info="Solo modelos compatibles con el procesamiento de imágenes.",
             )
             gemini_models_button = gr.Button(
-                "Actualizar modelos disponibles", scale=1,
+                "Actualizar lista de modelos", scale=1,
             )
         gemini_models_status = gr.Markdown(
-            "La lista se consulta desde Google sin enviar el reporte. "
-            "Free Tier tiene cuotas; si tu proyecto tiene facturación "
-            "activada pueden generarse cargos."
+            "Se consultan los modelos disponibles sin enviar el examen. "
+            "Free Tier tiene cuotas de uso; revisa si tu proyecto "
+            "tiene facturación activa."
         )
 
         def check_models_with_popup():
@@ -227,50 +251,58 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[gemini_model_selector, gemini_models_status],
             concurrency_limit=1,
         )
-        gr.Markdown(
-            "Al cargar el documento se comprobará si su nombre ya fue "
-            "procesado (solo para una sesión privada autorizada). "
-            "Al guardar se comprueban también el contenido, el ID, "
-            "la fecha exacta del examen y el nombre de cada medición."
+        gemini_extract = gr.Button(
+            "Extraer mediciones con IA", variant="primary"
         )
-        gemini_extract = gr.Button("Extraer mediciones con Gemini Flash", variant="primary")
-        gemini_status = gr.Markdown("Pendiente de extracción.")
-        gr.Markdown(
-            "### Revisar y corregir mediciones\n"
-            "La columna **original_value** es el valor obtenido por Gemini y no se modifica. "
-            "Edita **value**, **unit**, **section** o **measurement** cuando corresponda. "
-            "Si cambias algo, debes escribir **correction_comment**. "
-            "Marca **reviewed** en TODAS las filas, incluso cuando Gemini acertó. "
-            "La columna **was_corrected** se calcula automáticamente al guardar."
+        gemini_status = gr.Markdown(
+            "Esperando extracción. Carga un archivo y selecciona un modelo."
         )
-        with gr.Row(equal_height=False):
-            with gr.Column(scale=5, min_width=340):
-                gr.Markdown("**Documento original** — páginas del PDF o imagen, con ampliación al seleccionar.")
-                gemini_preview = gr.Gallery(
-                    label="Visor PDF / imagen",
-                    columns=1,
-                    height=690,
-                    selected_index=0,
-                    preview=True,
-                    allow_preview=True,
-                    object_fit="contain",
-                    buttons=["fullscreen"],
-                    interactive=False,
-                    format="png",
-                )
-                gemini_preview_status = gr.Markdown(
-                    "Carga un PDF o imagen para visualizarlo."
-                )
-            with gr.Column(scale=7, min_width=550):
-                gr.Markdown("**Valores extraídos** — contrasta cada fila con el documento antes de guardarla.")
-                gemini_table = gr.Dataframe(
-                    headers=GEMINI_COLUMNS,
-                    datatype=["str","str","str","number","str","str","str","str",
-                              "str","bool","str","bool"],
-                    type="pandas", interactive=True,
-                    static_columns=[0,1,2,3,8,9],
-                    label="Revisión de mediciones; una fila por valor",
-                )
+        gr.Markdown(
+            "### 3. Revisa y corrige los resultados\n"
+            "Compara los valores extraídos con el examen original. "
+            "**No guardes datos sin comprobarlos.** "
+            "La tabla ocupa todo el ancho de la pantalla para facilitar "
+            "su lectura y edición, también desde el celular."
+        )
+        with gr.Accordion(
+            "Ver examen original y comparar las mediciones",
+            open=False,
+        ):
+            gr.Markdown(
+                "Abre este panel cuando necesites ampliar una página del examen "
+                "y verificar un valor. No se envía nuevamente a la IA."
+            )
+            gemini_preview = gr.Gallery(
+                label="Visor PDF / imagen",
+                columns=1,
+                height=420,
+                selected_index=0,
+                preview=True,
+                allow_preview=True,
+                object_fit="contain",
+                buttons=["fullscreen"],
+                interactive=False,
+                format="png",
+            )
+            gemini_preview_status = gr.Markdown(
+                "Carga un PDF o imagen para visualizarlo."
+            )
+        gr.Markdown(
+            "**Cómo revisar la tabla:** compara **original_value** (lectura de "
+            "la IA, no editable) con **value** (valor corregible), **unit** "
+            "(unidad), **measurement** y **section**. Si corriges un campo, "
+            "escribe el motivo en **correction_comment**. "
+            "Marca **reviewed** en **cada fila**, incluso si está correcta. "
+            "**was_corrected** se calcula automáticamente."
+        )
+        gemini_table = gr.Dataframe(
+            headers=GEMINI_COLUMNS,
+            datatype=["str","str","str","number","str","str","str","str",
+                      "str","bool","str","bool"],
+            type="pandas", interactive=True,
+            static_columns=[0,1,2,3,8,9],
+            label="Mediciones extraídas: revisa y edita cada fila",
+        )
         def extract_with_popup(state, consent, model):
             try:
                 if not model:
@@ -288,7 +320,15 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
         )
-        gemini_check = gr.Button("Validar revisión y correcciones", variant="secondary")
+        gr.Markdown(
+            "### 4. Valida todas las mediciones\n"
+            "Cuando termines de corregir la tabla y marcar **reviewed** en "
+            "todas las filas, pulsa **Validar revisión**. "
+            "Si falta algo, aparecerá un único aviso con lo que debes corregir. "
+            "**Este paso no guarda ni envía datos a la base de datos.**"
+        )
+        gemini_check = gr.Button("Validar revisión", variant="secondary")
+        gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
         def review_with_popup(table, snapshot):
             try:
                 result = review_status(table, snapshot)
@@ -303,47 +343,62 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gemini_check.click(
             fn=review_with_popup,
             inputs=[gemini_table, gemini_snapshot],
-            outputs=[gemini_status],
+            outputs=[gemini_review_status],
         )
         gr.Markdown(
-            "### Guardar mediciones en la base de datos\n"
-            "Se utiliza tu autorización de guardado para esta sesión y una "
-            "conexión restringida de solo escritura. Se almacenan las mediciones "
-            "revisadas y su auditoría; el historial privado continúa protegido."
+            "### 5. Guarda el examen en la base de datos\n"
+            "Activa el **permiso para guardar datos** en la sección de "
+            "privacidad y pulsa **Guardar mediciones**. "
+            "Se almacenarán las mediciones revisadas y el registro de auditoría. "
+            "Antes de guardarlas, se verifican duplicados por archivo, "
+            "identificador, fecha y medición. "
+            "El permiso no publica tu examen ni envía nuevos datos a la IA."
         )
         if not audit_write_enabled():
             gr.Markdown(
-                "El guardado requiere configurar el Secret `DEMO_DATABASE_URL` "
-                "y `ENABLE_ANONYMOUS_DEMO=1`. No uses DATABASE_URL de administrador."
+                "**El guardado no está disponible en este entorno.** "
+                "Contacta al administrador de la aplicación para habilitarlo."
             )
-        gemini_overwrite = gr.Checkbox(
-            label="Confirmo sobrescribir mediciones anteriores cuando "
-                  "coincidan persona, fecha del examen y medición",
-            value=False,
-        )
+        with gr.Accordion("Opcional: actualizar un examen ya registrado", open=False):
+            gr.Markdown(
+                "Déjalo sin marcar para evitar reemplazar valores existentes. "
+                "Marca la opción solo cuando hayas comprobado que deseas "
+                "actualizar las mediciones de la misma persona y fecha."
+            )
+            gemini_overwrite = gr.Checkbox(
+                label="Confirmo sobrescribir mediciones anteriores cuando "
+                      "coincidan persona, fecha del examen y medición",
+                value=False,
+            )
         gemini_save = gr.Button(
-            "Guardar mediciones revisadas y auditoría",
+            "Guardar mediciones revisadas",
             interactive=audit_write_enabled(), variant="primary",
         )
-        gemini_save_status = gr.Markdown()
+        gemini_save_status = gr.Markdown(
+            "Sin datos guardados. Se mostrará una confirmación al completar el guardado."
+        )
 
         def save_review_and_clear(table, snapshot, consent, overwrite):
             try:
                 message = save_audit(table, snapshot, consent, overwrite)
             except Exception as exc:
                 popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
-                return keep_components(10)
+                return keep_components(11)
             if message.startswith("Guardado en Neon:"):
-                # Clear the completed document, but keep both session consents.
-                gr.Info(message.replace("Neon", "la base de datos"))
+                # Show an accessible confirmation, clear the finished exam and
+                # preserve both user consents for the rest of this session.
+                visible_message = message.replace("Neon", "la base de datos")
+                gr.Info(visible_message)
                 return (
-                    "", None, None, None, [], "Carga un PDF o imagen para visualizarlo.",
+                    visible_message, None, None, None, [],
+                    "Carga un PDF o imagen para visualizarlo.",
                     pd.DataFrame(columns=GEMINI_COLUMNS),
-                    "Pendiente de extracción.", False,
-                    "Sin archivo para verificar.",
+                    "Esperando extracción. Carga un archivo y selecciona un modelo.",
+                    False, "Sin archivo seleccionado.",
+                    "Revisión pendiente: valida las filas antes de guardar.",
                 )
             gr.Warning(message.replace("Neon", "la base de datos"))
-            return keep_components(10)
+            return keep_components(11)
 
         gemini_save.click(
             fn=save_review_and_clear,
@@ -352,6 +407,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 gemini_save_status, gemini_upload, gemini_upload_state,
                 gemini_snapshot, gemini_preview, gemini_preview_status,
                 gemini_table, gemini_status, gemini_overwrite, gemini_file_status,
+                gemini_review_status,
             ],
             concurrency_limit=1,
         )
@@ -400,9 +456,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         ).then(
             fn=lambda: (
                 pd.DataFrame(columns=GEMINI_COLUMNS),
-                "Pendiente de extracción.", ""
+                "Esperando extracción. Carga un archivo y selecciona un modelo.",
+                "", "Revisión pendiente: valida las filas antes de guardar.",
             ),
-            outputs=[gemini_table, gemini_status, gemini_save_status],
+            outputs=[
+                gemini_table, gemini_status, gemini_save_status,
+                gemini_review_status,
+            ],
         ).then(
             fn=preview_with_popup,
             inputs=[gemini_upload_state],
@@ -415,9 +475,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.ClearButton(
             [gemini_upload, gemini_upload_state, gemini_snapshot,
              gemini_preview, gemini_preview_status, gemini_table, gemini_status,
-             gemini_save_status,
+             gemini_save_status, gemini_review_status,
              gemini_overwrite, gemini_file_status],
-            value="Limpiar",
+            value="Limpiar examen (conservar permisos)",
         )
     with gr.Tab("Training Hub"):
         from inbody_mvp.training_hub import (

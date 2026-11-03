@@ -28,6 +28,32 @@ nuevas pantallas de credenciales ni se cambia el acceso a Neon. Las futuras
 sugerencias serán informativas y no reemplazarán orientación profesional
 médica o nutricional.
 
+## Flujo de captura InBody — cinco pasos
+
+La pestaña **InBody Upload** sigue una guía secuencial visible también en
+pantallas estrechas: **1. Cargar → 2. Extraer → 3. Revisar → 4. Validar →
+5. Guardar**. La navegación de pasos es informativa; no reemplaza controles
+de acceso ni bloquea artificialmente el flujo.
+
+- **Cargar** PDF/imagen: mostrar estado de nombre procesado y vista previa
+  del documento, sin enviarlo a Gemini.
+- **Extraer**: elegir un modelo disponible, aceptar el consentimiento de IA
+  compartido en la sesión y solicitar la extracción manualmente.
+- **Revisar**: la tabla editable de mediciones ocupa el ancho completo; el
+  PDF/imagen original se consulta en un panel desplegable que evita una vista
+  de dos columnas demasiado estrecha en celulares.
+- **Validar**: instrucciones claras de columnas editables, comentario de
+  corrección y revisión de todas las filas; el resultado de validación aparece
+  al lado de su botón, separado del resultado de extracción.
+- **Guardar**: conservar consentimiento de base de datos compartido, ocultar
+  la confirmación de sobrescritura tras una sección avanzada, verificar datos
+  y mostrar confirmación persistente. Tras un guardado exitoso, limpiar el
+  documento y la revisión, pero mantener los permisos de sesión.
+
+Se conserva la verificación de consentimiento en servidor y la validación
+previa a cualquier escritura. Los mensajes de pantalla dicen
+**«base de datos»** sin nombres de proveedores de almacenamiento.
+
 ## Consentimiento de sesión para IA y almacenamiento (noviembre de 2026)
 
 La interfaz presenta dos decisiones **independientes**, ambas desmarcadas al entrar:
