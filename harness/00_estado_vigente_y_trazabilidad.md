@@ -1,3 +1,15 @@
+> **Confirmación única de correcciones (2026-11-03, PR propuesto):**
+> **Guardar cambios** toma directamente los valores editados en la tabla,
+> reconcilia eliminaciones nativas y valida comentarios, unidades y valores.
+> Solo si la validación finaliza correctamente marca automáticamente
+> `reviewed` para todas las filas conservadas y avanza. No hay que marcar
+> cada fila por separado; las lecturas originales siguen inmutables.
+> Al extraer, la elección de consentimiento firmada en servidor prevalece
+> sobre el estado de Gradio para evitar falsos avisos por inicialización
+> tardía; sin consentimiento real, el envío a Gemini sigue bloqueado.
+> No cambia el consentimiento independiente de escritura en Neon.
+> Regresión: `tests/test_inbody_one_click_review.py`.
+
 > **Visor y consentimiento (2026-11-03, PR #80, verificación pendiente):**
 > la vista paralela se activa solamente después de extracción válida;
 > PDF/imágenes a la derecha en una galería vertical, tabla a la
