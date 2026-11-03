@@ -1,5 +1,8 @@
 # 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
+> **Entregable académico del Módulo 1 (propuesta pendiente de fusionar):** el panel Proyecto incorporará un acordeón con los ocho apartados de la actividad principal de Fundamentos de la Programación, textos editables y precargados con funcionalidades verificadas de Health Journey, vista previa, cuatro capturas opcionales y un único botón `Generar Word (.docx)`. La consigna proviene del HTML del curso; no se recibió la plantilla visual de Blackboard. No se inventan pruebas ni capturas. Archivos: `inbody_mvp/module1_deliverable.py`, `tests/test_module1_deliverable.py`, `docs/entregable-modulo1-obs.md`. No envía datos a Gemini ni guarda el borrador en Neon.
+
+
 **Corte de código GitHub:** `main` **`4944fbe5355d66da94290c510e5e0393487f2918`**, 2026-11-03.  
 **Inventario verificable completo:** [11 — matriz de cobertura de todos los artefactos de main](11_cobertura_codigo_main.md).
 **Alcance:** auditoría estática de GitHub y esquema de Neon; no equivale a prueba E2E del Space.
