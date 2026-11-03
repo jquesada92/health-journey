@@ -104,6 +104,152 @@ def comprobar_documentacion() -> list[str]:
     return errores
 
 
+
+def comprobar_estado_actual() -> list[str]:
+    """Audit source/docs coherence without runtime imports or external credentials."""
+    errores = []
+    canonical = "harness/00_estado_vigente_y_trazabilidad.md"
+    index = "docs/indice_actual.md"
+    for required in (canonical, index):
+        if not (ROOT / required).is_file():
+            errores.append(f"Falta documentación actual: {required}")
+    if errores:
+        return errores
+
+    snapshot = contenido(canonical)
+    for family, maximum in (("F", 15), ("AC-V", 12)):
+        found = {
+            int(value) for value in re.findall(
+                rf"(?m)^\|\s*{family}-(\d{{2}})\s*\|", snapshot
+            )
+        }
+        if found != set(range(1, maximum + 1)):
+            errores.append(
+                f"Inventario {family}: hay {sorted(found)}, "
+                f"se requieren {list(range(1, maximum + 1))}."
+            )
+    for token in (
+        "Gradio", "Gemini", "FitNotes", "Neon", "SQLAlchemy", "psycopg",
+        "Pydantic", "PyMuPDF", "Plotly", "Hugging Face", "GitHub",
+        "consentimientos", "E2E", "PR #72", "LEGACY", "PENDIENTE",
+    ):
+        if token not in snapshot:
+            errores.append(f"Falta tecnología/estado en {canonical}: {token}")
+
+    app = contenido("app.py")
+    for token in (
+        'nav_project = gr.Button("Proyecto"',
+        'nav_inbody = gr.Button("Extractor de InBody"',
+        'nav_training = gr.Button("Captador de logs de entrenamiento"',
+        'nav_coach = gr.Button("Chat con el asistente fitness"',
+        'with gr.Column(visible=True, elem_id="hj-panel-project")',
+        'elem_id="hj-inbody-fixedbar"',
+        'session_ai_consent = gr.State(value=False)',
+        'session_db_consent = gr.State(value=False)',
+        'session_coach_consent = gr.State(value=False)',
+        "fn=restore_session_consents",
+        "gr.Chatbot(",
+    ):
+        if token not in app:
+            errores.append(f"Contrato UI actual ausente en app.py: {token}")
+
+    if 'session_ai_consent = gr.Checkbox(' in app:
+        errores.append("Consentimientos duplicados: extracción en app.py.")
+    if 'session_db_consent = gr.Checkbox(' in app:
+        errores.append("Consentimientos duplicados: almacenamiento en app.py.")
+    if 'session_coach_consent = gr.Checkbox(' in app:
+        errores.append("Consentimientos duplicados: chat en app.py.")
+
+    for path, required_tokens in {
+        "inbody_mvp/prelogin_consent.py": (
+            'name="ai_consent"', 'name="db_consent"', 'name="coach_consent"',
+            "has_consent", "PrivacyFirstMiddleware",
+        ),
+        "inbody_mvp/gemini_review.py": (
+            "def extract_gemini(", "def save_audit(", "PROMPT",
+            "validate_review",
+        ),
+        "inbody_mvp/training_hub.py": (
+            "def parse_fitnotes_bytes(", "def save_training_import(",
+            "def _owner_key(",
+        ),
+        "inbody_mvp/ai_coach.py": (
+            "def answer_coach_question(", "def load_coach_context(",
+            "has_consent",
+        ),
+        "inbody_mvp/inbody_flow.py": (
+            "position: fixed !important;", "def render_inbody_flow(",
+            "INBODY_NEXT_STEP_JS",
+        ),
+        ".github/workflows/test-inbody.yml": (
+            "ruff check --select F821", "compileall", "pytest -q",
+            "test_ai_coach.py", "test_training_hub.py",
+        ),
+        ".github/workflows/deploy-huggingface.yml": (
+            "inbody_mvp/ai_coach.py", "inbody_mvp/training_hub.py",
+            "inbody_mvp/prelogin_consent.py", "HF_SPACE_ID", "HF_TOKEN",
+        ),
+        "requirements.txt": (
+            "gradio[oauth]>=6.0,<7.0", "google-genai",
+            "SQLAlchemy", "psycopg", "PyMuPDF", "plotly", "pydantic",
+        ),
+    }.items():
+        source = contenido(path)
+        for token in required_tokens:
+            if token not in source:
+                errores.append(f"Contrato fuente en {path} no encontrado: {token}")
+
+    for migration in (
+        "004_gemini_measurement_audit.sql",
+        "005_consent_only_audit_writer.sql",
+        "006_app_master_demo_account.sql",
+        "007_idempotent_audit_save.sql",
+        "008_fitnotes_training_hub.sql",
+    ):
+        if not (ROOT / "migrations" / migration).is_file():
+            errores.append(f"Falta migración versionada: {migration}")
+
+    guide_files = [
+        "README.md", "AGENTS.md", "harness/README.md",
+        "harness/PROMPT_AGENTE.md",
+        *(
+            f"harness/{name}.md" for name in (
+                "01_producto_y_alcance", "02_arquitectura_y_flujos",
+                "03_modelo_de_datos_y_csv", "04_extraccion_y_normalizacion",
+                "05_interfaz_y_dashboard", "06_seguridad_y_privacidad",
+                "07_reconstruccion_y_operacion", "08_pruebas_y_criterios",
+                "09_estado_y_decisiones", "10_continuidad_noviembre_2026",
+            )
+        ),
+    ]
+    for item in guide_files:
+        source = contenido(item)
+        if "2026-11-03" not in source:
+            errores.append(f"Falta revisión con fecha en {item}")
+
+    index_content = contenido(index)
+    for item in (
+        "ai-coach.md", "training-hub.md", "neon-postgres.md",
+        "despliegue-hugging-face.md", "gemini-measurement-audit.md",
+        "dashboard-publico.md", "demo-anonima-consentimiento.md",
+        "inbody-layouts.md", "ocr-secciones-ia.md",
+    ):
+        if item not in index_content:
+            errores.append(f"Índice documental incompleto: {item}")
+
+    # PR #72 is still separate at this audit cut. If its code merges,
+    # enforce that deployment includes each non-Python prompt asset too.
+    prompt_dir = ROOT / "inbody_mvp" / "prompts"
+    if prompt_dir.exists():
+        deployment = contenido(".github/workflows/deploy-huggingface.yml")
+        for filename in ("inbody_extraction.md", "fitness_coach.md"):
+            if not (prompt_dir / filename).is_file():
+                errores.append(f"Falta prompt por módulo: {filename}")
+            if f"inbody_mvp/prompts/{filename}" not in deployment:
+                errores.append(f"Deploy no incluye prompt: {filename}")
+    return errores
+
+
 def main() -> int:
     errores = []
     print("Health Journey — verificador de reconstrucción (sin servicios externos)")
@@ -152,6 +298,7 @@ def main() -> int:
             errores.append(f"Módulo obsoleto incluido en despliegue: {rel}")
 
     errores.extend(comprobar_documentacion())
+    errores.extend(comprobar_estado_actual())
 
     print("Estado de servicios: no consultados por este verificador.")
     for key in ("DATABASE_URL", "ENABLE_PERSISTENCE", "HF_ALLOWED_USERS"):
@@ -178,7 +325,7 @@ def main() -> int:
         for mensaje in errores:
             print("FALLIDO:", mensaje)
         return 1
-    print("APROBADO: estructura, contrato CSV, DDL y documentación consistentes.")
+    print("APROBADO: inventario actual, criterios, código, tecnologías, DDL y documentos auditados.")
     print("Nota: comprobación estática, no certifica requisitos pendientes ni E2E.")
     return 0
 
