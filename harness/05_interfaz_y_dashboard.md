@@ -1,5 +1,8 @@
 ## Pestaña nueva propuesta: Training Hub · FitNotes (no desplegada)
 
+> **UI vigente (2026-11-03):** exactamente cuatro módulos en menú vertical: **Proyecto (inicial)**, **Extractor de InBody**, **Captador de logs de entrenamiento**, **Chat con el asistente fitness**. No hay `gr.Tabs` horizontales, menú de tres puntos ni tab separada «Historial». En InBody, el indicador de cinco pasos usa `position: fixed` en navbar externa al contenedor, navegación automática tras pasos exitosos y reset tras guardar; el dashboard Plotly está dentro del extractor. Training Hub importa FitNotes CSV, y el chat utiliza interfaz de burbujas con selector propio de Gemini. **La corrección de mensajes secuenciales y multiturno es PR #72 aún abierto**. Los diseños que siguen de «InBody Upload»/«Dashboard» como tabs y de selector CSV/Neon son **propuestas/legado**, no estado actual. [Criterios UX](00_estado_vigente_y_trazabilidad.md#3-matriz-de-aceptación-operativa).
+
+
 Además de InBody, Gradio incorpora un módulo aislado para cargar
 CSV FitNotes y almacenar series de entrenamiento de un usuario autenticado.
 Incluye campo CSV, resumen de días/ejercicios, vista previa de 60 filas,
