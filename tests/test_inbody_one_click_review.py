@@ -34,6 +34,7 @@ def _save_callback(*, consent=True):
     scope = {
         "gr": SimpleNamespace(
             Request=type("Request", (), {}),
+            OAuthProfile=type("OAuthProfile", (), {}),
             Warning=lambda message: notices.append(("warning", message)),
             Info=lambda message: notices.append(("info", message)),
             update=lambda **kwargs: None,
