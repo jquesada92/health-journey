@@ -362,6 +362,91 @@ def _decimal(value):
         raise ValueError("Valor no finito.")
     return number
 
+def _mutation_review_grid(table, snapshot):
+    """Require the original immutable AI values before editing or deleting.
+
+    The review grid can contain malformed numeric values because those are
+    exactly what the user needs to repair. Only the provenance column and
+    number of rows are checked here, not the numeric values.
+    """
+    if not snapshot or not isinstance(snapshot.get("rows"), list):
+        raise ValueError("Primero extrae un examen InBody.")
+    frame = table.copy() if isinstance(table, pd.DataFrame) else pd.DataFrame(
+        table, columns=DISPLAY_COLUMNS
+    )
+    if len(frame) != len(snapshot["rows"]):
+        raise ValueError(
+            "La tabla no coincide con el examen. Usa el botón Eliminar fila "
+            "seleccionada en lugar de borrar filas directamente de la cuadrícula."
+        )
+    if "original_value" not in frame.columns:
+        raise ValueError("Falta el valor original de las mediciones.")
+    for index, (row, original) in enumerate(
+        zip(frame.to_dict("records"), snapshot["rows"]), start=1
+    ):
+        if _string(row.get("original_value")) != _string(original["original_value"]):
+            raise ValueError(
+                f"Fila {index}: el valor original no se puede cambiar ni reordenar."
+            )
+    return frame.reindex(columns=DISPLAY_COLUMNS).reset_index(drop=True)
+
+
+def remove_review_row(table, snapshot, row_index):
+    """Remove one reviewed candidate without changing the raw AI evidence.
+
+    The session snapshot's retained rows stay aligned with the visual grid.
+    The unmodified raw_response still records every original AI candidate.
+    """
+    frame = _mutation_review_grid(table, snapshot)
+    if not isinstance(row_index, int) or isinstance(row_index, bool):
+        raise ValueError("Selecciona una fila válida.")
+    if not 0 <= row_index < len(frame):
+        raise ValueError("La fila seleccionada ya no existe.")
+    if len(frame) <= 1:
+        raise ValueError("Debes conservar al menos una medición para revisar.")
+    from copy import deepcopy
+
+    new_snapshot = deepcopy(snapshot)
+    removed = new_snapshot["rows"].pop(row_index)
+    new_snapshot.setdefault("excluded_review_rows", []).append({
+        "measurement": removed.get("measurement"),
+        "original_value": removed.get("original_value"),
+    })
+    updated = frame.drop(index=row_index).reset_index(drop=True)
+    return updated, new_snapshot
+
+
+def correct_review_value(table, snapshot, row_index, value, reason):
+    """Repair an invalid Gemini value even if inline grid editing is blocked."""
+    frame = _mutation_review_grid(table, snapshot)
+    if not isinstance(row_index, int) or isinstance(row_index, bool):
+        raise ValueError("Selecciona una fila válida.")
+    if not 0 <= row_index < len(frame):
+        raise ValueError("La fila seleccionada ya no existe.")
+    new_value = _string(value)
+    try:
+        _decimal(new_value)
+    except ValueError as exc:
+        raise ValueError(f"Fila {row_index + 1}: {exc}") from exc
+    new_reason = _string(reason)
+    original = snapshot["rows"][row_index]
+    needs_comment = any(
+        _string(frame.iloc[row_index][key]) != _string(original.get(key))
+        for key in ("section", "measurement", "unit")
+    ) or new_value != _string(original.get("value"))
+    if needs_comment and not new_reason:
+        raise ValueError(
+            f"Fila {row_index + 1}: escribe un motivo para corregir el valor."
+        )
+    if len(new_reason) > 1200:
+        raise ValueError("El comentario supera 1200 caracteres.")
+    frame.at[row_index, "value"] = new_value
+    frame.at[row_index, "correction_comment"] = new_reason
+    frame.at[row_index, "was_corrected"] = bool(needs_comment)
+    # Preserve reviewed as entered by the person: do not autoapprove a row.
+    return frame
+
+
 def compact_review_table(table):
     """Hide repeated exam metadata from the editable measurements grid."""
     frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=COLUMNS)
@@ -451,7 +536,12 @@ def validate_review(table, snapshot, header_edits=None):
                 raise ValueError(f"Fila {i}: no se permiten cambios en datos originales.")
         if not _string(row.get("section")) or not _string(row.get("measurement")):
             raise ValueError(f"Fila {i}: sección y medición obligatorias.")
-        _decimal(row.get("value"))
+        try:
+            _decimal(row.get("value"))
+        except ValueError as exc:
+            raise ValueError(
+                f"Fila {i} ({_string(row.get('measurement'))[:60]}): {exc}"
+            ) from exc
         measurement_changed = any(_string(row.get(k)) != _string(base.get(k))
                                   for k in ("value", "unit", "section", "measurement"))
         comment = _string(row.get("correction_comment"))
