@@ -1,5 +1,35 @@
 # 06 — Seguridad, privacidad y control de acceso
 
+## Controles operativos reales · 2026-11-03
+
+`/privacy` requiere opt-in individual para **Gemini de extracción**,
+**almacenamiento en Neon** y **Gemini coach**; las elecciones se
+firman en cookie temporal previa al login y se verifican **en
+servidor** en cada operación, no con el estado Gradio solamente.
+Al cambiar de archivo no se revocan permisos de esa sesión. Los
+datos originales del examen se envían a Gemini **solo al extraer
+con consentimiento**; en chat se envían resúmenes/series y jamás
+documentos, identificadores personales ni comentarios. En
+FitNotes, `owner_key` limita las consultas al usuario autorizado.
+
+El modo demo anónimo restringe las escrituras por rol y métrica.
+El catálogo de metadatos 009 de Neon es **solo lectura privada**
+para `health_journey_app` y `health_journey_runtime`; no se
+concedió acceso a `PUBLIC` ni al `health_journey_demo_writer`.
+**P0: no utilizar identidad InBody única/alias como sustituto
+de aislamiento seguro multiusuario/RLS**. El flujo de una persona
+no habilita lectura por múltiples usuarios sin un rediseño.
+Controles/deficiencias: [11](11_cobertura_codigo_main.md) y
+[00](00_estado_vigente_y_trazabilidad.md).
+
+El material posterior a este apartado incluye amenazas e
+instrucciones **históricas**, que no autorizan checkboxes
+dentro de la pantalla InBody ni eliminación de consentimientos.
+
+
+---
+
+
 > **Política y controles actuales (2026-11-03):** **tres permisos distintos, opcionales y por defecto desactivados** se explican y solicitan en `/privacy` **ANTES de iniciar sesión**: compartir documento con Gemini para extraer, persistir en Neon y compartir resúmenes con Gemini para chat. Después del login se restauran en `gr.State` y **no hay checkboxes duplicados**; los callbacks mantienen verificación del servidor con `has_consent` antes de efectos externos. Para cambiar decisiones corresponde nueva sesión en `/privacy`, no menús intrasesión. La cookie es temporal, firmada y sin datos de salud. OAuth/autenticación y privilegios SQL se validan por operación. El uso de FitNotes aplica `owner_key`, pero la consulta InBody por ID **no garantiza aislamiento por dueño en un sistema multiusuario**: P0 antes de lanzar en producción. El informe original no se envía al chat, pero SÍ se envía al proveedor Gemini cuando el usuario autorizó extracción y pulsa Extraer. No equiparar consentimiento de escritura a consentimiento de publicación. Las secciones antiguas que describen dos casillas dentro de InBody son HISTÓRICAS; ver [00](00_estado_vigente_y_trazabilidad.md).
 
 
