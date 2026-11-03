@@ -92,12 +92,13 @@ def test_dashboard_does_not_display_raw_id():
     app = (ROOT / "app.py").read_text()
     assert 'type="password"' in app
     assert "load_reviewed_audit_history(" in app
-    start = app.index("def display_audit_history(")
-    end = app.index("audit_button.click(", start)
+    start = app.index("def show_progress(")
+    end = app.index("progress_refresh.click(", start)
     snippet = app[start:end]
-    assert 'frame.iloc[0]["anonymous_id"][:8]' in snippet
-    assert '"person_id"' not in snippet
+    assert 'str(records[0]["anonymous_id"])[:8]' in snippet
+    assert 'alias = "Persona " + ' in snippet
     assert '"filename"' not in snippet
+    assert 'with gr.Accordion("Progreso histórico de InBody", open=False)' in app
     assert "public_dashboard_enabled()" in app
 
 

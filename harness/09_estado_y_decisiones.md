@@ -1,3 +1,24 @@
+## Decisión nueva · 2026-11-02 · Secciones definitivas y entrenador IA (propuesta en rama)
+
+- Menú vertical de cuatro entradas **en orden**: Proyecto, Extractor de InBody,
+  Captador de logs de entrenamiento y Chat con el asistente fitness.
+- **Proyecto** es la pantalla inicial tras el login: motivación, propósito,
+  arquitectura y tecnologías. Se elimina el uso del README extenso como landing.
+- Se retira la navegación horizontal, el overflow de tres puntos, y la entrada
+  separada Historial. El Dashboard InBody se repliega en el propio extractor.
+  No se borra información histórica de la base.
+- Entrenador conversa sobre series FitNotes del dueño autenticado y mediciones
+  InBody asociadas al ID indicado por el usuario. Las comparativas respetan
+  unidad, tipo de medida, modelo cuando esté disponible y datos faltantes.
+- Tercer consentimiento explícito (chat Gemini) distinto de extracción de
+  documentos InBody y persistencia Neon. Solo enviar contexto numérico agregado
+  y metas aportadas, sin identificadores ni archivos.
+- Modelo de chat y metas son estados de sesión; **sin migración de Neon**.
+  El aislamiento multiusuario InBody aún requiere vincular owner/ID de persona.
+- No hay evidencia de despliegue ni E2E hasta validación posterior. Ver
+  `docs/ai-coach.md` y rama
+  `feature/ai-coach-simplified-navigation-20261102`.
+
 ## Actualización propuesta 2026-11-02 — Training Hub FitNotes (rama, no producción)
 
 - El MVP se expande con pestaña **Training Hub** en Gradio y módulo

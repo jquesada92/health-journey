@@ -8,25 +8,32 @@ app_file: app.py
 hf_oauth: true
 ---
 
-## Visión del asistente de fitness y bienestar
+## Health Journey · motivación y propósito
 
-Health Journey busca convertirse en un **asistente virtual de fitness y bienestar**
-que permita conversar sobre el historial personal y priorizar cambios según
-metas, necesidades y preferencias. La pantalla de acceso presenta esta visión
-sin dar a entender que todas las funcionalidades ya están implementadas.
+Health Journey integra **mediciones InBody** y **registros de entrenamiento**
+para transformar datos dispersos en tendencias que puedas comprender y usar
+para planificar tus objetivos. Tras el login, la pantalla inicial **Proyecto**
+explica el propósito, el flujo de datos y la arquitectura. La interfaz usa un
+único menú lateral con **exactamente cuatro opciones** en este orden:
+**Proyecto**, **Extractor de InBody**, **Captador de logs de entrenamiento**
+y **Chat con el asistente fitness**.
 
-- **Disponible actualmente:** carga/revisión de exámenes InBody, importación
-  de entrenamientos FitNotes a Neon, historial privado y gráficas de progreso.
-- **Planificado:** registro de dieta y nutrición, exámenes médicos, nuevas
-  fuentes de datos y un chat de IA que ayude a interpretar tendencias,
-  proponer ajustes y ordenar prioridades de acuerdo con objetivos personales.
+El dashboard de composición corporal se conserva dentro del módulo InBody,
+en un panel desplegable. Se retiró la entrada independiente de Historial y
+el menú horizontal con sus controles de overflow. Esto no borra los datos
+históricos de Neon ni interfiere con el análisis del asistente.
 
-La pantalla de login usa el `auth_message` HTML integrado de Gradio y un
-diseño adaptable al ancho disponible. La autenticación sigue siendo la misma
-función segura del servidor, `authenticate_master_demo`; no se introducen
-nuevas pantallas de credenciales ni se cambia el acceso a Neon. Las futuras
-sugerencias serán informativas y no reemplazarán orientación profesional
-médica o nutricional.
+La nueva sección de chat, implementada en la rama
+`feature/ai-coach-simplified-navigation-20261102`, utiliza **Google Gemini
+Flash** para examinar resúmenes privados, no documentos completos, y
+recomendar ajustes con base en objetivos y restricciones que el usuario
+introduce. **No se ha fusionado ni desplegado** esta rama; no se afirma
+disponibilidad en el Space antes de verificarla.
+
+**Plataforma:** Gradio en Hugging Face Spaces, Python, Gemini API,
+Neon PostgreSQL, SQLAlchemy/psycopg, Pydantic, Pandas, PyMuPDF, Pillow
+y Plotly. Consulta `docs/ai-coach.md` para el contrato de privacidad,
+los límites de interpretación y las pruebas.
 
 ## Consentimiento y tratamiento de datos antes de iniciar sesión
 
@@ -38,11 +45,11 @@ el tratamiento en el servidor, el tiempo de conservación y cómo solicitar
 la eliminación de registros. **No se afirma que el sistema tenga un flujo
 automático de eliminación si todavía no existe**.
 
-El formulario contiene **dos consentimientos independientes, opcionales y
-desmarcados**: enviar documentos InBody a Google Gemini para extraerlos y
-almacenar mediciones revisadas y registros de entrenamiento en una base de
-datos. Un tercer checkbox obligatorio solo confirma que el aviso se ha
-leído; no se interpreta como autorización de los otros dos permisos. Se
+El formulario contiene **tres consentimientos independientes, opcionales y
+desmarcados**: enviar documentos InBody a Google Gemini para extraerlos,
+almacenar mediciones y entrenamientos en una base de datos y enviar
+**resúmenes privados** al chat fitness en Gemini. Un checkbox adicional
+obligatorio solo confirma que se leyó el aviso; no autoriza otros usos. Se
 puede iniciar sesión sin autorizar ninguna operación.
 
 El servidor recibe las opciones **antes del login** y crea una sesión
@@ -100,23 +107,18 @@ preservación de la evidencia.
 
 ## Navegación vertical y extracción IA integrada
 
-Health Journey utiliza ahora un **menú lateral** nativo de Gradio
-(`gr.Sidebar`) para elegir entre InBody, Entrenamientos, Dashboard,
-Historial y Proyecto. Es plegable, por lo que en celulares puede
-cerrarse para maximizar el espacio de lectura y edición. El módulo activo
-queda resaltado; las pestañas horizontales originales ya no se muestran.
+El menú principal de Gradio incluye solo **Proyecto**, **Extractor de InBody**,
+**Captador de logs de entrenamiento** y **Chat con el asistente fitness**,
+en ese orden. **Proyecto** es la pantalla inicial. La selección cambia la
+visibilidad de cuatro `gr.Column` ya montadas y conserva el estado de la
+sesión. No existen `gr.Tabs` horizontales, ni pestaña separada de Historial
+ni su menú de tres puntos.
 
-Internamente se conservan las pestañas de los módulos, con IDs estables
-y navegación programática por `gr.Tabs(selected=...)`, para mantener el
-estado de las mediciones, modelos seleccionados, registros y consentimientos
-al cambiar de sección sin recargar la aplicación.
+Las tendencias y gráficas Plotly siguen disponibles en el acordeón
+**Progreso histórico de InBody** dentro del extractor. La importación
+FitNotes permanece en el módulo de entrenamiento. Los callbacks siguen
+validando consentimiento y acceso privado del lado servidor.
 
-En InBody, el **paso 2** concentra la selección del modelo Gemini, la
-actualización de los modelos compatibles, el botón **Extraer mediciones
-con IA** y el resultado de la extracción dentro de una misma sección.
-El indicador de progreso de cinco pasos sigue visible en la pestaña
-InBody. Las verificaciones del consentimiento de IA y las operaciones
-en la base de datos continúan haciéndose en el servidor.
 
 ## Flujo de captura InBody — cinco pasos
 

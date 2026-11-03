@@ -96,3 +96,35 @@
 - **No inventar diagnóstico:** la causa de eliminación está respaldada por código inspeccionado; el lugar exacto donde falla el negativo sigue sin prueba E2E. Documentar evidencia y tests antes de marcar ambas incidencias resueltas.
 
 **Prioridad: P0**, porque impiden revisar/corregir resultados Gemini y completar el flujo de guardado con integridad.
+
+## 11. Evolución solicitada 2026-11-02 · inicio en Proyecto, menú único y chat fitness
+
+**Estado: código propuesto en rama, sin merge/despliegue validado.**
+
+El menú final autorizado por el usuario tiene únicamente cuatro secciones:
+**Proyecto**, **Extractor de InBody**, **Captador de logs de entrenamiento**
+y **Chat con el asistente fitness**, exactamente en ese orden. Proyecto inicia
+la experiencia post-login y explica la necesidad de unificar datos dispersos,
+motivación de seguimiento personal, arquitectura, servicios, librerías,
+modelos de IA y base de datos.
+
+Se eliminan del menú Dashboard e Historial. Las tendencias no se pierden:
+el dashboard está dentro de un acordeón en InBody; el backend de Neon sigue
+conservando historiales. No debe existir `gr.Tabs` horizontal, ni el overflow
+de tres puntos. Cuatro `gr.Column` cambian visibilidad en Gradio sin
+remontar componentes.
+
+El entrenador virtual (`inbody_mvp/ai_coach.py`) reúne lecturas autorizadas
+de InBody y FitNotes en agregaciones por periodo. Pide metas y restricciones
+en la UI y contextualiza datos para Gemini Flash, **solo con tercer
+consentimiento explícito `coach`**. Es independiente de `ai` y `db`.
+No enviar documentos, identificadores, OCR bruto, comentarios del usuario,
+claves ni filas completas. La conversación no se persiste en Neon.
+Mantener controles de acceso por llamada; el MVP InBody necesita vinculación
+owner-persona antes de habilitar usos multiusuario.
+
+Implementación en `feature/ai-coach-simplified-navigation-20261102`:
+`inbody_mvp/project_overview.py`, `inbody_mvp/ai_coach.py`,
+`inbody_mvp/navigation.py`, `app.py`,
+`inbody_mvp/prelogin_consent.py` y pruebas. No aplicar migraciones
+ni fusionar/desplegar sin validación. Detalles: `docs/ai-coach.md`.

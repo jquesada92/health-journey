@@ -57,8 +57,10 @@ def test_gradio_has_direct_login_and_oauth_stays_protected():
         isinstance(node, ast.Name) and node.id == "OAUTH_URLS"
         for node in ast.walk(tree)
     )
-    assert "target=\"_blank\"" in app
-    assert "OAUTH_URLS[\"login\"]" in app
+    # The separate Historial tab and its login link were intentionally removed.
+    # OAuth helper configuration and private SQL authorization must remain.
+    assert "OAUTH_URLS = standalone_oauth_urls(" in app
+    assert "require_database_access(profile, request=request)" in app
     assert "hj_submit_reviewed_audit" in (ROOT / "inbody_mvp/gemini_review.py").read_text()
     assert "hf_oauth: true" in readme
     assert "gradio[oauth]" in requirements

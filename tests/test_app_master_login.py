@@ -116,7 +116,9 @@ def test_app_auth_wired_to_real_gradio_request_not_client_input():
     assert "auth=authenticate_master_demo if password_login_enabled() else None" in app
     assert "request: gr.Request | None = None" in app
     assert "request=request" in app
-    assert "interactive=(not anonymous_demo_requested() or password_login_enabled())" in app
+    # The separate private Historial panel is gone; authorized private reads persist.
+    assert 'with gr.Column(visible=False, elem_id="hj-panel-training")' in app
+    assert "require_database_access(profile, request=request)" in app
     assert 'auth=("obs-master-demo", "' not in app
     assert "auth_message=" in app
 

@@ -37,7 +37,7 @@ def test_failed_events_preserve_component_values():
         "save_review_and_clear", "extract_with_popup",
         "review_with_popup", "preview_with_popup",
         "show_public_dashboard", "show_progress",
-        "display_history", "display_audit_history",
+        "ask_coach", "recent_training_with_popup",
         "show_processed_filename",
         "upload_with_popup", "check_models_with_popup",
     ):
@@ -55,7 +55,7 @@ def test_failed_events_preserve_component_values():
 
 
 def test_plotly_report_row_and_score_display_within_same_dashboard():
-    assert SOURCE.count('with gr.Tab("Dashboard", id="dashboard")') == 1
+    assert SOURCE.count('with gr.Accordion("Progreso histórico de InBody", open=False)') == 1
     assert 'progress_score = gr.Plot(' in SOURCE
     assert 'progress_section_history = gr.Plot(' in SOURCE
     assert 'progress_trends = gr.Plot(' in SOURCE
