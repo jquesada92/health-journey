@@ -84,8 +84,8 @@ def test_component_validation_badges_are_hidden_but_single_toast_is_preserved():
 def test_review_error_is_one_toast_and_discards_previous_success():
     body = ast.unparse(_function("review_with_popup"))
     assert body.count("gr.Warning(") == 1
-    assert "return (updated, '')" in body
-    assert "return (gr.update(), '')" in body
+    assert "return (updated, new_snapshot, '')" in body
+    assert "return (gr.update(), gr.update(), '')" in body
     assert "popup_error(" in body
 
 
