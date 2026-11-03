@@ -27,6 +27,7 @@ def make_test_app():
         routes=[
             Route("/privacy", privacy.privacy_page, methods=["GET"]),
             Route("/privacy/consent", privacy.submit_consent, methods=["POST"]),
+            Route("/privacy/verify", privacy.verify_consent_session, methods=["GET"]),
             Route("/", protected),
             Route("/gradio_api/startup-events", startup_events, methods=["GET"]),
             Route("/login", protected, methods=["POST"]),
@@ -216,3 +217,32 @@ def test_internal_startup_exception_is_only_exact_get_and_loopback():
     assert not allow(fake("127.0.0.1", "POST"), "/gradio_api/startup-events")
     assert not allow(fake("127.0.0.1"), "/gradio_api/predict")
     assert not allow(fake("127.0.0.1"), "/login")
+
+
+def test_consent_submission_verifies_browser_cookie_before_entering_app():
+    with TestClient(make_test_app()) as client:
+        response = client.post(
+            "/privacy/consent",
+            data={"notice_read": "yes", "ai_consent": "yes"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/privacy/verify"
+        check = client.get("/privacy/verify", follow_redirects=False)
+        assert check.status_code == 303
+        assert check.headers["location"] == "/"
+        assert check.headers["cache-control"] == "no-store"
+        assert privacy.has_consent(_gradio_request(client), "ai")
+        assert client.get("/").status_code == 200
+
+
+def test_missing_browser_cookie_after_consent_gets_single_actionable_message():
+    # Simulates a third-party-cookie-blocked iframe or a restarted Space.
+    with TestClient(make_test_app()) as client:
+        check = client.get("/privacy/verify", follow_redirects=False)
+        assert check.status_code == 200
+        assert "No se pudo mantener la sesión de consentimiento" in check.text
+        assert "pestaña nueva" in check.text
+        assert check.headers["cache-control"] == "no-store"
+        assert client.get("/", follow_redirects=False).status_code == 303
+        assert not privacy.has_consent(_gradio_request(client), "ai")
