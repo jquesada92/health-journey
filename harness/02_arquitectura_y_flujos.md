@@ -1,5 +1,8 @@
 # 02 — Arquitectura técnica y flujos de datos
 
+> **Arquitectura vigente (2026-11-03):** [diagrama actualizado](00_estado_vigente_y_trazabilidad.md#2-arquitectura-y-tecnologías-reales). UI Gradio 6 en Hugging Face Spaces; `app.py` orquesta módulo Proyecto, InBody Gemini Flash (google-genai + PyMuPDF/Pillow + Pydantic), revisión y auditoría privada PostgreSQL/Neon (SQLAlchemy+psycopg), FitNotes CSV → Training Hub y chat Gemini sobre resúmenes autorizados. Los tres consentimientos se recogen en `/privacy` **antes** del login; el desplegable Gemini de InBody es independiente del chat. `spaces` se mantiene por compatibilidad con ZeroGPU, no para ejecutar Gemini localmente. EasyOCR/PaddleOCR y CSV multiarchivo corresponden a soporte **legacy o plan**, no al runtime principal. Los diagramas de OCR/CSV posteriores son HISTÓRICOS; no utilizarlos para reproducir sin contraste.
+
+
 ## Estado vigente — 1 de noviembre de 2026 (PR #38, pendiente de validación E2E)
 
 La interfaz activa de **InBody Hub** es Gradio y usa **Gemini Flash** mediante
