@@ -1,3 +1,33 @@
+## Chat fitness automático con InBody y FitNotes (2026-11-03)
+
+El chat ya no pide `coach_report_id`; no reintroducir filtros por
+identificador manual. `inbody_mvp/ai_coach.py` carga, en cada pregunta,
+InBody revisado y FitNotes del usuario autenticado; `coach_data.py`
+resuelve internamente una identidad privada única (Secret
+`COACH_PERSON_ID` opcional), incluye observaciones y series recientes
+sin identificadores, y falla cerrado ante múltiples identidades.
+La consulta FitNotes debe seguir restringida por `owner_key`, y la
+consulta InBody debe seguir comprobando `require_database_access`.
+Nunca enviar número de documento, archivos, notas, raw OCR ni comentarios
+a Gemini. El prompt independiente `prompts/fitness_coach.md` documenta
+el JSON y los indicadores de truncamiento. El deploy a Hugging Face
+debe incluir explícitamente `inbody_mvp/coach_data.py`.
+Pruebas `tests/test_coach_auto_data.py`, `tests/test_ai_coach.py`
+y `tests/test_coach_conversation.py`; comprobar manualmente Space y
+Neon antes de afirmar funcionamiento E2E.
+
+## Ajuste vigente: confirmar tabla InBody sin repetición (2026-11-03)
+
+El consentimiento prelogin firmado continúa siendo obligatorio para
+contactar Gemini. El callback de extracción debe confiar en
+`has_consent(request, "ai")` y no rechazar por una copia desactualizada
+en `gr.State`. Pulsar **Guardar cambios** aprueba juntas todas las filas
+conservadas **solo después** de validar las correcciones; no exigir
+marcar `reviewed` en cada fila. Si falla la validación, conservar las
+ediciones sin aprobarlas. El botón no autoriza transferencias a IA ni
+escribe en Neon; esa escritura sigue requiriendo consentimiento de DB.
+Consultar `tests/test_inbody_one_click_review.py`.
+
 ## Fuente vigente para ramas y PR (consolidación 2026-11-03)
 
 Consultar [harness/00_estado_vigente_y_trazabilidad.md](harness/00_estado_vigente_y_trazabilidad.md) y [docs/indice_actual.md](docs/indice_actual.md) para capacidades, criterios, requisitos y tecnologías. Esta consolidación reúne las actualizaciones documentales del PR #73, correcciones de tabla InBody del PR #76 y verificación de duplicados antes de usar Gemini. No perder funcionalidades ya fusionadas (#71, #72, #74, #75). Cada PR posterior debe actualizar criterios, pruebas, documentación y limitaciones, distinguir CI sintético de prueba real de HF/Neon, mantener consentimiento y controles de acceso y evitar secretos o informes reales. No fusionar ni desplegar automáticamente.

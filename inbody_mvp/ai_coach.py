@@ -22,6 +22,9 @@ from .storage import (
 )
 from .training_hub import _owner_key
 from .prompt_loader import load_prompt
+from .coach_data import (
+    resolve_private_person_id, compact_inbody_rows, load_private_training_sets,
+)
 
 MAX_CHAT_TURNS = 12
 MAX_CHAT_CHARS = 1500
@@ -181,36 +184,42 @@ def _load_training(owner: str, *, days: int) -> list[dict]:
         engine.dispose()
 
 
-def load_coach_context(report_id, days=90, *, profile=None, request=None):
-    """Every call validates private access; queries are read-only and parameterized."""
+def load_coach_context(report_id=None, days=90, *, profile=None, request=None):
+    """Read both private datasets; a typed InBody ID is never necessary.
+
+    report_id is a deprecated argument for existing internal callers and
+    intentionally ignored. The server resolves a single private identity.
+    """
     if days not in SUPPORTED_WINDOWS:
         raise ValueError("Selecciona un período válido.")
     owner = _owner_key(profile=profile, request=request)
-    inbody = []
-    source = "Sin ID de reporte indicado; InBody no consultado."
-    if str(report_id or "").strip():
-        # Both helpers enforce the application's authorized private-access gate.
-        inbody = load_reviewed_audit_history(
-            report_id, oauth_profile=profile, limit=5000, request=request
+    person_id = resolve_private_person_id(profile=profile, request=request)
+    inbody = load_reviewed_audit_history(
+        person_id, oauth_profile=profile, limit=5000, request=request
+    )
+    if inbody:
+        source = "Auditorías InBody revisadas."
+    else:
+        inbody = load_measurement_history(
+            person_id, oauth_profile=profile, limit=500, request=request
         )
-        if inbody:
-            source = "Auditorías InBody revisadas."
-        else:
-            confirmed = load_measurement_history(
-                report_id, oauth_profile=profile, limit=500, request=request
-            )
-            inbody = confirmed
-            source = "Exámenes InBody confirmados (sin auditorías revisadas)." if confirmed else "No hay InBody guardados para ese ID."
+        source = (
+            "Exámenes InBody confirmados (sin auditorías revisadas)."
+            if inbody else "No hay InBody guardados para el usuario autorizado."
+        )
     training = _load_training(owner, days=days)
     return {
         "period_days": days,
         "inbody_source_status": source,
         "inbody": summarize_inbody(inbody, days=days),
+        "inbody_measurements": compact_inbody_rows(inbody, days=days),
         "training": summarize_training(training),
+        "training_sets": load_private_training_sets(owner, days=days),
         "data_limitations": [
-            "No incluye datos no guardados ni historial gráfico impreso en PDF.",
-            "Las comparaciones de ejercicios son descriptivas; la técnica, esfuerzo y descanso no están registrados.",
-            "Identificadores personales, documentos, comentarios y respuestas OCR no se envían al modelo.",
+            "Solo registros guardados y privados; no incluye historial impreso en PDF.",
+            "Las listas de detalle son recientes y pueden estar truncadas; consulta los campos truncated.",
+            "Compara solo ejercicios, unidades y modelos compatibles; no se conoce el RIR ni el esfuerzo real.",
+            "No se envían a Gemini identificadores personales, documentos, comentarios ni OCR bruto.",
         ],
     }
 
@@ -253,7 +262,9 @@ def answer_coach_question(
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError("No hay una API key Gemini configurada en el servidor.")
-    context = load_coach_context(report_id, int(days), profile=profile, request=request)
+    # The legacy report_id argument is intentionally ignored. Personal
+    # identifiers are resolved privately and never sent to the LLM.
+    context = load_coach_context(days=int(days), profile=profile, request=request)
     prior = _chat_history(history)[-8:]
     payload = {
         "objective": goals or "No especificado: pedir objetivo antes de personalizar.",

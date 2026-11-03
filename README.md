@@ -131,8 +131,10 @@ archivo original permanece de solo lectura como evidencia de origen.
 Se requiere **una sola explicación** cuando se modifica un valor del
 encabezado. El servidor valida el formato de fecha/hora, edad e ID y aplica
 el encabezado revisado a todas las mediciones antes de guardar. Los cambios
-en las mediciones siguen requiriendo comentarios de corrección por fila,
-y todas las filas deben marcarse como revisadas.
+en las mediciones siguen requiriendo comentarios de corrección por fila.
+El botón **Guardar cambios** confirma de una sola vez todas las filas
+conservadas: la interfaz marca `reviewed` automáticamente tras validar,
+sin obligar a activar cada casilla manualmente.
 
 La tabla de revisión muestra únicamente los campos correspondientes a
 cada medición: sección, nombre, valor, unidad, valor original, indicador
@@ -184,8 +186,9 @@ de avance por acciones reales se mantienen sin cambios.
 
 El indicador avanza con eventos reales: **cargar** el archivo desplaza la
 pantalla al selector Gemini; **extraer correctamente** lleva a la tabla;
-**Continuar a validación** verifica que haya mediciones y que todas tengan
-`reviewed` marcado y lleva a Validar; **validar correctamente** lleva
+**Guardar cambios** comprueba los valores editados, marca como
+`reviewed` todas las filas conservadas y lleva a Validar sin un permiso
+adicional de IA; **validar correctamente** lleva
 a Guardar; **guardar correctamente** muestra una notificación, limpia
 el formulario y vuelve automáticamente al inicio de Cargar con el paso 1
 activo. Los cinco desplazamientos respetan la barra fija y las preferencias
@@ -194,7 +197,7 @@ de movimiento reducido del navegador.
 **No se navega automáticamente ante error**, valores no revisados,
 extractor sin resultado o guardado rechazado. Las ediciones de la tabla
 no desplazan al usuario: pueden ser numerosas y deben terminarse antes
-de pulsar Continuar a validación. Las correcciones después de validar
+de pulsar Guardar cambios. Las correcciones después de validar
 invalidan la validación anterior. Ni el progreso ni el reinicio otorgan
 permisos nuevos de Gemini o Neon ni alteran los consentimientos.
 
@@ -206,7 +209,7 @@ permisos nuevos de Gemini o Neon ni alteran los consentimientos.
   PDF/imagen original se consulta en un panel desplegable que evita una vista
   de dos columnas demasiado estrecha en celulares.
 - **Validar**: instrucciones claras de columnas editables, comentario de
-  corrección y revisión de todas las filas; el resultado de validación aparece
+  corrección y confirmación conjunta con Guardar cambios; el resultado de validación aparece
   al lado de su botón, separado del resultado de extracción.
 - **Guardar**: conservar consentimiento de base de datos compartido, ocultar
   la confirmación de sobrescritura tras una sección avanzada, verificar datos
@@ -217,6 +220,15 @@ permisos nuevos de Gemini o Neon ni alteran los consentimientos.
 Se conserva la verificación de consentimiento en servidor y la validación
 previa a cualquier escritura. Los mensajes de pantalla dicen
 **«base de datos»** sin nombres de proveedores de almacenamiento.
+
+### Verificación de consentimiento sin advertencias redundantes (2026-11-03)
+
+Al solicitar extracción, el servidor consulta el consentimiento firmado de
+IA. El estado local de Gradio no puede invalidar una autorización vigente si
+la carga de la página aún no terminó. Si el consentimiento **no** existe, la
+extracción continúa bloqueada antes de contactar Gemini. **Guardar cambios**
+únicamente confirma los datos de la tabla y no envía nada a la IA ni escribe
+en la base de datos; el guardado posterior requiere permiso independiente.
 
 ## Consentimiento de sesión para IA y almacenamiento (noviembre de 2026)
 
@@ -247,6 +259,39 @@ de IA, `save_audit` exige permiso de almacenamiento antes de escribir y
 `save_training_import` hace lo mismo. Los consentimientos compartidos se
 reciben mediante valores de componentes Gradio de la sesión y nunca se
 sustituyen por autorizaciones automáticas o marcadas de fábrica.
+
+## Asistente fitness: contexto automático InBody + FitNotes (2026-11-03)
+
+El chat fitness ya no muestra ni exige un campo para introducir el ID
+del reporte InBody. Con sesión privada autorizada y consentimiento
+específico del chat, **cada pregunta** consulta Neon de forma automática:
+primero `hj_audit_reviewed_private` (mediciones revisadas), o el historial
+confirmado heredado cuando no existe auditoría; en paralelo consulta
+`hj_training_sets` mediante la clave del usuario autenticado.
+
+Se envía a Gemini un **JSON sin identificadores personales** que incluye:
+tendencias de InBody por variable y unidades, observaciones recientes
+con sus fechas, resúmenes de ejercicios FitNotes y series reales con
+peso, repeticiones, fecha y duración. Las observaciones se limitan a la
+ventana elegida (30/90/180/365 días), con límites explícitos de tamaño
+y `truncated` para no presentar una muestra como historial completo.
+Nunca se envían nombres de archivos, texto OCR, IDs, notas de series
+ni comentarios de auditoría. El prompt vive en su propio archivo:
+`inbody_mvp/prompts/fitness_coach.md`.
+
+La identidad InBody se determina **solo desde servidor**: Secret privado
+`COACH_PERSON_ID` (o alias privado ya configurado de Dashboard) si
+existe, y si no, detección de un único identificador en la base privada.
+Con más de una identidad se bloquea la consulta hasta configurar ese
+Secret; no se devuelven registros de otras personas por defecto. El
+identificador real nunca se guarda en Git. El rol privado sigue siendo
+obligatorio y el consentimiento del chat sigue siendo independiente
+del de extracción InBody. La tabla FitNotes conserva el filtro
+`owner_key` de la sesión. **No se han verificado consultas reales contra
+Neon ni respuestas reales de Gemini como parte de esta implementación.**
+
+Regresiones sintéticas: `tests/test_coach_auto_data.py`,
+`tests/test_ai_coach.py` y `tests/test_coach_conversation.py`.
 
 ## Inicio de sesión propio `obs-master-demo`
 

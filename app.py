@@ -333,8 +333,9 @@ with gr.Blocks(
                 "**was_corrected** se marca automáticamente cuando una medición "
                 "es distinta de la lectura original. Usa el menú de la fila "
                 "en la tabla para **eliminar** mediciones incorrectas, sin "
-                "botones adicionales. Marca **reviewed** en cada fila "
-                "conservada y pulsa **Guardar cambios**."
+                "botones adicionales. Pulsa **Guardar cambios** para confirmar "
+                "todas las filas conservadas de una sola vez; no necesitas "
+                "marcar **reviewed** fila por fila."
             )
             # Review the parsed values and their original source together.
             # The two panes stack on mobile instead of trapping the gallery
@@ -387,9 +388,14 @@ with gr.Blocks(
                 request: gr.Request | None = None,
             ):
                 try:
-                    if consent is not True or not has_consent(request, "ai"):
+                    # The signed pre-login choice is authoritative. The Gradio
+                    # State can be stale during asynchronous page initialization;
+                    # never reject a consented extraction because of that cache.
+                    consent = has_consent(request, "ai")
+                    if not consent:
                         raise PermissionError(
-                            "Autoriza el envío a la IA antes de extraer el examen."
+                            "Para extraer con Gemini, habilita el consentimiento "
+                            "de IA en Privacidad."
                         )
                     if not state or not isinstance(state.get("data"), bytes):
                         raise ValueError("Primero selecciona un examen válido.")
@@ -466,9 +472,10 @@ with gr.Blocks(
                 "Edita **value** y **correction_comment** directamente en la tabla. "
                 "La casilla **was_corrected** se actualiza automáticamente al "
                 "comparar cada medición con su valor original. Cuando todas las "
-                "filas conservadas estén marcadas como **reviewed**, pulsa "
-                "**Guardar cambios** para confirmar la revisión y avanzar. "
-                "Esta acción no escribe en la base de datos.",
+                "filas estén correctas, pulsa **Guardar cambios**. Esta "
+                "única acción acepta las correcciones y marca todas las filas "
+                "conservadas como **reviewed**. No necesitas confirmarlas "
+                "individualmente ni se escribe todavía en la base de datos.",
                 elem_id="hj-inbody-step-4"
             )
             gemini_check = gr.Button("Guardar cambios", variant="secondary")
@@ -493,8 +500,13 @@ with gr.Blocks(
                     updated, new_snapshot = reconcile_native_review_rows(
                         table, snapshot
                     )
+                    # Guardar cambios is the explicit approval for every
+                    # retained row. Validate the approved copy first so an
+                    # incomplete review never commits a partial approval.
+                    confirmed = updated.copy()
+                    confirmed.loc[:, "reviewed"] = True
                     result = review_status(
-                        updated, new_snapshot, header_edits=exam_header_edits(
+                        confirmed, new_snapshot, header_edits=exam_header_edits(
                             exam_datetime, filename, person_id, age, reason
                         ),
                     )
@@ -504,7 +516,7 @@ with gr.Blocks(
                         # validation while showing only one warning popup.
                         return updated, new_snapshot, ""
                     gr.Info("Cambios de revisión confirmados. Continúa a guardar el examen.")
-                    return updated, new_snapshot, result
+                    return confirmed, new_snapshot, result
                 except Exception as exc:
                     popup_error(exc, "No se pudieron confirmar los cambios.")
                     return gr.update(), gr.update(), ""
@@ -1129,25 +1141,20 @@ with gr.Blocks(
             gr.HTML(COACH_CHAT_HEADER_HTML, elem_id="hj-chat-header-host")
             with gr.Accordion("Mis objetivos, contexto y privacidad", open=False):
                 gr.Markdown(
-                    "El asistente analiza mediciones InBody revisadas y "
-                    "entrenamientos FitNotes **guardados** para orientar "
-                    "tus metas. No reemplaza una valoración médica.\n\n"
+                    "El asistente consulta automáticamente tus mediciones "
+                    "InBody revisadas y series FitNotes **guardadas** en la "
+                    "base de datos privada. No necesitas introducir un ID. "
+                    "No reemplaza una valoración médica.\n\n"
                     "**Privacidad:** los resúmenes solo se envían a Gemini "
                     "al pulsar Enviar y con el permiso específico del chat. "
                     "No se envían documentos, identificadores de InBody, "
                     "comentarios FitNotes ni OCR bruto. La conversación "
                     "permanece únicamente en esta sesión."
                 )
-                with gr.Row():
-                    coach_report_id = gr.Textbox(
-                        label="ID del reporte InBody (consulta privada)",
-                        type="password", placeholder="ID usado en tus exámenes",
-                        max_lines=1, scale=2,
-                    )
-                    coach_window = gr.Dropdown(
-                        label="Período de análisis (días)",
-                        choices=list(SUPPORTED_WINDOWS), value=90, scale=1,
-                    )
+                coach_window = gr.Dropdown(
+                    label="Período de análisis (días)",
+                    choices=list(SUPPORTED_WINDOWS), value=90,
+                )
                 coach_goals = gr.Textbox(
                     label="Mis objetivos",
                     placeholder="Por ejemplo: aumentar masa muscular y fuerza, con énfasis en piernas y hombros",
@@ -1258,7 +1265,7 @@ with gr.Blocks(
                 )
 
             def complete_coach_message(
-                messages, pending, report_id, goals, restrictions, days,
+                messages, pending, goals, restrictions, days,
                 model, consent,
                 profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
@@ -1267,7 +1274,7 @@ with gr.Blocks(
                     if not pending or not messages or messages[-1]["role"] != "user":
                         raise ValueError("No hay una pregunta pendiente.")
                     conversation, context, _ = answer_coach_question(
-                        pending, messages[:-1], report_id, goals, restrictions,
+                        pending, messages[:-1], None, goals, restrictions,
                         days, model, consent, profile=profile, request=request,
                     )
                     reply = conversation[-1]["content"]
@@ -1326,7 +1333,7 @@ with gr.Blocks(
             ).success(
                 fn=complete_coach_message,
                 inputs=[
-                    coach_history, coach_pending_question, coach_report_id,
+                    coach_history, coach_pending_question,
                     coach_goals, coach_restrictions, coach_window,
                     coach_pending_model, session_coach_consent,
                 ],

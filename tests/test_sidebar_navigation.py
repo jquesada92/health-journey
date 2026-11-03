@@ -62,7 +62,7 @@ def test_model_picker_refresh_extract_and_feedback_inside_one_group():
         assert name in group
     assert 'fn=check_models_with_popup' in group
     assert 'fn=extract_with_popup' in SOURCE
-    assert 'not has_consent(request, "ai")' in SOURCE
+    assert 'consent = has_consent(request, "ai")' in SOURCE
     assert "Google Gemini recibirá el documento" in group
 
 
