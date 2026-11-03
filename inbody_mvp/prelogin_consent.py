@@ -154,9 +154,18 @@ _PAGE = """<!doctype html>
 </html>"""
 
 
-def render_privacy_page(error: str = "") -> str:
+def render_privacy_page(error: str = "", *, offer_direct_open: bool = False) -> str:
     """A self-contained accessible HTML page; escaped error is never executable."""
     warning = ('<p class="error" role="alert">' + html.escape(error) + '</p>') if error else ""
+    if offer_direct_open:
+        # A relative link with target=_blank leaves the Hugging Face iframe
+        # and keeps the app on its existing authenticated origin.
+        warning += (
+            '<p class="small"><a href="/privacy" target="_blank" '
+            'rel="noopener noreferrer">'
+            "Abrir Health Journey directamente en una pestaña nueva"
+            "</a></p>"
+        )
     return _PAGE.replace("{{error}}", warning)
 
 
@@ -253,7 +262,8 @@ async def verify_consent_session(request):
             render_privacy_page(
                 "No se pudo mantener la sesión de consentimiento. "
                 "Abre Health Journey directamente en una pestaña nueva "
-                "y permite las cookies de sesión antes de continuar."
+                "y permite las cookies de sesión antes de continuar.",
+                offer_direct_open=True,
             ),
             status_code=200,
         )
@@ -265,9 +275,23 @@ async def submit_consent(request):
     """The browser form is the source of pre-login opt-in; never auto-opt in."""
     origin = request.headers.get("origin")
     if origin and urlsplit(origin).hostname != request.url.hostname:
-        return HTMLResponse(render_privacy_page("Solicitud de otro origen rechazada."), status_code=403)
+        return HTMLResponse(
+            render_privacy_page(
+                "Solicitud de otro origen rechazada. Abre la aplicación "
+                "directamente antes de dar consentimiento.",
+                offer_direct_open=True,
+            ),
+            status_code=403,
+        )
     if request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
-        return HTMLResponse(render_privacy_page("Solicitud de otro sitio rechazada."), status_code=403)
+        return HTMLResponse(
+            render_privacy_page(
+                "Solicitud de otro sitio rechazada. Abre la aplicación "
+                "directamente antes de dar consentimiento.",
+                offer_direct_open=True,
+            ),
+            status_code=403,
+        )
     data = await request.body()
     if len(data) > 8192:
         return HTMLResponse(render_privacy_page("Formulario demasiado grande."), status_code=413)
