@@ -1,5 +1,30 @@
 # 03 — Modelo de datos, nomenclatura y contratos de intercambio
 
+## Canonización de timestamp desde nombre y reporte (propuesta)
+
+Cuando `filename` cumple `^[^_]+_[0-9]{14}(?:[._-]|$)`,
+el token es `AAAAMMDDHHMMSS` y se convierte a
+`exam_datetime` de la extracción sin modificar el
+nombre original ni el SHA-256. El reporte imprime
+`DD.MM.AAAA HH:MM` y solo se utiliza como respaldo
+si el nombre no trae el token. Se muestra la fecha
+con segundos en la tabla de encabezado y se conserva
+`raw_response` original con la lectura IA. Rechazar
+año/mes/día inválido y no trasladar fechas de gráficas
+históricas a un examen actual.
+
+`migrations/011_correct_inbody_dates_from_filenames.sql`
+corrige el timestamp histórico de `hj_extraction_audits`
+sin tocar `hj_measurement_audits`. Antes de actualizar
+cada cabecera, guarda ID técnico de extracción, nombre,
+fecha original y fecha corregida en
+`hj_exam_datetime_repair_history`. La vista privada
+revisada deriva `exam_date` del header, por lo que
+el análisis reflejará las fechas corregidas.
+Es una migración de datos **pendiente de autorización y
+ejecución**, no se aplica por publicar el PR.
+
+
 ## Reemplazo por archivo sin pérdida en errores (propuesta)
 
 La captura InBody sigue en formato largo y con auditoría; ahora,
