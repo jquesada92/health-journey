@@ -1,5 +1,24 @@
 # 05 — Interfaz actual, navegación y dashboard
 
+## Reprocesamiento de un archivo InBody existente (propuesta)
+
+Al subir un archivo cuyo nombre ya exista, el preflight
+avisa, pero permite activar el checkbox explícito
+`Reprocesar y reemplazar el archivo existente en Neon`.
+Por defecto, **Extraer mediciones** permanece deshabilitado
+para un duplicado; con el opt-in se habilita, y el servidor
+verifica que el nombre exista para la identidad privada
+autorizada antes de llamar a Gemini. El proceso de revisión
+no cambia: visor y tabla, correcciones de valor/unidad,
+`reviewed` para cada fila y un único botón **Guardar
+mediciones**. El guardado reemplaza exactamente ese archivo
+de forma transaccional con copia de recuperación, y si hay
+error no limpia la tabla. Reingesta de archivo no verificado,
+ajeno o con otro nombre no se permite; el guardado normal
+sigue intacto. No agrega nuevo botón de guardado ni ID
+visible en el chat.
+
+
 ## Variantes de medidas y unidades de InBody (2026-11-03)
 
 El panel de chat con tendencias y el dashboard InBody usan
