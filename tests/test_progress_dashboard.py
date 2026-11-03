@@ -127,26 +127,25 @@ def test_history_is_date_separated_and_never_uses_pdf_trend_values(records):
 
 def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     app = (ROOT / "app.py").read_text()
-    assert 'with gr.Tab("Dashboard", id="dashboard")' in app
-    assert app.count('with gr.Tab("Dashboard", id="dashboard")') == 1
-    assert 'with gr.Tab("Dashboard público")' not in app
-    assert 'with gr.Tab("Progress Dashboard")' not in app
-    assert 'with gr.Tab("Dashboard (siguiente fase)")' not in app
+    assert 'with gr.Accordion("Progreso histórico de InBody", open=False):' in app
+    assert 'with gr.Tab("Dashboard", id="dashboard")' not in app
+    assert 'with gr.Tab("Historial en base de datos", id="history")' not in app
     assert 'with gr.Accordion("Mi progreso histórico (acceso privado)"' in app
     assert 'with gr.Accordion("Mediciones publicadas (solo datos aprobados)"' in app
     assert "progress_start = gr.DateTime(" in app
     assert "progress_end = gr.DateTime(" in app
-    assert "fn=show_progress" in app or "progress_refresh.click(" in app
+    assert "progress_refresh.click(" in app
     assert 'progress_kpis = [' in app
     assert 'progress_section = gr.Dropdown(' in app
-    assert "progress_refresh.click(" in app
     assert "load_reviewed_audit_history(" in app
     assert "profile: gr.OAuthProfile | None = None" in app
-    section = app[app.index('with gr.Tab("Dashboard", id="dashboard")'):app.index('with gr.Tab("Historial en base de datos", id="history")')]
+    section = app[
+        app.index('with gr.Accordion("Progreso histórico de InBody", open=False)'):
+        app.index('with gr.Column(visible=False, elem_id="hj-panel-training")')
+    ]
     assert "exam_selector" not in section
     assert "alias privado test" in section
     assert "Exam selector" not in section
-    assert '"type=password"' not in section  # uses correctly typed Gradio keyword
     assert 'type="password"' in section
     assert len(METRICS) == 6
     assert SECTIONS[0] == "Todas las secciones"
