@@ -1,3 +1,35 @@
+## UX InBody guiada con avance automático y limpieza tras guardar (2026-11-03)
+
+Rama: `feature/inbody-auto-next-step-no-clear-20261103`. Solicitud más reciente:
+retirar por completo el botón **«Limpiar examen (conservar permisos)»**,
+desplazar la vista al próximo paso tras completar exitosamente el actual,
+y que tras **guardar correctamente** la interfaz quede limpia y lista
+para otro InBody.
+
+Secuencia implementada: carga exitosa → paso 2; Gemini devuelve snapshot →
+paso 3; el usuario marca todas las filas reviewed y pulsa
+**Continuar a validación** → paso 4 (no desplazar durante edición);
+validación completa → paso 5; guardado confirmado en base de datos →
+`gr.Info` confirma, se limpian los 16 componentes del examen, mensaje de
+guardado y estado del paso, y la vista regresa al paso 1. No limpiar tras
+fallo de extracción/revisión/validación/guardado. El selector Gemini y
+los tres consentimientos de sesión se conservan.
+
+`INBODY_NEXT_STEP_JS` permite solo IDs `hj-inbody-step-1` a
+`hj-inbody-step-5`, respeta accesibilidad y `scroll-margin-top` para
+no ocultar secciones debajo de la navbar fija. No exponer datos personales
+en el cliente. `review_step_ready` comprueba reviewed antes de avanzar,
+pero la validación exhaustiva original permanece en `review_status`.
+Los eventos `header_*.input` deben ser de usuario, NO `.change`,
+pues limpiar campos desde el servidor reactivaba el paso 3.
+Mantener el reinicio condicionado al guardado exitoso; conservar la
+notificación emergente y limpiar el estado en línea.
+
+Pruebas: `tests/test_inbody_flow.py` y
+`tests/test_inbody_guided_layout.py` más CI completo. Requiere prueba
+visual real en desktop/móvil y E2E con sesión autorizada antes de afirmar
+que está desplegado.
+
 ## InBody: barra de progreso viewport-fixed (2026-11-03, corrige sticky)
 
 La petición final exige que los cinco pasos **no se muevan al hacer scroll**;
