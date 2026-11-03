@@ -216,12 +216,14 @@ def test_both_consents_at_start_and_login_only_for_history():
     start = app.index('with gr.Tab("InBody Upload")')
     end = app.index('with gr.Tab("Dashboard")', start)
     upload = app[start:end]
-    assert upload.index("gemini_consent_remote = gr.Checkbox") < upload.index("gemini_upload = gr.File")
-    assert upload.index("gemini_consent = gr.Checkbox") < upload.index("gemini_upload = gr.File")
+    # Session-wide opt-ins appear before any upload; no file can reset them.
+    assert app.index("session_ai_consent = gr.Checkbox") < start
+    assert app.index("session_db_consent = gr.Checkbox") < start
     assert "interactive=audit_write_enabled()" in upload
-    assert "inputs=[gemini_table, gemini_snapshot, gemini_consent, gemini_overwrite]" in upload
+    assert "inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite]" in upload
+    assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in upload
     assert "inicia sesión en pestaña nueva" not in upload
-    assert 'with gr.Tab("Historial en Neon")' in app
+    assert 'with gr.Tab("Historial en base de datos")' in app
 
 
 def test_migration_007_requires_confirmation_and_keeps_history():
@@ -245,8 +247,9 @@ def test_review_ui_clears_only_after_success():
     assert 'def save_review_and_clear(table, snapshot, consent, overwrite):' in source
     assert 'if message.startswith("Guardado en Neon:"):' in source
     assert "pd.DataFrame(columns=GEMINI_COLUMNS)" in source
-    assert "gr.Info(message)" in source
-    assert "return keep_components(12)" in source
+    assert 'gr.Info(message.replace("Neon", "la base de datos"))' in source
+    assert "return keep_components(10)" in source
+    assert "gemini_consent" not in source
     assert "gemini_upload.upload(" in source
     assert "gemini_upload.change(" not in source
     assert "gemini_overwrite = gr.Checkbox(" in source

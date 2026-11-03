@@ -142,7 +142,7 @@ def test_gradio_contract_date_filters_plotly_and_no_exam_selector():
     assert "progress_refresh.click(" in app
     assert "load_reviewed_audit_history(" in app
     assert "profile: gr.OAuthProfile | None = None" in app
-    section = app[app.index('with gr.Tab("Dashboard")'):app.index('with gr.Tab("Historial en Neon")')]
+    section = app[app.index('with gr.Tab("Dashboard")'):app.index('with gr.Tab("Historial en base de datos")')]
     assert "exam_selector" not in section
     assert "alias privado test" in section
     assert "Exam selector" not in section

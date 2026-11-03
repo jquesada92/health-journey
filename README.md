@@ -28,6 +28,36 @@ nuevas pantallas de credenciales ni se cambia el acceso a Neon. Las futuras
 sugerencias serán informativas y no reemplazarán orientación profesional
 médica o nutricional.
 
+## Consentimiento de sesión para IA y almacenamiento (noviembre de 2026)
+
+La interfaz presenta dos decisiones **independientes**, ambas desmarcadas al entrar:
+
+1. **Procesamiento por IA:** permite enviar las páginas de un reporte InBody
+   al proveedor externo Google Gemini **solamente al pulsar Extraer**.
+   Cargar un PDF o una imagen sí envía el archivo al servidor del Space para
+   la vista previa, aunque no se comparta con Gemini sin consentimiento.
+   Importar un CSV de entrenamiento **no lo envía a la IA**.
+2. **Almacenamiento en base de datos:** permite guardar medidas InBody
+   revisadas y sus datos de auditoría, o series importadas de FitNotes.
+   Se guardan identificadores, fechas, métricas y detalles pertinentes.
+   El permiso no implica publicar datos ni enviar documentos a Gemini.
+
+Ambas casillas están situadas **fuera de las pestañas** para que sus valores
+permanezcan durante la sesión al alternar entre InBody y Training Hub y al
+cargar varios archivos. No se restablecen tras subir, guardar o limpiar un
+archivo. El usuario puede desmarcarlas en cualquier momento y los siguientes
+eventos deben respetar inmediatamente el nuevo valor. En una sesión nueva,
+los permisos vuelven a estar desactivados. No se persiste el consentimiento
+como preferencia permanente ni se presume que los datos ya guardados deban
+borrarse por retirar el permiso. Los registros almacenados permanecen en la
+base de datos hasta un proceso explícito de eliminación.
+
+**Controles de backend que se conservan:** `extract_gemini` valida el permiso
+de IA, `save_audit` exige permiso de almacenamiento antes de escribir y
+`save_training_import` hace lo mismo. Los consentimientos compartidos se
+reciben mediante valores de componentes Gradio de la sesión y nunca se
+sustituyen por autorizaciones automáticas o marcadas de fábrica.
+
 ## Inicio de sesión propio `obs-master-demo`
 
 La aplicación puede exigir un login general de Gradio, sin crear una

@@ -13,8 +13,10 @@ def test_gradio_upload_preview_consent_save_and_read():
     assert "fn=save_training_with_popup" in APP
     assert "fn=recent_training_with_popup" in APP
     assert "require_database_access(profile, request=request)" in APP
-    assert "inputs=[training_state, training_consent, training_overwrite]" in APP
+    assert "inputs=[training_state, session_db_consent, training_overwrite]" in APP
     assert 'label="Vista previa del CSV (solo lectura)"' in APP
+    assert 'session_db_consent = gr.Checkbox(' in APP
+    assert 'training_consent = gr.Checkbox(' not in APP
 
 
 def test_private_training_permissions_and_stable_key():

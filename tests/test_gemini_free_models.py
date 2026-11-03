@@ -115,7 +115,7 @@ def test_selector_ui_loads_reachable_models_and_never_uploads_document():
     assert 'demo.load(' in app
     assert 'gemini_models_button.click(' in app
     assert 'extract_gemini(state, consent, selected_model=model)' in app
-    assert 'inputs=[gemini_upload_state, gemini_consent_remote, gemini_model_selector]' in app
+    assert 'inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]' in app
     assert 'fn=check_models_with_popup' in app
     assert 'choices=[], value=None' in app
     assert 'Free Tier tiene cuotas' in app

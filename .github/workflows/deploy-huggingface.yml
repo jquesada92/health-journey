@@ -63,6 +63,7 @@ jobs:
               'inbody_mvp/public_dashboard.py',
               'inbody_mvp/progress_dashboard.py',
               'inbody_mvp/app_auth.py',
+              'inbody_mvp/login_view.py',
               'inbody_mvp/oauth_ui.py',
               'inbody_mvp/demo_storage.py',
               'inbody_mvp/training_hub.py',

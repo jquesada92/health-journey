@@ -42,8 +42,8 @@ def read_readme() -> str:
     if lines and lines[0].strip() == "---":
         for index, line in enumerate(lines[1:], start=1):
             if line.strip() == "---":
-                return "".join(lines[index + 1:]).lstrip()
-    return text
+                return "".join(lines[index + 1:]).lstrip().replace("Neon", "base de datos")
+    return text.replace("Neon", "base de datos")
 
 
 
@@ -57,7 +57,7 @@ def popup_error(exc: Exception, fallback: str = "No se pudo completar la operaci
         message = getattr(exc, "message", None) or str(exc).strip("'\\\"")
     else:
         message = fallback
-    gr.Warning(str(message))
+    gr.Warning(str(message).replace("Neon", "la base de datos"))
 
 
 def keep_components(count: int):
@@ -87,7 +87,7 @@ def verify_neon_session(
         require_database_access(profile, request=request)
     except PermissionError:
         gr.Warning(
-            "No hay sesión de aplicación o Hugging Face autorizada para Neon. "
+            "No hay sesión de aplicación o Hugging Face autorizada para la base de datos. "
             "Inicia sesión con la cuenta autorizada."
         )
         return gr.update()
@@ -112,7 +112,7 @@ def diagnose_zerogpu() -> str:
 OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
-    gr.Markdown("# Health Journey · InBody Hub")
+    gr.Markdown("# Health Journey · Asistente virtual de fitness y bienestar")
     # Infrastructure-only: this invisible registered handler is required by
     # existing ZeroGPU hardware. It never runs during Gemini extraction.
     # Keep it mounted so the Space boots, but show no technical controls to
@@ -122,6 +122,42 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         _zerogpu_keepalive.click(
             fn=diagnose_zerogpu, outputs=[], api_name=False,
             concurrency_limit=1,
+        )
+
+    # Gradio checkbox values are scoped to the current session and shared by tabs.
+    # Neither permission is stored in a database or persisted across logins.
+    with gr.Accordion("Privacidad y consentimiento de esta sesión", open=True):
+        gr.Markdown(
+            "Elige por separado qué operaciones autorizas. Ambas opciones están "
+            "**desactivadas de forma predeterminada**. Se conservarán mientras "
+            "permanezca abierta esta sesión, incluso al cambiar de módulo "
+            "o cargar varios archivos. Puedes desmarcarlas cuando quieras."
+        )
+        with gr.Row():
+            session_ai_consent = gr.Checkbox(
+                label="Autorizo enviar mis documentos InBody a Google Gemini "
+                      "para extraer datos con inteligencia artificial",
+                value=False,
+                info="Solo al pulsar Extraer. El documento se envía al servicio "
+                     "externo de Google; los entrenamientos no se envían a la IA.",
+            )
+            session_db_consent = gr.Checkbox(
+                label="Autorizo guardar mis datos de InBody y entrenamiento "
+                      "en una base de datos",
+                value=False,
+                info="InBody: ID, edad, fecha, nombre del archivo, mediciones "
+                     "revisadas y respuesta de la IA. Entrenamientos: fechas, "
+                     "ejercicios, series, peso, repeticiones y comentarios.",
+            )
+        gr.Markdown(
+            "**Importante:** al cargar un archivo, este llega al servidor de "
+            "la aplicación para su lectura y vista previa, pero no se envía "
+            "a Google Gemini hasta que lo autorices y pulses Extraer. "
+            "Guardar requiere pulsar el botón correspondiente. "
+            "Los datos almacenados permanecen en la base de datos después de "
+            "cerrar sesión; desmarcar un permiso detiene nuevos envíos, "
+            "pero no elimina datos ya enviados o guardados. "
+            "El permiso de guardado no autoriza publicar datos."
         )
 
     with gr.Tab("InBody Upload"):
@@ -140,20 +176,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "Gemini procesa la imagen en el servicio de Google."
         )
         gr.Markdown(
-            "### Consentimientos del examen\n"
-            "Selecciona independientemente dónde autorizas enviar los datos. "
-            "No se necesita iniciar sesión para guardar una auditoría. "
-            "**En un Space público utiliza solo documentos anonimizados.**"
+            "Los permisos para IA y base de datos se configuran en la sección "
+            "**Privacidad y consentimiento de esta sesión**, encima de las pestañas. "
+            "No necesitas volver a marcarlos para cada examen."
         )
-        with gr.Row():
-            gemini_consent_remote = gr.Checkbox(
-                label="Autorizo enviar el documento a Google Gemini",
-                value=False,
-            )
-            gemini_consent = gr.Checkbox(
-                label="Autorizo guardar las mediciones revisadas en Neon",
-                value=False,
-            )
         gemini_upload = gr.File(
             label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
             type="filepath",
@@ -258,7 +284,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
 
         gemini_extract.click(
             fn=extract_with_popup,
-            inputs=[gemini_upload_state, gemini_consent_remote, gemini_model_selector],
+            inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
             outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
         )
@@ -280,10 +306,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[gemini_status],
         )
         gr.Markdown(
-            "### Guardar auditoría en Neon\n"
-            "Se utiliza el consentimiento marcado al inicio y una conexión "
-            "restringida de solo escritura. No se requiere login para enviar, "
-            "pero el historial privado continúa protegido."
+            "### Guardar mediciones en la base de datos\n"
+            "Se utiliza tu autorización de guardado para esta sesión y una "
+            "conexión restringida de solo escritura. Se almacenan las mediciones "
+            "revisadas y su auditoría; el historial privado continúa protegido."
         )
         if not audit_write_enabled():
             gr.Markdown(
@@ -305,34 +331,32 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             try:
                 message = save_audit(table, snapshot, consent, overwrite)
             except Exception as exc:
-                popup_error(exc, "No se pudo guardar la auditoría en Neon.")
-                return keep_components(12)
+                popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
+                return keep_components(10)
             if message.startswith("Guardado en Neon:"):
-                # One atomic UI event clears the previous file, its preview,
-                # the AI snapshot, the editable table and both consents.
-                gr.Info(message)
+                # Clear the completed document, but keep both session consents.
+                gr.Info(message.replace("Neon", "la base de datos"))
                 return (
                     "", None, None, None, [], "Carga un PDF o imagen para visualizarlo.",
                     pd.DataFrame(columns=GEMINI_COLUMNS),
-                    "Pendiente de extracción.", False, False, False,
+                    "Pendiente de extracción.", False,
                     "Sin archivo para verificar.",
                 )
-            gr.Warning(message)
-            return keep_components(12)
+            gr.Warning(message.replace("Neon", "la base de datos"))
+            return keep_components(10)
 
         gemini_save.click(
             fn=save_review_and_clear,
-            inputs=[gemini_table, gemini_snapshot, gemini_consent, gemini_overwrite],
+            inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite],
             outputs=[
                 gemini_save_status, gemini_upload, gemini_upload_state,
                 gemini_snapshot, gemini_preview, gemini_preview_status,
-                gemini_table, gemini_status, gemini_consent,
-                gemini_consent_remote, gemini_overwrite, gemini_file_status,
+                gemini_table, gemini_status, gemini_overwrite, gemini_file_status,
             ],
             concurrency_limit=1,
         )
         # Reset all previous-review state when a different file is selected.
-        # The preview runs locally and does not require Gemini consent.
+        # Preview runs on the application server and requires no Gemini consent.
         # User upload event only: clearing after a successful save must not
         # trigger another reset that hides the saved confirmation.
         def show_processed_filename(
@@ -345,9 +369,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 )
                 if message.startswith(("Este nombre de archivo ya fue procesado",
                                        "No se pudo leer", "La verificación anticipada no")):
-                    gr.Warning(message)
+                    gr.Warning(message.replace("Neon", "la base de datos"))
                     return gr.update()
-                return message
+                return message.replace("Neon", "la base de datos")
             except Exception as exc:
                 popup_error(exc, "No se pudo comprobar el nombre del archivo.")
                 return gr.update()
@@ -371,14 +395,14 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             inputs=[gemini_upload],
             outputs=[gemini_upload_state],
         ).then(
-            fn=lambda: (None, False),
-            outputs=[gemini_snapshot, gemini_consent_remote],
+            fn=lambda: None,
+            outputs=[gemini_snapshot],
         ).then(
             fn=lambda: (
                 pd.DataFrame(columns=GEMINI_COLUMNS),
-                "Pendiente de extracción.", False, ""
+                "Pendiente de extracción.", ""
             ),
-            outputs=[gemini_table, gemini_status, gemini_consent, gemini_save_status],
+            outputs=[gemini_table, gemini_status, gemini_save_status],
         ).then(
             fn=preview_with_popup,
             inputs=[gemini_upload_state],
@@ -391,7 +415,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.ClearButton(
             [gemini_upload, gemini_upload_state, gemini_snapshot,
              gemini_preview, gemini_preview_status, gemini_table, gemini_status,
-             gemini_consent, gemini_consent_remote, gemini_save_status,
+             gemini_save_status,
              gemini_overwrite, gemini_file_status],
             value="Limpiar",
         )
@@ -405,12 +429,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "Carga una exportación CSV de FitNotes con fecha, ejercicio, categoría, "
             "peso, repeticiones, distancia, duración y comentario. "
             "Cada fila es una serie y conserva el orden original. "
-            "La importación no utiliza Gemini ni publica los entrenamientos. "
-            "El historial es privado y solo se guarda al confirmarlo."
+            "La importación no utiliza IA ni publica los entrenamientos. "
+            "Solo se guarda en la base de datos al confirmarlo y si autorizaste "
+            "el guardado en la sección de privacidad de esta sesión."
         )
         if not database_enabled():
             gr.Markdown(
-                "Para importar a Neon necesitas configurar la conexión privada "
+                "Para importar a la base de datos necesitas configurar la conexión privada "
                 "DATABASE_URL y un inicio de sesión autorizado."
             )
         with gr.Row():
@@ -420,17 +445,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     type="filepath", interactive=database_enabled(),
                 )
                 training_summary = gr.Markdown("Sin archivo validado.")
-                training_consent = gr.Checkbox(
-                    label="Autorizo guardar mi registro de entrenamiento en Neon",
-                    value=False,
-                )
                 training_overwrite = gr.Checkbox(
                     label="Confirmo actualizar series previamente guardadas "
                           "si sus valores cambiaron",
                     value=False,
                 )
                 training_save = gr.Button(
-                    "Guardar entrenamiento en Neon",
+                    "Guardar entrenamiento en la base de datos",
                     variant="primary", interactive=database_enabled(),
                 )
             with gr.Column(min_width=300):
@@ -469,12 +490,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     state, consent, overwrite, profile=profile, request=request,
                 )
             except Exception as exc:
-                popup_error(exc, "No se pudo guardar el entrenamiento en Neon.")
-                return keep_components(6)
-            gr.Info(result)
+                popup_error(exc, "No se pudo guardar el entrenamiento en la base de datos.")
+                return keep_components(5)
+            visible_result = result.replace("Neon", "la base de datos")
+            gr.Info(visible_result)
             return (
-                result, None, None,
-                pd.DataFrame(columns=TRAINING_COLUMNS), False, False,
+                visible_result, None, None,
+                pd.DataFrame(columns=TRAINING_COLUMNS), False,
             )
 
         training_upload.upload(
@@ -482,15 +504,15 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[training_state, training_summary, training_preview],
             concurrency_limit=1,
         ).then(
-            fn=lambda: (False, False),
-            outputs=[training_consent, training_overwrite],
+            fn=lambda: False,
+            outputs=[training_overwrite],
         )
         training_save.click(
             fn=save_training_with_popup,
-            inputs=[training_state, training_consent, training_overwrite],
+            inputs=[training_state, session_db_consent, training_overwrite],
             outputs=[
                 training_summary, training_upload, training_state,
-                training_preview, training_consent, training_overwrite,
+                training_preview, training_overwrite,
             ],
             concurrency_limit=1,
         )
@@ -506,7 +528,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         training_recent_status = gr.Markdown("Sin consulta.")
         training_recent_table = gr.Dataframe(
             headers=list(TRAINING_COLUMNS),
-            label="Últimas 60 series en Neon", type="pandas", interactive=False,
+            label="Últimas 60 series en la base de datos", type="pandas", interactive=False,
         )
 
         def recent_training_with_popup(
@@ -537,7 +559,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         with gr.Accordion("Mi progreso histórico (acceso privado)", open=True):
             gr.Markdown(
                 "## Progreso histórico InBody\\n"
-                "Consulta las mediciones **revisadas y guardadas en Neon** con "
+                "Consulta las mediciones **revisadas y guardadas en la base de datos** con "
                 "acceso privado autorizado. La persona se presenta mediante "
                 "un alias; la cédula del reporte no aparece en gráficas ni tablas. "
                 "Los valores históricos dibujados en el PDF **no** se importan."
@@ -626,7 +648,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     result = render_progress(records, start_date, end_date, section)
                 except Exception as exc:
                     popup_error(
-                        exc, "No se pudo consultar el progreso privado en Neon."
+                        exc, "No se pudo consultar el progreso privado en la base de datos."
                     )
                     return keep_components(13)
                 if records:
@@ -733,7 +755,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 outputs=[public_status, public_plot, public_table],
                 concurrency_limit=1,
             )
-    with gr.Tab("Historial en Neon"):
+    with gr.Tab("Historial en base de datos"):
         if os.getenv("SPACE_ID") and OAUTH_URLS:
             gr.HTML(
                 "El historial privado sí requiere una sesión autorizada. "
@@ -759,7 +781,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         )
         with gr.Accordion("Auditoría Gemini — identificador seudónimo", open=True):
             gr.Markdown(
-                "El ID original se usa únicamente para buscar en Neon. "
+                "El ID original se usa únicamente para buscar en la base de datos. "
                 "En la tabla y el gráfico se muestra un alias aleatorio "
                 "estable, sin archivo, edad ni hora exacta. "
                 "Solo usuarios autorizados pueden consultar estas auditorías."
@@ -849,7 +871,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 value="", label="Región corporal",
             )
         load_button = gr.Button(
-            "Consultar Neon", interactive=(not anonymous_demo_requested() or password_login_enabled())
+            "Consultar base de datos", interactive=(not anonymous_demo_requested() or password_login_enabled())
         )
         db_status = gr.Markdown("Sin consulta.")
         db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
@@ -868,7 +890,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     person_id, oauth_profile=profile, limit=500, request=request
                 )
             except Exception as exc:
-                popup_error(exc, "No se pudo consultar Neon. Revisa la conexión y los permisos.")
+                popup_error(exc, "No se pudo consultar la base de datos. Revisa la conexión y los permisos.")
                 return keep_components(3)
             frame = pd.DataFrame(records)
             fig = go.Figure()

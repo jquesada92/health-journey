@@ -35,14 +35,15 @@ def test_gemini_consent_checked_before_provider_key_or_api_call():
         raise AssertionError("Consentimiento obligatorio")
 
 
-def test_ui_supplies_explicit_remote_consent_and_resets_on_upload():
+def test_ui_supplies_explicit_remote_consent_and_preserves_it_on_upload():
     tree = ast.parse((ROOT / "app.py").read_text())
     checkbox = [n for n in ast.walk(tree) if isinstance(n, ast.Assign)
-                and any(isinstance(t, ast.Name) and t.id == "gemini_consent_remote"
+                and any(isinstance(t, ast.Name) and t.id == "session_ai_consent"
                         for t in n.targets)]
     assert len(checkbox) == 1
     assert next(k.value.value for k in checkbox[0].value.keywords
                 if k.arg == "value") is False
     text = (ROOT / "app.py").read_text()
-    assert "inputs=[gemini_upload_state, gemini_consent_remote, gemini_model_selector]" in text
-    assert "outputs=[gemini_snapshot, gemini_consent_remote]" in text
+    assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in text
+    assert "outputs=[gemini_snapshot]" in text
+    assert "session_ai_consent" not in text.split('gr.ClearButton(', 1)[1].split('value="Limpiar"', 1)[0]
