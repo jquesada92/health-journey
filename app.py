@@ -35,6 +35,12 @@ from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
 from inbody_mvp.upload_preflight import preflight_processed_upload
 from inbody_mvp.chat_session import enqueue_user_message, append_assistant_message
 from inbody_mvp.project_overview import PROJECT_OVERVIEW
+from inbody_mvp.module1_deliverable import (
+    TITLE as MODULE1_TITLE, SECTION_ORDER as MODULE1_SECTION_ORDER,
+    DEFAULT_CONTENT as MODULE1_DEFAULT_CONTENT,
+    DEFAULT_CAPTIONS_TEXT as MODULE1_CAPTIONS,
+    render_submission_preview, generate_submission_docx,
+)
 from inbody_mvp.ai_coach import (
     answer_coach_question, coach_model_choices, default_coach_model,
     SUPPORTED_WINDOWS,
@@ -194,6 +200,93 @@ with gr.Blocks(
     with gr.Column(elem_id="hj-module-content"):
         with gr.Column(visible=True, elem_id="hj-panel-project") as project_panel:
             gr.Markdown(PROJECT_OVERVIEW)
+            with gr.Accordion("Entregables académicos · Módulo 1", open=False,
+                              elem_id="hj-module1-deliverables"):
+                gr.Markdown(
+                    "### Fundamentos de la Programación · Actividad principal\\n"
+                    "La actividad representa **60 % de la nota del módulo**. "
+                    "El documento de Blackboard solicita **ocho apartados en orden**, "
+                    "un **pitch de cinco frases** y **cuatro capturas comentadas**. "
+                    "La fecha de cierre indicada es **02/11/2026**.\\n\\n"
+                    "El editor está rellenado con información verificable del proyecto. "
+                    "Completa el nombre del autor, las pruebas personales y las capturas. "
+                    "**No envía contenido a Gemini ni guarda este borrador en Neon.**"
+                )
+                module1_title = gr.Textbox(
+                    label="Título del entregable", value=MODULE1_TITLE,
+                    lines=1,
+                )
+                module1_author = gr.Textbox(
+                    label="Nombre del autor (para la portada)",
+                    placeholder="Escribe tu nombre como aparece en Blackboard",
+                    lines=1,
+                )
+                module1_fields = []
+                for section_key, section_label in MODULE1_SECTION_ORDER:
+                    with gr.Accordion(section_label, open=False):
+                        textfield = gr.Textbox(
+                            value=MODULE1_DEFAULT_CONTENT[section_key],
+                            show_label=False, lines=7, max_lines=18,
+                            placeholder="Escribe aquí la evidencia del apartado...",
+                        )
+                        module1_fields.append(textfield)
+                gr.Markdown(
+                    "**Capturas requeridas:** funcionamiento, caso límite/error, "
+                    "trabajo con IA y prueba. Sube hasta cuatro imágenes en ese orden. "
+                    "Si faltan, el Word incluirá marcadores de pendiente."
+                )
+                module1_images = gr.File(
+                    label="Cuatro capturas de evidencia (PNG/JPG)",
+                    file_count="multiple", file_types=[".png", ".jpg", ".jpeg"],
+                    type="filepath",
+                )
+                module1_captions = gr.Textbox(
+                    label="Descripción de cada captura (una línea por captura)",
+                    value=MODULE1_CAPTIONS_TEXT, lines=4, max_lines=7,
+                )
+                with gr.Row():
+                    module1_update_preview = gr.Button(
+                        "Actualizar vista previa", variant="secondary"
+                    )
+                    module1_generate_word = gr.Button(
+                        "Generar Word (.docx)", variant="primary"
+                    )
+                with gr.Accordion("Vista previa del entregable", open=False):
+                    module1_preview = gr.Markdown(
+                        render_submission_preview(
+                            MODULE1_TITLE, "",
+                            *(MODULE1_DEFAULT_CONTENT[key]
+                              for key, _ in MODULE1_SECTION_ORDER),
+                            MODULE1_CAPTIONS_TEXT,
+                        )
+                    )
+                module1_word_file = gr.File(
+                    label="Documento generado para descargar (.docx)",
+                    interactive=False,
+                )
+                module1_text_inputs = [
+                    module1_title, module1_author, *module1_fields,
+                    module1_captions,
+                ]
+                module1_update_preview.click(
+                    fn=render_submission_preview,
+                    inputs=module1_text_inputs, outputs=module1_preview,
+                    api_name=False,
+                )
+
+                def generate_module1_word_with_popup(*values):
+                    try:
+                        return generate_submission_docx(*values)
+                    except Exception as exc:
+                        popup_error(exc, "No fue posible generar el documento Word.")
+                        return None
+
+                module1_generate_word.click(
+                    fn=generate_module1_word_with_popup,
+                    inputs=[*module1_text_inputs, module1_images],
+                    outputs=module1_word_file, api_name=False,
+                    concurrency_limit=1,
+                )
         with gr.Column(visible=False, elem_id="hj-panel-inbody") as inbody_panel:
             from inbody_mvp.gemini_review import (
                 COLUMNS as GEMINI_COLUMNS, DISPLAY_COLUMNS as GEMINI_DISPLAY_COLUMNS,
