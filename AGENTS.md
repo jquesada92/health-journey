@@ -1,3 +1,34 @@
+## Cambio en desarrollo · Menú simplificado, página Proyecto y chat fitness (2 noviembre 2026)
+
+Rama: `feature/ai-coach-simplified-navigation-20261102`, **sin merge ni despliegue verificado**.
+Las únicas secciones visibles en el menú lateral son, en este orden:
+1. Proyecto (pantalla inicial después del login; motivación, propósito y stack).
+2. Extractor de InBody.
+3. Captador de logs de entrenamiento.
+4. Chat con el asistente fitness.
+
+No volver a introducir `gr.Tabs` horizontales, su overflow de tres puntos,
+una sección independiente de Historial o un menú Dashboard. Se conserva el
+dashboard de progreso en un acordeón dentro de InBody, y se conservan todos
+los datos históricos en Neon. La nueva página Proyecto está en
+`inbody_mvp/project_overview.py`, separada del README técnico.
+
+El chat usa `inbody_mvp/ai_coach.py` y consultas privadas de InBody + FitNotes
+que pasan por los controles de autorización existentes. El usuario introduce
+ID del reporte InBody opcional, objetivos y restricciones. No se migran tablas
+de Neon. El historial del chat y las metas no se almacenan automáticamente.
+El permiso `coach` es **tercero e independiente**, con opt-in previo al login
+en `inbody_mvp/prelogin_consent.py` y verificación de cookie firmada
+en cada llamada. No compartir raw OCR, IDs, comentarios del entrenamiento,
+documentos ni credenciales con Gemini. No fusionar ni activar el chat en
+producción multiusuario sin resolver antes la relación owner / persona InBody.
+Los resultados son informativos, nunca diagnósticos ni prescripciones médicas.
+
+Guía: `docs/ai-coach.md`; pruebas: `tests/test_ai_coach.py`,
+`tests/test_sidebar_navigation.py`, regresión de Training Hub, dashboard y
+consentimiento. Actualizar esta sección con evidencia real de CI, PR y
+despliegue antes de afirmar que está activo.
+
 ## Propuesta Training Hub · FitNotes (2 noviembre 2026; NO desplegada)
 
 Rama de trabajo: `feature/training-fitnotes-neon-import-20261102`.
