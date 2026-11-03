@@ -1,5 +1,58 @@
 # 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
+> **Estado posterior a la corrección de Neon (2026-11-03):**
+> Se aplicó y verificó la migración **011** sobre
+> `health_journey/main`. **17/17 exámenes** tienen
+> la fecha/hora exacta derivada del filename, **0
+> discrepancias**; las **1.087 líneas** siguen
+> disponibles en `hj_measurement_audits` y en la
+> vista privada, con fecha corregida por JOIN. Se
+> guardaron 17 fechas anteriores en
+> `hj_exam_datetime_repair_history`, sin permisos
+> de lectura para demo writer ni runtime. No se
+> modificaron valores, unidades ni correcciones.
+> **La migración 010 y la funcionalidad de
+> reemplazo de archivos siguen pendientes**, junto
+> al merge/despliegue del PR. Los párrafos históricos
+> más abajo que dicen «011 no aplicada» reflejan el
+> estado ANTERIOR a esta actualización, no el vigente.
+
+
+> **Regla de fechas de InBody (2026-11-03, propuesta pendiente de merge):**
+> El reporte impreso usa **día.mes.año hora:minuto**
+> (`DD.MM.AAAA HH:MM`, a veces `DD.MM.AAAA. HH:MM`),
+> mientras el nombre después del primer `_` usa
+> `AAAAMMDDHHMMSS` (incluye segundos). El token válido
+> del nombre predomina al guardar; el original Gemini se
+> conserva. Si no hay token en esa posición se normaliza
+> la fecha del encabezado impreso; formatos imposibles
+> se rechazan. En Neon se comprobaron 17 exámenes con token
+> válido: los 17 difieren de la fecha/hora guardada y dos
+> difieren de día. `migrations/011_correct_inbody_dates_from_filenames.sql`
+> permite reparar de forma atómica manteniendo backup;
+> **no se ejecutó la migración contra Neon ni se
+> modificó data histórica durante esta revisión**. Los
+> archivos de origen permanecen inalterados. Tests
+> `tests/test_inbody_filename_timestamp.py` y
+> `tests/test_exam_timestamp.py`.
+
+
+> **Nueva opción de reingesta privada pendiente de merge y migración:**
+> El extractor ofrece `Reprocesar y reemplazar el archivo existente
+> en Neon` (desmarcado por defecto), permite nueva extracción de
+> archivo duplicado únicamente con autorización privada previa,
+> y reemplaza al pulsar `Guardar mediciones`, nunca durante
+> selección ni extracción. Migración 010 crea tabla privada de
+> recuperación y procedimiento de reemplazo por nombre,
+> idéntica persona y transacción atómica (archivar → borrar
+> antiguo activo → validar/insertar nuevo; rollback completo
+> ante errores). **No se ha ejecutado DELETE en Neon.**
+> Requiere rol privado, no el escritor demo. 
+> `inbody_mvp/upload_preflight.py`, `inbody_mvp/gemini_review.py`,
+> `app.py`, `migrations/010_private_inbody_filename_replace.sql`,
+> `tests/test_inbody_filename_replacement.py`.
+
+
 > **Normalización entre idiomas y arranque HF (2026-11-03; PR
 > propuesto):** vista InBody reconoce variantes ES/EN de métricas
 > y secciones. En Neon existen `Body Fat Percentage` (13),

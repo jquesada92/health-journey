@@ -24,6 +24,7 @@ def test_gemini_save_requires_consent_and_snapshot():
     inputs = next(k.value for k in save[0].keywords if k.arg == "inputs")
     assert [x.id for x in inputs.elts] == [
         "gemini_table", "gemini_snapshot", "session_db_consent", "gemini_overwrite",
+        "gemini_replace_existing",
         "header_exam_datetime", "header_filename", "header_person_id",
         "header_age", "header_correction_reason"
     ]

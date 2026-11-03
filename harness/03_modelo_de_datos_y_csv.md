@@ -1,5 +1,80 @@
 # 03 — Modelo de datos, nomenclatura y contratos de intercambio
 
+## Reparación ejecutada en Neon y herencia por línea
+
+La migración `011_correct_inbody_dates_from_filenames.sql`
+**se aplicó de forma atómica en Neon** el 03/11/2026:
+17 exámenes reparados, 17 fechas previas respaldadas, 0
+desajustes y 1.087 líneas con la fecha corregida
+heredada de la tabla de extracción.
+`hj_measurement_audits` almacena `extraction_id`,
+pero **no tiene columna exam_datetime**: la fecha
+de cada medición se obtiene por JOIN con
+`hj_extraction_audits.exam_datetime`. La vista
+`hj_audit_reviewed_private` se recalcula y sigue
+exponiendo 1.087 filas con fechas corregidas.
+Ningún valor, unidad ni comentario se alteró.
+
+`hj_exams` y `hj_measurements` siguen sin filas;
+no hay que duplicar datos en esas tablas.
+`hj_exam_datetime_repair_history` contiene
+el timestamp antiguo y el nuevo para cada examen.
+La migración 010 de reemplazo por filename continúa
+sin aplicar. Los párrafos abajo que la citan como
+«propuesta no ejecutada» son anteriores al cambio
+de datos actual.
+
+
+## Canonización de timestamp desde nombre y reporte (propuesta)
+
+Cuando `filename` cumple `^[^_]+_[0-9]{14}(?:[._-]|$)`,
+el token es `AAAAMMDDHHMMSS` y se convierte a
+`exam_datetime` de la extracción sin modificar el
+nombre original ni el SHA-256. El reporte imprime
+`DD.MM.AAAA HH:MM` y solo se utiliza como respaldo
+si el nombre no trae el token. Se muestra la fecha
+con segundos en la tabla de encabezado y se conserva
+`raw_response` original con la lectura IA. Rechazar
+año/mes/día inválido y no trasladar fechas de gráficas
+históricas a un examen actual.
+
+`migrations/011_correct_inbody_dates_from_filenames.sql`
+corrige el timestamp histórico de `hj_extraction_audits`
+sin tocar `hj_measurement_audits`. Antes de actualizar
+cada cabecera, guarda ID técnico de extracción, nombre,
+fecha original y fecha corregida en
+`hj_exam_datetime_repair_history`. La vista privada
+revisada deriva `exam_date` del header, por lo que
+el análisis reflejará las fechas corregidas.
+Es una migración de datos **pendiente de autorización y
+ejecución**, no se aplica por publicar el PR.
+
+
+## Reemplazo por archivo sin pérdida en errores (propuesta)
+
+La captura InBody sigue en formato largo y con auditoría; ahora,
+si se solicita explícitamente reingesta, la migración 010
+`migrations/010_private_inbody_filename_replace.sql`
+permite reemplazar **únicamente los registros activos** del
+mismo `filename` (normalización trim/lower) y de la **misma
+identidad canónica** del usuario autorizado. Los datos anteriores
+se conservan en `hj_replaced_audit_backups` con snapshot completo
+de la extracción y sus filas originales. La función PostgreSQL
+`hj_replace_reviewed_audit_filename(jsonb,boolean)` valida
+confirmación explícita, locks por archivo/hash/examen, colisiones
+con otros archivos y propiedad del historial. Realiza backup,
+DELETE de medidas/extracción antiguas y un INSERT mediante
+el procedimiento validado `hj_submit_reviewed_audit` en una
+única transacción. Cualquier excepción revierte todo el
+reemplazo y deja el examen antiguo intacto. El archivo
+corregido vuelve a tener un hash de origen único y no se
+mezcla con capturas de otros documentos. DEMO_DATABASE_URL
+no puede invocar este procedimiento.
+
+**Estado:** SQL sólo versionado, aún no aplicado contra
+`health_journey/main`. No se han modificado datos personales.
+
+
 ## Contrato vigente de persistencia, 2026-11-03
 
 - **InBody**: encabezado único de examen e identidad; mediciones en

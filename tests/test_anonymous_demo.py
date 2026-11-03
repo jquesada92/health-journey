@@ -156,7 +156,8 @@ def test_gemini_audit_uses_restricted_demo_writer_without_legacy_demo_callback()
     assert "session_db_consent = gr.Checkbox(" not in app
     assert "has_consent(request, \"db\")" in app
     assert 'gemini_table, gemini_snapshot, session_db_consent,' in app
-    assert 'gemini_overwrite, header_exam_datetime, header_filename,' in app
+    assert 'gemini_overwrite, gemini_replace_existing,' in app
+    assert 'header_exam_datetime, header_filename,' in app
     assert "save_audit" in app
     assert "save_demo_exam" not in gemini
     assert "hj_submit_reviewed_audit" in gemini

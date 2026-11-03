@@ -1,5 +1,72 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## Evidencia real de reparación histórica de fechas
+
+Comprobaciones Neon después de la operación (2026-11-03):
+`hj_extraction_audits`: 17 exámenes, 17 coincidencias
+exactas entre timestamp y nombre, 0 desajustes,
+17 fechas/hora únicas y 17 días distintos.
+`hj_measurement_audits`: 1.087 filas; vista
+`hj_audit_reviewed_private`: 1.087 filas;
+`hj_exam_datetime_repair_history`: 17 entradas
+con timestamp anterior y corregido, 17/17 iguales a
+la tabla activa. Roles demo writer/runtime no tienen
+SELECT sobre backup. Pruebas GitHub PR #89:
+**424 passed, 1 warning** y harness aprobado;
+las pruebas de CI NO sustituyen validación en HF.
+El procedimiento de reemplazo por filename (010)
+sigue pendiente, igual que su E2E.
+
+
+## CA — fechas del reporte versus fecha del nombre
+
+- Reporte de InBody `DD.MM.AAAA HH:MM` / con
+  punto tras año debe convertirse a ISO SQL y, al
+  faltar segundos, completar `:00` sin inventar hora.
+- Después del primer `_` del nombre aceptar solo
+  14 dígitos `AAAAMMDDHHMMSS` con fecha/hora reales.
+  No buscar otros tokens del nombre ni adivinar.
+- Si nombre y reporte difieren, prevalece nombre,
+  conservar lectura IA original y segundos del nombre;
+  si no hay timestamp en nombre, usar encabezado impreso.
+- Un nombre inválido no debe corregirse silenciosamente
+  con una fecha inventada.
+- El usuario no debe cambiar arbitrariamente una
+  fecha validada por nombre en el guardado.
+- La reparación histórica 011 archiva primero fechas
+  originales y actualiza sólo la cabecera auditada,
+  conservando mediciones y filas originales; se
+  debe revertir toda la operación si ocurre error.
+- Tests sintéticos
+  `tests/test_inbody_filename_timestamp.py`,
+  `tests/test_exam_timestamp.py`. Validación real
+  del Space y migración de datos pendientes.
+
+
+## AC-V — reemplazo seguro por nombre de archivo (propuesta)
+
+- Al cargar un nombre repetido, se bloquea la extracción salvo
+  opt-in explícito; el usuario ve aviso de consumo de tokens.
+- El opt-in no basta para editar a otro usuario: consulta privada
+  de propiedad previa a Gemini, y nueva verificación al guardar.
+- El único botón Guardar persiste solo filas `reviewed`, corrige
+  valores originales auditables y usa `DATABASE_URL` privado
+  para reemplazar por nombre; guardado normal sigue en
+  DEMO_DATABASE_URL sin permisos de DELETE.
+- SQL 010 exige confirmación, valida persona/archivo/hash y
+  que no existan conflictos con otros archivos. Antes de
+  eliminar filas activas, crea un backup completo. La
+  transacción revertirá todos los cambios si falla el INSERT.
+- Fecha y etiquetas no eliminadas de otros documentos.
+  Una reingesta exitosa no duplica resultados; el historial
+  InBody y el chat ven solo la versión nueva.
+- Pruebas sintéticas de UI, derechos, payload, negativas,
+  procedimiento SQL y contrato de rollback en
+  `tests/test_inbody_filename_replacement.py`.
+  E2E en HF/Neon requiere aplicación autorizada de SQL 010
+  y prueba funcional manual.
+
+
 ## Regresión de formatos e inicio del Space
 
 - Con 17 exámenes simulados y variantes `Body Fat

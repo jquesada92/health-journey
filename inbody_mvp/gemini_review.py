@@ -17,6 +17,9 @@ from sqlalchemy import text
 
 from .extractor import MAX_UPLOAD_BYTES
 from .prompt_loader import load_prompt
+from .filename_timestamp import (
+    exam_datetime_from_filename, normalize_report_exam_datetime,
+)
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
@@ -290,13 +293,36 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
             )
             failover_used = True
         result = Extraction.model_validate_json(response.text)
-        if not result.header.exam_datetime or not result.header.person_id:
+        # The measurement datetime is embedded in the uploaded source name,
+        # immediately following the first underscore: YYYYMMDDHHMMSS.
+        # It takes precedence over any OCR/Gemini date if available.
+        filename_datetime = exam_datetime_from_filename(name)
+        if not result.header.person_id or (
+            not result.header.exam_datetime and filename_datetime is None
+        ):
             raise ValueError("No se identificó el ID o la fecha/hora del encabezado.")
-        datetime.fromisoformat(result.header.exam_datetime)
+        # A valid filename timestamp wins even if OCR returned a malformed
+        # date; only validate the AI value when it is the actual source.
+        # Reports print DD.MM.YYYY HH:MM, sometimes followed by a dot after
+        # the year (e.g., 04.10.2026. 10:04). Normalize before comparing it
+        # with the 14-digit filename token, which includes seconds.
+        raw_header = result.header.model_dump()
+        report_datetime = None
+        try:
+            report_datetime = normalize_report_exam_datetime(
+                result.header.exam_datetime
+            )
+        except ValueError:
+            # A reliable filename token can resolve an OCR-format error.
+            # Without one, fail instead of saving an invented date.
+            if filename_datetime is None:
+                raise
+        correct_datetime = filename_datetime or report_datetime
+        canonical_header = dict(raw_header, exam_datetime=correct_datetime)
         rows = []
         for m in result.measurements:
             rows.append({
-                "exam_datetime": result.header.exam_datetime, "filename": name,
+                "exam_datetime": correct_datetime, "filename": name,
                 "person_id": result.header.person_id, "age": result.header.age,
                 "section": m.section, "measurement": m.measurement,
                 "value": m.value, "unit": m.unit or "",
@@ -304,7 +330,10 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
                 "correction_comment": "", "reviewed": False,
             })
         snapshot = {"sha256": hashlib.sha256(data).hexdigest(),
-                    "header": result.header.model_dump(),
+                    "header": canonical_header,
+                    "ai_header": raw_header,
+                    "datetime_source": "filename" if filename_datetime else "report",
+                    "report_exam_datetime": report_datetime,
                     "raw_response": response.text,
                     "rows": rows, "filename": name,
                     "model": active_model,
@@ -312,6 +341,28 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
                     "fallback_used": failover_used}
         frame = pd.DataFrame(rows, columns=COLUMNS)
         message = f"{len(rows)} mediciones extraídas; pendientes de revisión."
+        if filename_datetime:
+            message += (
+                " Fecha y hora tomadas del nombre del archivo: "
+                f"{filename_datetime}."
+            )
+            if report_datetime and (
+                report_datetime[:16] != filename_datetime[:16]
+            ):
+                message += (
+                    " La fecha/hora del reporte es distinta; "
+                    "se utilizó la marca del nombre."
+                )
+            elif report_datetime is None:
+                message += (
+                    " La fecha del reporte no pudo normalizarse; "
+                    "se utilizó la marca válida del nombre."
+                )
+            else:
+                message += (
+                    " El reporte muestra horas y minutos; los segundos "
+                    "se conservaron del nombre del archivo."
+                )
         if failover_used:
             message += f" Modelo principal sin capacidad (503); extracción con {active_model}."
         if result.missing_or_unreadable:
@@ -618,12 +669,26 @@ def _effective_header(snapshot, header_edits):
         "filename": _string(snapshot.get("filename") or snapshot["rows"][0]["filename"]),
     }
     if header_edits is None:
+        filename_datetime = exam_datetime_from_filename(old["filename"])
+        if (filename_datetime is not None
+                and old["exam_datetime"] != filename_datetime):
+            raise ValueError(
+                "La fecha del examen debe coincidir con la marca "
+                "YYYYMMDDHHMMSS del nombre original del archivo."
+            )
         return old, False, ""
     if not isinstance(header_edits, dict):
         raise ValueError("Encabezado inválido.")
     if _string(header_edits.get("filename")) != old["filename"]:
         raise ValueError("El nombre original del archivo no puede modificarse.")
     timestamp = _string(header_edits.get("exam_datetime"))
+    filename_datetime = exam_datetime_from_filename(old["filename"])
+    if filename_datetime is not None and timestamp != filename_datetime:
+        raise ValueError(
+            "La fecha/hora del examen debe coincidir con la marca "
+            "YYYYMMDDHHMMSS del nombre original del archivo: "
+            f"{filename_datetime}."
+        )
     try:
         datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
     except ValueError as exc:
@@ -758,7 +823,7 @@ def _audit_write_engine():
 
 
 def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
-               header_edits=None):
+               header_edits=None, *, replace_filename=False, request=None):
     """Consent-based write-only submission; never grants private read access.
 
     The anonymous database role has EXECUTE only on a validated stored
@@ -768,6 +833,61 @@ def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
         raise _ui_error("Debes autorizar el envío de las mediciones a Neon.")
     try:
         rows = validate_review(table, snapshot, header_edits=header_edits)
+        if replace_filename is True:
+            # This is deliberately NOT available through the anonymous
+            # consent-only writer. A private, authenticated application
+            # connection and server-resolved identity are required.
+            from .coach_data import resolve_private_person_id
+            from .storage import (
+                _database_engine, canonical_person_id, require_database_access,
+            )
+
+            require_database_access(oauth_profile=profile, request=request)
+            authorized_person = canonical_person_id(
+                resolve_private_person_id(profile=profile, request=request)
+            )
+            if canonical_person_id(rows[0]["person_id"]) != authorized_person:
+                raise PermissionError(
+                    "El identificador del examen no coincide con el "
+                    "historial privado autorizado."
+                )
+            replacement_body = {
+                "source_sha256": snapshot["sha256"],
+                "filename": snapshot["filename"],
+                "person_id": rows[0]["person_id"],
+                "exam_datetime": rows[0]["exam_datetime"],
+                "age": rows[0]["age"],
+                "model_name": snapshot["model"],
+                "raw_response": json.loads(snapshot["raw_response"]),
+                "measurements": rows,
+            }
+            engine = _database_engine()
+            try:
+                with engine.begin() as con:
+                    receipt = con.execute(
+                        text(
+                            "SELECT public.hj_replace_reviewed_audit_filename("
+                            "CAST(:payload AS jsonb), :confirmed)"
+                        ),
+                        {
+                            "payload": json.dumps(
+                                replacement_body, ensure_ascii=False
+                            ),
+                            "confirmed": True,
+                        },
+                    ).scalar_one()
+                if isinstance(receipt, str):
+                    receipt = json.loads(receipt)
+                if receipt.get("status") != "replaced_filename":
+                    raise RuntimeError("Invalid filename-replacement receipt")
+                return (
+                    f"Guardado en Neon: {len(rows)} mediciones corregidas. "
+                    f"Se reemplazaron {receipt.get('removed_measurements', 0)} "
+                    "registros del archivo anterior, conservando una copia "
+                    "privada de recuperación."
+                )
+            finally:
+                engine.dispose()
         if not audit_write_enabled():
             raise PermissionError(
                 "La escritura por consentimiento no está configurada. "
@@ -844,14 +964,15 @@ def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
             sqlstate or "unknown", type(exc).__name__,
         )
         messages = {
-            "42883": "No se encontró la función de guardado: aplica la migración 007.",
-            "42501": "La conexión DEMO_DATABASE_URL carece del permiso EXECUTE.",
+            "42883": "Falta la función SQL de guardado o reemplazo: aplica las migraciones 007 y 010.",
+            "42501": "La conexión no tiene permiso para este guardado. El reemplazo exige DATABASE_URL privado y migración 010.",
             "23505": "El archivo o la medición ya existe. Verifica el estado del reporte.",
             "23514": "Una medición incumple una validación de la base de datos.",
             "22007": "La fecha del examen tiene un formato inválido.",
             "22P02": "El reporte contiene un identificador o valor inválido.",
-            "P0001": "Neon rechazó un dato del examen. Revisa el identificador, "
-                     "la fecha, los valores y los comentarios de corrección.",
+            "P0001": "Neon rechazó el reemplazo o un dato del examen. Comprueba "
+                     "que el archivo sea de tu historial y que no existan "
+                     "otras capturas con el mismo examen.",
         }
         raise _ui_error(messages.get(
             sqlstate,

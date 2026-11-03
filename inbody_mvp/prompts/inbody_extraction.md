@@ -41,8 +41,17 @@ EXAM HEADER AND SPATIAL RELATIONSHIPS
 - Use spatial alignment, rows, columns, borders, nearby units and segment
   labels. Never read the report as one linear stream or swap neighboring
   measurements. Keep leading zeros in person_id.
-- Format exam_datetime as YYYY-MM-DD HH:MM:SS. Do not infer an absent
-  timestamp or calculate an age. Set missing header fields to null.
+- InBody reports commonly print the current date/time as
+  DD.MM.YYYY HH:MM (e.g. 04.10.2026. 10:04), sometimes with a trailing
+  period after the year, or DD.MM.YY HH:MM. Read this as DAY.MONTH.YEAR,
+  never YEAR.MONTH.DAY, and do not confuse it with historical chart dates.
+- Format exam_datetime in JSON as YYYY-MM-DD HH:MM:SS, using :00 only
+  when the report explicitly shows hours and minutes but no seconds.
+  Do not infer an absent date, time or age. Set missing fields to null.
+- Python independently reads the more precise source filename token after
+  the first underscore, YYYYMMDDHHMMSS, when present. It takes
+  precedence for the stored exam datetime. Never guess that token yourself
+  or copy the file's modification timestamp into the response.
 - Filename is supplied by Python, never guess the filename.
 
 CURRENT EXAM ONLY

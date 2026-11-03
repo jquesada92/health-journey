@@ -9,6 +9,118 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Estado verificado en Neon — corrección histórica ejecutada (2026-11-03)
+
+**La migración 011 YA fue ejecutada transaccionalmente** en la rama
+principal de Neon `health_journey`, con autorización del usuario.
+Resultado posterior verificado: **17/17 exámenes** tienen su
+`exam_datetime` igual al timestamp de 14 dígitos después del primer
+`_` del nombre de archivo, **0 discrepancias**, y las **1.087
+mediciones** de `hj_measurement_audits` se conservan y reciben la
+fecha correcta mediante su relación con `hj_extraction_audits`.
+La vista `hj_audit_reviewed_private` conserva las 1.087 filas.
+Hay **17 backups de fecha anterior** en
+`hj_exam_datetime_repair_history`; el escritor demo y el runtime
+carecen de SELECT sobre ese respaldo. No se actualizaron valores
+ni unidades, y las tablas canónicas `hj_exams` y
+`hj_measurements` continúan vacías.
+
+**La migración 010 de reemplazo privado por filename NO está
+aplicada**: la funcionalidad de re-subir, re-extraer y reemplazar
+registros activos se activará después de aplicar 010, fusionar
+el PR y desplegar/verificar el Space. No confundir la
+reparación de fechas YA realizada con el reemplazo de
+mediciones pendiente.
+
+
+## Fechas InBody: dos formatos de origen y corrección histórica
+
+**Dentro del documento InBody** se imprime la fecha/hora como
+`DD.MM.AAAA HH:MM` (p. ej., `04.10.2026 10:04` o
+`04.10.2026. 10:04`, con punto final ocasional). El extractor
+normaliza este formato a `AAAA-MM-DD HH:MM:SS` y **no** lo interpreta
+como mes/día/año ni año/mes/día. Si el año se presenta con dos dígitos
+se interpreta explícitamente como 20AA. El reporte puede no incluir
+segundos: entonces se representa con `:00`.
+
+**En el nombre del archivo**, inmediatamente después del **primer**
+guion bajo, se utiliza otro formato: `AAAAMMDDHHMMSS` (14 dígitos).
+Cuando está presente y es válido, **tiene prioridad** para la fecha y
+hora del examen y aporta los segundos que no muestra el reporte. La
+respuesta original de Gemini se preserva como evidencia y el encabezado
+normalizado conserva una traza de la fecha propuesta. Si la marca
+del nombre contiene un día/hora imposible, se rechaza el archivo sin
+guardar una fecha inventada; si no hay marca válida en esa posición,
+se utiliza la fecha del encabezado impreso normalizada. En la UI
+esta fecha se muestra antes y después de extraer; el usuario la
+verifica junto al documento, sin poder sobrescribir arbitrariamente
+una marca válida del nombre.
+
+El inventario de Neon consultado en modo **solo lectura** registró
+**17 extracciones**, todas con marca de 14 dígitos en el nombre, y
+**17 discrepancias** entre la fecha/hora guardada y la marca del nombre.
+En 15 casos coincide el día pero no la hora y en dos cambia también
+el día. Se comprobaron las 17 marcas y no se encontraron horas
+imposibles ni colisiones de examen entre archivos en la consulta de
+diagnóstico. La reparación reproducible está versionada en
+`migrations/011_correct_inbody_dates_from_filenames.sql`, que
+inserta la fecha anterior y la corregida en una tabla privada
+`hj_exam_datetime_repair_history` **antes de actualizar el encabezado
+activo**, todo de forma transaccional. No toca mediciones, comentarios
+ni respuestas de IA originales. La migración **aún no se ha aplicado
+a Neon**: requiere autorización explícita para modificar los
+registros históricos; ninguna consulta previa realizó updates.
+
+La reingesta opcional de un archivo existente usa la misma prioridad
+de fecha y está protegida en `migrations/010_private_inbody_filename_replace.sql`.
+Regresiones sintéticas: `tests/test_inbody_filename_timestamp.py`,
+`tests/test_exam_timestamp.py` y
+`tests/test_inbody_filename_replacement.py`.
+La implementación de UI aún necesita merge y despliegue en HF.
+
+
+## Volver a subir y reemplazar un InBody ya guardado
+
+La pestaña **Extractor de InBody** permite corregir un examen que ya
+había sido registrado: selecciona el mismo nombre de archivo, activa
+**Reprocesar y reemplazar el archivo existente en Neon**, extrae de
+nuevo con Gemini, comprueba el documento y corrige la tabla,
+marca `reviewed` en todas las filas conservadas y pulsa el **único**
+botón **Guardar mediciones**.
+
+La opción está **desmarcada por defecto**: sin ella, un archivo
+duplicado sigue bloqueado antes de consumir tokens Gemini. Reprocesar
+requiere consentimiento firmado para IA y guardar requiere
+consentimiento independiente para Neon. Antes de enviar el archivo
+a Gemini se comprueba que el nombre pertenece a la identidad privada
+autorizada. El reemplazo final exige `DATABASE_URL` privado,
+autorización de sesión y coincidencia del ID revisado con la identidad
+privada `COACH_PERSON_ID` o el único propietario resuelto por Neon.
+
+**Operación transaccional:** una nueva función SQL privada,
+`migrations/010_private_inbody_filename_replace.sql`, bloquea
+competidores, verifica nombre y propietario, guarda una copia
+confidencial del antiguo header, JSON original y todas las mediciones
+en `hj_replaced_audit_backups`, elimina los registros activos
+`hj_measurement_audits` y `hj_extraction_audits` de ese archivo
+y llama al mismo validador del guardado original para insertar la
+nueva versión. Si cualquier paso falla, la transacción se revierte;
+no se eliminan datos existentes. El nombre se compara sin
+distinción de mayúsculas/minúsculas; no se modifica información de
+otros archivos, otros usuarios ni de las tablas del historial
+FitNotes. Las copias de recuperación solo pueden consultarse por
+el dueño administrativo de Neon.
+
+**Importante:** la función SQL se dejó como migración versionada,
+NO se ejecutó en Neon durante el desarrollo y NO se borró ningún
+registro existente. Aplicar la migración 010 en el entorno autorizado
+antes de habilitar el reemplazo en Hugging Face. El rol
+`health_journey_demo_writer` carece expresamente de permiso de
+ejecutar el reemplazo. Las pruebas sintéticas cubren consentimiento,
+autorización, rollback como contrato, aislamiento y que el
+guardado normal sigue intacto: `tests/test_inbody_filename_replacement.py`.
+
+
 ## Compatibilidad de arranque y normalización multilingüe (2026-11-03)
 
 El Space de Hugging Face indica por defecto Python 3.10 si su

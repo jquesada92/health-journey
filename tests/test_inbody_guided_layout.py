@@ -126,7 +126,8 @@ def test_success_clears_document_but_keeps_visible_receipt_and_session_optins():
 
 
 def test_new_file_resets_review_only_and_not_session_permissions():
-    assert "outputs=[gemini_snapshot, gemini_upload_preflight]" in INBODY
+    assert "gemini_snapshot, gemini_upload_preflight," in INBODY
+    assert "gemini_replace_existing" in INBODY
     assert "gemini_review_status" in INBODY.split("gemini_upload.upload(", 1)[1]
     assert "gr.ClearButton(" not in INBODY
     assert "Limpiar examen (conservar permisos)" not in INBODY
@@ -151,7 +152,8 @@ def test_duplicate_preflight_is_checked_at_upload_and_before_gemini():
         'with gr.Accordion("Progreso histórico de InBody"', 1
     )[0]
     assert upload.index("fn=show_processed_filename") < upload.index("fn=preview_with_popup")
-    assert "inputs=[gemini_upload_state, gemini_upload_preflight]" in upload
+    assert "gemini_upload_state, gemini_upload_preflight," in upload
+    assert "gemini_replace_existing," in upload
 
 
 def test_reviewer_appears_only_after_successful_ai_extraction_and_resets():

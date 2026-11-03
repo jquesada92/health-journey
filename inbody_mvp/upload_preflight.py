@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 
 from .gemini_review import check_processed_filename
+from .filename_timestamp import exam_datetime_from_filename
 
 
 def preflight_processed_upload(upload_state, *, profile=None, request=None) -> dict:
@@ -29,23 +30,85 @@ def preflight_processed_upload(upload_state, *, profile=None, request=None) -> d
             "message": "El archivo seleccionado es inválido. Cárgalo de nuevo.",
         }
     fingerprint = hashlib.sha256(data).hexdigest()
+    filename_timestamp = exam_datetime_from_filename(name)
+    date_hint = (
+        f" Fecha del nombre: {filename_timestamp}."
+        if filename_timestamp else ""
+    )
     message = check_processed_filename(
         upload_state, profile=profile, request=request
     )
     if message.startswith("Este nombre de archivo ya fue procesado"):
         return {
             "status": "duplicate", "sha256": fingerprint,
-            "message": "Archivo ya procesado. Extracción bloqueada para ahorrar tokens.",
+            "message": (
+                "Este archivo ya está guardado. Para corregirlo, activa "
+                "'Reprocesar y reemplazar el archivo existente' y vuelve "
+                "a extraerlo (volver a extraer consume tokens). El anterior " 
+                "solo se sustituye al guardar "
+                "las mediciones revisadas." + date_hint
+            ),
         }
     if message.startswith("Archivo nuevo:"):
         return {
             "status": "new", "sha256": fingerprint,
-            "message": "Archivo no registrado por nombre. Puedes extraer sus mediciones.",
+            "message": (
+                "Archivo no registrado por nombre. Puedes extraer sus mediciones."
+                + date_hint
+            ),
         }
     return {
         "status": "unverified", "sha256": fingerprint,
         "message": (
             "No fue posible verificar si este nombre ya existe en la base de datos. "
             "Puedes continuar, pero podrías consumir tokens de un archivo duplicado."
+            + date_hint
         ),
     }
+
+
+def assert_private_filename_replacement(upload_state, *, profile=None, request=None):
+    """Pre-authorize same-person replacement BEFORE spending Gemini tokens.
+
+    Do not reveal the personal identifier or the existing medical rows.
+    The dedicated private stored procedure checks everything again when
+    the confirmed correction is saved.
+    """
+    from sqlalchemy import text
+    from .coach_data import resolve_private_person_id
+    from .storage import (
+        _database_engine, canonical_person_id, require_database_access,
+    )
+
+    require_database_access(oauth_profile=profile, request=request)
+    if not isinstance(upload_state, dict):
+        raise ValueError("Selecciona el archivo que deseas reemplazar.")
+    filename = upload_state.get("filename")
+    if not isinstance(filename, str) or not filename.strip():
+        raise ValueError("No se encontró un nombre de archivo válido.")
+    person_key = canonical_person_id(
+        resolve_private_person_id(profile=profile, request=request)
+    )
+    engine = _database_engine()
+    try:
+        with engine.connect() as connection:
+            allowed = connection.execute(
+                text("""
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM public.hj_extraction_audits e
+                        JOIN public.hj_person_aliases p
+                          ON p.anonymous_id = e.anonymous_id
+                        WHERE lower(btrim(e.filename)) = lower(btrim(:filename))
+                          AND p.normalized_person_id = :person_id
+                    )
+                """),
+                {"filename": filename, "person_id": person_key},
+            ).scalar_one()
+    finally:
+        engine.dispose()
+    if not allowed:
+        raise PermissionError(
+            "No puedes reemplazar este archivo: no pertenece al "
+            "historial privado autorizado o no está registrado."
+        )

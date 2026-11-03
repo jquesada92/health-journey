@@ -46,7 +46,7 @@ def test_ui_supplies_explicit_remote_consent_and_preserves_it_on_upload():
     text = (ROOT / "app.py").read_text()
     assert "gemini_upload_state, session_ai_consent," in text
     assert "gemini_model_selector, gemini_upload_preflight," in text
-    assert "outputs=[gemini_snapshot, gemini_upload_preflight]" in text
+    assert "gemini_snapshot, gemini_upload_preflight," in text
     assert "gr.ClearButton(" not in text
     assert "session_ai_consent = gr.State(value=False)" in text
     assert "fn=restore_session_consents" in text

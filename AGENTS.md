@@ -1,5 +1,80 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Estado real de datos InBody en Neon — 2026-11-03
+
+**Ejecutada en Neon:** migración 011 para reparar
+`hj_extraction_audits.exam_datetime` desde el token del primer
+`_` del nombre; fueron corregidos y verificados 17/17 exámenes,
+0 discrepancias, 1.087 líneas relacionadas intactas y 17
+entradas de respaldo en
+`hj_exam_datetime_repair_history`. La fecha de cada línea
+se obtiene por JOIN con la extracción, NO por una columna
+en `hj_measurement_audits`.
+
+**Aún pendiente:** migración 010 para reemplazar
+registros por filename, merge PR y despliegue en HF.
+No re-ejecutar una reparación indiscriminada ni
+presuponer que 010 ya concede permiso de reemplazo.
+El SQL 011 se conserva versionado y es idempotente con
+la fecha ya corregida. No exponer la tabla de respaldo
+a roles de demo, runtime ni al modelo de IA.
+
+
+## Fechas de exámenes InBody — regla prioritaria (2026-11-03)
+
+No confundir el encabezado del documento, que muestra
+`DD.MM.AAAA HH:MM` / `DD.MM.AAAA. HH:MM`, con el nombre
+del archivo, cuyo token después del **primer** `_` es
+`AAAAMMDDHHMMSS` de 14 dígitos. El primero se parsea como
+día.mes.año y el segundo como año-mes-día con segundos. El
+token válido del nombre es la fuente preferida para guardar
+`exam_datetime`; si falta, usar encabezado del reporte con
+segundos `:00` cuando el reporte no los publica. Preservar
+la salida Gemini original en `raw_response` y la trazabilidad
+`datetime_source`/`ai_header` en snapshot de la UI. No
+inferir fecha a partir del momento de upload, historial gráfico,
+fecha de nacimiento o fecha de modificación del archivo.
+
+Normalizador: `inbody_mvp/filename_timestamp.py`; los
+consumidores son `inbody_mvp/gemini_review.py` y
+`inbody_mvp/upload_preflight.py`. Incluirlo en allowlist
+HF. Tests `tests/test_inbody_filename_timestamp.py` y
+`tests/test_exam_timestamp.py`. La migración 011 reparará
+las 17 extracciones con diferencias de fecha/hora, con
+backup privado e invariantes de no colisión. **No ejecutar
+010/011 contra registros personales sin autorización
+explícita del usuario**. No tocar medidas originales, no
+borrar historias ni reconstruir timestamps manualmente.
+
+
+## Reingesta segura InBody por nombre de archivo (propuesta 2026-11-03)
+
+Sin opt-in, el preflight de duplicados **bloquea** volver a gastar tokens.
+Un archivo existente se puede volver a subir con el checkbox
+`gemini_replace_existing`, que debe comenzar en false y comprobar
+autorización de identidad **antes de Gemini**. Tras completar la tabla
+y revisar cada `reviewed`, el único botón `Guardar mediciones`
+invoca `save_audit(..., replace_filename=True)` por la conexión
+privada `DATABASE_URL`, no por `DEMO_DATABASE_URL`. El nuevo
+procedimiento `hj_replace_reviewed_audit_filename` sólo es
+ejecutable por roles privados y compara nombre y persona; archiva
+el original, borra exclusivamente filas activas del nombre elegido,
+vuelve a validar e insertar la captura corregida **en la misma
+transacción**. Un fallo hace rollback de todo. No extender el
+permiso al demo writer ni a PUBLIC. El nuevo SQL 010 **NO está
+aplicado en Neon** durante este PR: desplegar solamente tras
+aplicarlo por una persona autorizada.
+
+Conservar `source_sha256`, el payload original y los comentarios
+de corrección en backup privado. No usar `DELETE` directo fuera
+del procedimiento ni cambiar la vista privada auditada en otro
+commit. No permitir sobreescritura si el nombre coincide con otro
+usuario, si el documento pertenece a otro nombre o hay métricas
+del mismo examen asociadas a otro archivo. Tests:
+`tests/test_inbody_filename_replacement.py`; inventario
+`harness/11_cobertura_codigo_main.md`.
+
+
 ## Normalización y arranque HF (2026-11-03; propuesta)
 
 En `inbody_mvp/progress_dashboard.py` se usan alias explícitos
