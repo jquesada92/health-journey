@@ -1,3 +1,15 @@
+## Ajuste vigente: confirmar tabla InBody sin repetición (2026-11-03)
+
+El consentimiento prelogin firmado continúa siendo obligatorio para
+contactar Gemini. El callback de extracción debe confiar en
+`has_consent(request, "ai")` y no rechazar por una copia desactualizada
+en `gr.State`. Pulsar **Guardar cambios** aprueba juntas todas las filas
+conservadas **solo después** de validar las correcciones; no exigir
+marcar `reviewed` en cada fila. Si falla la validación, conservar las
+ediciones sin aprobarlas. El botón no autoriza transferencias a IA ni
+escribe en Neon; esa escritura sigue requiriendo consentimiento de DB.
+Consultar `tests/test_inbody_one_click_review.py`.
+
 ## Fuente vigente para ramas y PR (consolidación 2026-11-03)
 
 Consultar [harness/00_estado_vigente_y_trazabilidad.md](harness/00_estado_vigente_y_trazabilidad.md) y [docs/indice_actual.md](docs/indice_actual.md) para capacidades, criterios, requisitos y tecnologías. Esta consolidación reúne las actualizaciones documentales del PR #73, correcciones de tabla InBody del PR #76 y verificación de duplicados antes de usar Gemini. No perder funcionalidades ya fusionadas (#71, #72, #74, #75). Cada PR posterior debe actualizar criterios, pruebas, documentación y limitaciones, distinguir CI sintético de prueba real de HF/Neon, mantener consentimiento y controles de acceso y evitar secretos o informes reales. No fusionar ni desplegar automáticamente.
