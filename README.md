@@ -8,6 +8,25 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Estado consolidado y trazabilidad · 3 de noviembre de 2026
+
+El estado vigente de capacidades, criterios y documentación se encuentra en
+[harness/00_estado_vigente_y_trazabilidad.md](harness/00_estado_vigente_y_trazabilidad.md)
+y [docs/indice_actual.md](docs/indice_actual.md). Esta rama conserva los
+cambios ya fusionados de los PR #71, #72, #74 y #75, e integra:
+la auditoría documental de #73, la edición en tabla de `value` con
+`was_corrected` calculado y botón **Guardar cambios** de #76, y la
+comprobación privada de nombre de archivo al seleccionarlo para bloquear
+extracciones Gemini de duplicados confirmados. La extracción sigue siendo
+opcional si no puede comprobarse Neon, mostrando una advertencia. La
+confirmación de revisión no escribe en Neon; el guardado de mediciones
+sigue exigiendo permiso y comprobación de duplicados.
+
+Ver también [docs/inbody-row-review-actions.md](docs/inbody-row-review-actions.md)
+y [docs/inbody-upload-preflight.md](docs/inbody-upload-preflight.md).
+El CI no sustituye pruebas reales en el Space ni demuestra migraciones aplicadas.
+
+
 ## Arquitectura de prompts y chat conversacional · noviembre 2026
 
 Los dos módulos Gemini utilizan archivos de instrucciones separados,
