@@ -133,10 +133,9 @@ def test_invalid_number_shows_row_and_measurement_in_review_error(sample):
     assert "Valor numérico inválido" in status
 
 
-def test_row_editing_and_deletion_are_explicit_and_one_validation_button():
+def test_inline_edits_native_deletions_and_single_save_button():
     assert "selected_review_row = gr.State(value=None)" not in APP
     assert "gemini_table.select(" not in APP
-    assert "sync_review_corrections(" in APP
     assert "reconcile_native_review_rows(" in APP
     assert "delete_review_row.click(" not in APP
     assert "gemini_table.input(" in APP
@@ -145,16 +144,19 @@ def test_row_editing_and_deletion_are_explicit_and_one_validation_button():
     assert "show_row_numbers=True" in APP
     assert "apply_row_correction.click(" not in APP
     assert 'static_columns=[4]' in APP
-    assert 'gemini_check = gr.Button("Guardar cambios"' in APP
     assert 'fn=sync_inline_table_edit' in APP
-    assert 'outputs=[gemini_table, gemini_snapshot, gemini_review_status]' in APP
+    assert 'gemini_save = gr.Button(' in APP
+    assert 'fn=save_review_and_clear' in APP
+    assert 'gemini_check = gr.Button(' not in APP
+    assert 'gemini_check.click(' not in APP
+    assert '"Guardar cambios"' not in APP
+    assert 'fn=progress_after_validation' not in APP
+    assert 'table, snapshot = reconcile_native_review_rows(table, snapshot)' in APP
     assert "row_corrected_value" not in APP
     assert "row_correction_reason" not in APP
     assert "gemini_review_continue" not in APP
     assert "Continuar a validación" not in APP
-    assert APP.count('"Validar revisión"') == 0
-    assert APP.count('"Guardar cambios"') == 1
-    assert "save_audit(" in APP
+    assert 'save_audit(' in APP
 
 
 def test_in_table_value_edit_auto_checks_was_corrected(sample):
