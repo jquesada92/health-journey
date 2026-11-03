@@ -1,5 +1,52 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## Regresión de formatos e inicio del Space
+
+- Con 17 exámenes simulados y variantes `Body Fat
+  Percentage`, `Percent Body Fat`, `Percentage of Body
+  Fat`, el gráfico conserva los 11 puntos seleccionados:
+  primera fecha y diez últimas, sin agujeros por diferencias
+  de idioma o etiquetas.
+- Reconocer `KG`, `kilogramos`, `pct`,
+  `porcentaje`, inglés y español sin modificar el valor
+  fuente ni la unidad almacenada.
+- Convertir lb explícitas a kg **solo en visualización**;
+  rechazar unidades ausentes, porcentajes expresados como
+  ratio y nombres de segmentos anatómicos.
+- Si hay valores duplicados por fecha y sección, priorizar
+  la sección válida tanto en ES como en EN.
+- `row_limits` no debe usarse en app.py mientras sea
+  parámetro no implementado; el backend valida que existan
+  filas antes del guardado.
+- README conserva un YAML inicial correcto y fija Python
+  3.12; CI y HF no garantizan ausencia de avisos del
+  entorno, solo funcionamiento correcto de la app.
+- Test: `tests/test_inbody_multilingual_trends.py`.
+  Verificación de arranque y gráficas en navegador del
+  Space permanece pendiente de despliegue.
+
+
+## Regresiones para la alineación y fecha inicial del coach
+
+- Los 11 slots seleccionados deben incluir la **primera prueba**
+  y las diez últimas, aun cuando la primera sea de años antes.
+- El eje es **ordinal** con tick inicial «1.ª DD/MM/AA» y tick
+  final «Últ. DD/MM/AA», no una escala de tiempo implícita.
+- Si una variable no está en la primera prueba, el primer slot
+  debe quedar `None`, con anotación de ausencia y sin
+  interpolación de datos inventados. Las otras medidas
+  conservan su valor inicial disponible.
+- El árbol AST de `app.py` debe tener dos columnas hijas
+  directas de `hj-coach-layout`. El `Chatbot`, la caja
+  de mensaje, controles y el encabezado deben pertenecer
+  a la columna derecha, no salir de ella.
+- CSS debe forzar dos columnas desktop y una móvil, y
+  evitar min-width que provoque wrap.
+- Tests sintéticos `tests/test_coach_first_last_trends.py`,
+  además de CI; la prueba de aspecto real sigue pendiente
+  al desplegar en Hugging Face.
+
+
 ## Aceptación: primera + diez últimas pruebas en coach
 
 Con N fechas distintas en Neon, las cuatro gráficas usan

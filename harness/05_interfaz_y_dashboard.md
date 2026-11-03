@@ -1,5 +1,52 @@
 # 05 — Interfaz actual, navegación y dashboard
 
+## Variantes de medidas y unidades de InBody (2026-11-03)
+
+El panel de chat con tendencias y el dashboard InBody usan
+`progress_dashboard._metric_points`: etiquetas en español,
+inglés, acentos y secciones equivalentes se normalizan antes
+de graficar. Para porcentaje de grasa se agrupan los tres
+nombres ingleses confirmados en Neon, sin rellenar fechas
+que genuinamente no tienen dato. Las unidades reconocidas
+incluyen kg/kilogramos y %/percent/porcentaje; lb se convierte
+a kg con un factor explícito solo en memoria y conserva
+la fuente para auditoría. No suponer unidades vacías ni
+interpretar medidas segmentales como totales. El formato
+de nombre no obliga a hacer ninguna migración SQL.
+El esquema de cuatro tendencias utiliza el primer examen
+y las 10 fechas finales, las faltas se representan con
+`None`, y el chat queda a la derecha.
+
+Se retira `row_limits` de la tabla de revisión porque
+la implementación actual de Gradio muestra que no opera.
+La última fila no puede persistir si se elimina, porque
+`save_audit` valida la tabla del lado servidor. E2E
+requiere nueva validación de HF tras Python 3.12.
+
+
+## Ajuste de alineación de minigráficas y chat (2026-11-03)
+
+Se reemplaza la envoltura flexible de Gradio en
+`#hj-coach-layout` por `display:grid !important`,
+`grid-template-columns: minmax(260px,320px) minmax(0,1fr)`.
+Las dos columnas Gradio se declaran con `min_width=0` y son
+hijas directas del `gr.Row`: la primera contiene las cuatro
+gráficas, la segunda el encabezado, el acordeón, el chatbot y
+el composer. En anchos de 900 px o menos cambia a
+`grid-template-columns:minmax(0,1fr)` y el panel se apila
+encima del chat. Prueba estructural AST protege el nesting.
+
+Las cuatro gráficas usan posiciones de examen como eje X, no
+distancia entre fechas, para evitar que un examen antiguo
+quede visualmente comprimido o parezca ausente. Los labels
+del primer y último examen se fijan explícitamente;
+la primera medición se destaca con rombo, y si no existe
+su valor se deja `None` y se explica. Se conserva la regla
+`primera fecha ∪ últimas diez fechas`, a lo sumo once fechas.
+El chat conserva su lógica de mensajes y los consentimientos.
+Ver `tests/test_coach_first_last_trends.py`.
+
+
 ## Panel compacto de tendencias junto al chat (propuesta)
 
 En escritorio: una columna izquierda con cuatro gráficas de 140 px

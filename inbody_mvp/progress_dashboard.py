@@ -29,7 +29,12 @@ ALIASES = {
     "weight": "Weight",
     "peso": "Weight",
     "peso corporal": "Weight",
+    "masa corporal total": "Weight",
+    "bodyweight": "Weight",
     "skeletal muscle mass": "Skeletal Muscle Mass",
+    "skeletal muscle": "Skeletal Muscle Mass",
+    "musculo esqueletico": "Skeletal Muscle Mass",
+    "masa de musculo esqueletico": "Skeletal Muscle Mass",
     "masa musculoesqueletica": "Skeletal Muscle Mass",
     "masa muscular esqueletica": "Skeletal Muscle Mass",
     "smm": "Skeletal Muscle Mass",
@@ -38,6 +43,12 @@ ALIASES = {
     "bfm": "Body Fat Mass",
     "bfm body fat mass": "Body Fat Mass",
     "body fat percentage": "Body Fat Percentage",
+    "percentage of body fat": "Body Fat Percentage",
+    "body fat percent": "Body Fat Percentage",
+    "body fat pct": "Body Fat Percentage",
+    "porcentaje grasa corporal": "Body Fat Percentage",
+    "porcentaje de grasa del cuerpo": "Body Fat Percentage",
+    "porcentaje de tejido graso": "Body Fat Percentage",
     "porcentaje de grasa corporal": "Body Fat Percentage",
     "porcentaje de grasa": "Body Fat Percentage",
     "percent body fat": "Body Fat Percentage",
@@ -116,10 +127,79 @@ def _slug(value):
     ))
 
 
+# Alias are applied only to the in-memory visualization; original labels,
+# units, values and examination audit records are never modified.
+_SECTION_ALIASES = {
+    "analisis musculo grasa": "Muscle-Fat Analysis",
+    "analisis de musculo grasa": "Muscle-Fat Analysis",
+    "analisis de musculo y grasa": "Muscle-Fat Analysis",
+    "analisis composicion corporal": "Body Composition Analysis",
+    "analisis de composicion corporal": "Body Composition Analysis",
+    "analisis de obesidad": "Obesity Analysis",
+    "analisis obesidad": "Obesity Analysis",
+    "puntuacion inbody": "InBody Score",
+    "puntaje inbody": "InBody Score",
+}
+
+
+def _canonical_section(section):
+    return _SECTION_ALIASES.get(_slug(section), str(section or "").strip())
+
+
+def _metric_unit_factor(actual_unit, expected_unit):
+    """Return a safe, *explicit* conversion factor or None.
+
+    Never infer a percentage from a unitless fraction, a total-body metric
+    from a segmental result, or grams from an unknown / empty unit.
+    """
+    normalized = _slug(actual_unit)
+    if expected_unit == "kg":
+        if normalized in {"kg", "kgs", "kilogram", "kilograms",
+                          "kilogramo", "kilogramos"}:
+            return Decimal(1)
+        if normalized in {"lb", "lbs", "pound", "pounds", "libra", "libras"}:
+            return Decimal("0.45359237")
+        return None
+    if expected_unit == "%":
+        return Decimal(1) if (
+            str(actual_unit or "").strip() == "%"
+            or normalized in {"pct", "percent", "percentage", "porcentaje"}
+        ) else None
+    if expected_unit == "°":
+        return Decimal(1) if (
+            str(actual_unit or "").strip() in {"°", "º"}
+            or normalized in {"deg", "degree", "degrees", "grado", "grados"}
+        ) else None
+    if not expected_unit:
+        return Decimal(1) if not str(actual_unit or "").strip() else None
+    return Decimal(1) if actual_unit == expected_unit else None
+
+
+def _canonical_visual_record(row, factor: Decimal):
+    """Convert only the chart copy; keep a human-readable source trace."""
+    if factor == 1:
+        return row
+    derived = dict(row)
+    converted = row["numeric"] * factor
+    derived["numeric"] = converted
+    derived["original"] = format(converted.quantize(Decimal("0.01")), "f")
+    derived["source_original"] = row["original"]
+    derived["source_unit"] = row["unit"]
+    return derived
+
+
 def _base_metric(name):
     raw = str(name or "").strip()
     # Body segment results must not pollute whole-body KPI series.
-    if re.match(r"^(right|left) (arm|leg) - |^trunk - ", raw, flags=re.I):
+    normalized = _slug(raw)
+    segment_prefixes = (
+        "right arm ", "left arm ", "right leg ", "left leg ", "trunk ",
+        "brazo derecho ", "brazo izquierdo ", "pierna derecha ",
+        "pierna izquierda ", "tronco ",
+    )
+    # Prefix plus delimiter is essential: don't reject unrelated whole-body
+    # labels containing "trunk" or anatomical words in other positions.
+    if any(normalized.startswith(prefix) for prefix in segment_prefixes):
         return None
     return ALIASES.get(_slug(raw))
 
@@ -208,28 +288,27 @@ def _normalize_records(records):
 
 
 def _metric_points(rows, metric, expected_unit):
-    matches = [
-        r for r in rows
-        if _base_metric(r["measurement"]) == metric
-        and (
-            r["unit"] == expected_unit
-            or (
-                metric == "Phase Angle"
-                and _slug(r["unit"]) in {"deg", "degree", "degrees", "grados"}
-            )
-        )
-    ]
+    matches = []
+    for record in rows:
+        if _base_metric(record["measurement"]) != metric:
+            continue
+        factor = _metric_unit_factor(record["unit"], expected_unit)
+        if factor is None:
+            continue
+        matches.append(_canonical_visual_record(record, factor))
+
     priority = PRIORITY_SECTIONS.get(metric, ())
-    # Prefer the canonical section for any repeated metric on one date.
+    # Canonicalize section labels when choosing between repeated entries
+    # on the same exam date; preserve the underlying section in the record.
     matches.sort(key=lambda r: (
         r["date"],
-        len(priority) - priority.index(r["section"])
-        if r["section"] in priority else 0,
-        r["section"], r["measurement"],
+        len(priority) - priority.index(_canonical_section(r["section"]))
+        if _canonical_section(r["section"]) in priority else 0,
+        _canonical_section(r["section"]), r["measurement"],
     ))
     by_day = {}
-    for r in matches:
-        by_day[r["date"]] = r
+    for row in matches:
+        by_day[row["date"]] = row
     return [by_day[key] for key in sorted(by_day)]
 
 

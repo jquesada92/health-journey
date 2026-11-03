@@ -34,7 +34,8 @@ from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
 from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
 from inbody_mvp.coach_trends import (
     COACH_TREND_METRICS, empty_coach_trend_figures,
-    load_private_coach_trend_rows, render_coach_trend_figures,
+    first_and_last_ten_exam_dates, load_private_coach_trend_rows,
+    render_coach_trend_figures,
 )
 from inbody_mvp.upload_preflight import preflight_processed_upload
 from inbody_mvp.chat_session import enqueue_user_message, append_assistant_message
@@ -454,7 +455,9 @@ with gr.Blocks(
                         type="pandas", interactive=True,
                         static_columns=[4],
                         show_row_numbers=True,
-                        row_limits=(1, None),
+                        # Gradio 6 currently warns that row_limits is not
+                        # implemented. Backend validation rejects an empty
+                        # review, so no client-side minimum is assumed.
                         label="Mediciones: edita o elimina filas en la propia tabla",
                     )
                 with gr.Column(
@@ -1180,9 +1183,12 @@ with gr.Blocks(
         with gr.Column(visible=False, elem_id="hj-panel-coach") as coach_panel:
             # Messaging layout: independent Gemini selector, chat header,
             # collapsible private context, chat bubbles and bottom composer.
-            with gr.Row(elem_id="hj-coach-layout"):
+            # Both columns must be direct children of this Row. Our CSS
+            # switches the Row to a two-column grid on desktop so native
+            # Gradio min-width / flex wrapping cannot push the chat below.
+            with gr.Row(elem_id="hj-coach-layout", equal_height=False):
                 with gr.Column(
-                    scale=1, min_width=230, elem_id="hj-coach-trends",
+                    scale=1, min_width=0, elem_id="hj-coach-trends",
                 ):
                     gr.Markdown(
                         "**Tendencias InBody** · primera prueba + 10 últimas",
@@ -1208,7 +1214,7 @@ with gr.Blocks(
                             )
                         ]
                 with gr.Column(
-                    scale=3, min_width=400, elem_id="hj-coach-conversation",
+                    scale=3, min_width=0, elem_id="hj-coach-conversation",
                 ):
                     gr.HTML(COACH_CHAT_HEADER_HTML, elem_id="hj-chat-header-host")
                     with gr.Accordion("Mis objetivos, contexto y privacidad", open=False):
@@ -1459,12 +1465,14 @@ with gr.Blocks(
                 profile=profile, request=request,
             )
             figures, exam_count = render_coach_trend_figures(trend_rows)
+            selected_dates = first_and_last_ten_exam_dates(trend_rows)
             status = (
-                f"**{exam_count} fecha(s)** · 1.ª prueba y hasta 10 "
-                f"más recientes · {source}. "
-                "Si hubo dos exámenes el mismo día, la vista los "
-                "agrupa por fecha."
-                if exam_count else
+                f"**{exam_count} fechas** · 1.ª: "
+                f"**{selected_dates[0]:%d/%m/%Y}** · Última: "
+                f"{selected_dates[-1]:%d/%m/%Y}. "
+                "Eje por prueba, no por tiempo transcurrido. "
+                f"{source}."
+                if selected_dates else
                 "No hay pruebas InBody revisadas o confirmadas para graficar."
             )
             return (*figures, status)

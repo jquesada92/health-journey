@@ -4,9 +4,71 @@ emoji: 💪
 colorFrom: blue
 colorTo: green
 sdk: gradio
+python_version: "3.12"
 app_file: app.py
 hf_oauth: true
 ---
+
+## Compatibilidad de arranque y normalización multilingüe (2026-11-03)
+
+El Space de Hugging Face indica por defecto Python 3.10 si su
+README no especifica `python_version`; ahora se declara
+`python_version: "3.12"` en el YAML para alinear el runtime
+con el Python 3.12 usado en CI. La advertencia de `pip` al
+instalar como root corresponde a la imagen administrada y no es
+un error fatal del producto. El aviso Gradio
+`row_limits parameter is not yet implemented` se evita al
+eliminar el parámetro no funcional del `gr.Dataframe`: la
+validación de filas conservadas sigue haciéndose en el callback
+`save_audit`. El rastro `BaseEventLoop.__del__ / Invalid file
+descriptor: -1` proviene de la limpieza del event loop;
+el log mostrado contiene `Running on local URL: 0.0.0.0:7860`,
+no un fallo fatal de carga de la app. Un cambio de versión
+**no garantiza eliminar** esa excepción; verificar nuevamente
+los logs del Space después del deploy.
+
+La normalización visual de InBody acepta en el mismo concepto
+`Body Fat Percentage`, `Percent Body Fat`,
+`Percentage of Body Fat`, así como traducciones españolas,
+acentos, variantes explícitas de unidades y nombres de secciones.
+La consulta agregada al catálogo revisado de Neon identificó
+13 + 2 + 2 registros con las tres etiquetas inglesas de grasa,
+mientras los originales se mantienen inmutables. Solo si el
+origen especifica `lb/lbs`, la gráfica puede representar peso
+en kg usando `0.45359237`; el valor original y su unidad no se
+modifican en Neon ni en la auditoría. No se adivina el porcentaje
+de grasa a partir de un número sin unidad ni se mezclan resultados
+segmentales con medidas globales. Pruebas:
+`tests/test_inbody_multilingual_trends.py`,
+`tests/test_coach_first_last_trends.py`.
+
+
+## Corrección de visualización del Coach (2026-11-03)
+
+Las cuatro mini-gráficas del asistente se alinean **a la izquierda
+del chat** mediante una cuadrícula CSS de dos columnas: ancho compacto
+de 260–320 px para tendencias y espacio restante para el chat completo.
+Solo se apilan en pantallas de 900 px o menos, con desplazamiento
+vertical dentro del panel de tendencias. El encabezado, privacidad,
+historial de burbujas y composer deben permanecer juntos en la
+columna derecha; no se modifica la secuencia de mensajes.
+
+Se conservan **exactamente la primera fecha histórica y las diez
+más recientes**, sin duplicados (menos puntos si hay menos pruebas).
+Para que la primera sea visualmente reconocible, cada minigráfica
+presenta los exámenes como posiciones ordinales de igual anchura;
+el primer punto se distingue con rombo y color cálido, y las fechas
+inicial y final se etiquetan explícitamente en el eje horizontal.
+Esto NO es una escala de tiempo proporcional a días. Si una variable
+no existe en el primer examen, su posición se mantiene como ausente
+(`None`) y se muestra «1.ª prueba: sin esta medida», nunca se crea
+un valor ficticio. El texto del panel muestra la fecha inicial y final.
+
+No cambian los permisos privados de Neon ni se consume Gemini para
+actualizar tendencias. Pruebas sintéticas y de estructura AST:
+`tests/test_coach_first_last_trends.py`. Validación visual de HF
+pendiente de despliegue.
+
 
 ## Asistente fitness: minigráficas de la primera y las diez últimas pruebas InBody
 

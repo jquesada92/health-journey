@@ -8,13 +8,11 @@ sends a report, patient identifier or source file to the browser.
 from __future__ import annotations
 
 from datetime import date, datetime
-from decimal import Decimal
-
 import plotly.graph_objects as go
 from sqlalchemy import text
 
 from .coach_data import resolve_private_person_id
-from .progress_dashboard import _base_metric, _metric_points, _normalize_records, _slug
+from .progress_dashboard import _canonical_section, _metric_points, _normalize_records, _slug
 from .storage import _database_engine, canonical_person_id, require_database_access
 
 RECENT_EXAMS = 10
@@ -162,7 +160,10 @@ def load_private_coach_trend_rows(*, profile=None, request=None) -> tuple[list[d
 
 
 def _score_points(rows: list[dict]) -> list[dict]:
-    allowed = {"inbody score", "puntaje inbody", "puntuacion inbody"}
+    allowed = {
+        "inbody score", "score inbody", "puntaje inbody",
+        "puntuacion inbody", "puntuacion del inbody",
+    }
     allowed_units = {"", "point", "points", "pt", "pts", "punto", "puntos"}
     by_date = {}
     for row in sorted(rows, key=lambda r: (
@@ -170,8 +171,8 @@ def _score_points(rows: list[dict]) -> list[dict]:
     )):
         name = _slug(row["measurement"])
         if (name in allowed or (
-            name in {"score", "puntaje"}
-            and _slug(row["section"]) == "inbody score"
+            name in {"score", "puntaje", "puntuacion"}
+            and _canonical_section(row["section"]) == "InBody Score"
         )) and _slug(row["unit"]) in allowed_units:
             by_date[row["date"]] = row
     return [by_date[d] for d in sorted(by_date)]

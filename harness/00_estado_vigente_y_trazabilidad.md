@@ -1,5 +1,31 @@
 # 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
+> **Normalización entre idiomas y arranque HF (2026-11-03; PR
+> propuesto):** vista InBody reconoce variantes ES/EN de métricas
+> y secciones. En Neon existen `Body Fat Percentage` (13),
+> `Percent Body Fat` (2) y `Percentage of Body Fat` (2)
+> que deben representarse como una sola serie porcentual.
+> Conversión explícita lb→kg solamente en la copia de Plotly
+> con fuentes originales intactas; unidades ausentes o
+> semánticamente distintas no se suponen. `README.md` fija
+> Python 3.12 (CI), se retira `row_limits` no implementado
+> por Gradio y la validación server-side de revisión permanece.
+> `BaseEventLoop.__del__` y pip root son avisos de arranque
+> independientes de la disponibilidad real en 0.0.0.0:7860.
+> Tests: `tests/test_inbody_multilingual_trends.py`.
+
+
+> **Ajuste en PR (2026-11-03):** corregido el panel de tendencias
+> al lado del chat: CSS grid **2 columnas forzadas en escritorio**
+> y **1 en móvil**, con chat completo en la derecha y prueba AST del
+> anidamiento. El eje de las cuatro gráficas es de **posición de
+> examen** (no intervalos temporales): primera fecha más diez últimas,
+> marcador y etiqueta visibles para la primera y última, sin repetir.
+> Si la primera fecha carece de alguna medición se muestra un hueco
+> sin valor inventado. Pruebas: `tests/test_coach_first_last_trends.py`.
+> No se escribe en Neon ni se envía nada adicional a Gemini.
+
+
 > **Nueva funcionalidad de coach pendiente de merge:** panel izquierdo
 > de cuatro líneas compactas (peso, masa musculoesquelética, porcentaje
 > graso, puntaje InBody). Se usan solo la **primera fecha de examen y

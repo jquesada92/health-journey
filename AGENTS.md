@@ -1,5 +1,50 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Normalización y arranque HF (2026-11-03; propuesta)
+
+En `inbody_mvp/progress_dashboard.py` se usan alias explícitos
+de medidas, idiomas y unidades para visualización, sin alterar
+`value`, `original_value` ni Neon. La lista de etiquetas debe
+reconocer `Percentage of Body Fat`, `Percent Body Fat` y
+`Body Fat Percentage` como una sola métrica; no convertir
+unidades faltantes, ratios desconocidos ni regiones segmentales
+en valores totales. Solo convertir libras a kg cuando la unidad
+original sea explícita y conservar trazabilidad en la copia
+de la gráfica. Mantener pruebas con los tres nombres,
+secciones ES, unidades y fechas faltantes.
+
+El YAML frontal de `README.md` especifica Python 3.12 para HF,
+igual que CI. El `gr.Dataframe` de revisión no debe usar el
+parámetro `row_limits` mientras Gradio indique que todavía
+no está implementado; `save_audit` valida los registros
+conservados y rechaza la tabla vacía. Los avisos de root pip
+y las excepciones `BaseEventLoop.__del__` en Python no prueban
+por sí solos una falla de arranque. No ocultar excepciones reales
+ni modificar `asyncio` por el log de limpieza sin reproducirlo.
+Prueba: `tests/test_inbody_multilingual_trends.py`.
+
+
+## Ajuste vigente propuesto: tendencias del Coach alineadas (2026-11-03)
+
+En `inbody_mvp/coach_chat_ui.py`, el layout de tendencias y chat debe
+usar una cuadrícula CSS `#hj-coach-layout` con dos columnas en
+escritorio (gráficas izquierda, chat derecha), una columna en móvil
+hasta 900 px. Los `gr.Column` de `app.py` deben ser hijos directos
+del `gr.Row`, con `min_width=0` para impedir el wrapping automático
+de Gradio. Todo el header, controles, `Chatbot` y composer debe
+permanecer dentro de `hj-coach-conversation`.
+
+En `inbody_mvp/coach_trends.py` mostrar las 11 fechas seleccionadas
+(primera + diez últimas) como posiciones ordinales, etiquetar
+primera/última y destacar la primera con marcador. Las fechas
+intermedias no aparecen, los gaps entre fechas NO son temporales
+en el eje. Si falta una medida en una de las fechas, conservar
+el hueco `None`; nunca fabricar un valor. El estado del panel
+indica la primera fecha registrada y la última. No alterar el
+permiso privado ni invocar Gemini al cargar tendencias. Prueba
+`tests/test_coach_first_last_trends.py`.
+
+
 ## Coach: regla de 1.ª + 10 últimas pruebas para tendencias compactas
 
 `inbody_mvp/coach_trends.py` carga en lectura privada InBody
