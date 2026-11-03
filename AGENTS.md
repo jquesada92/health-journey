@@ -1,5 +1,25 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Coach: regla de 1.ª + 10 últimas pruebas para tendencias compactas
+
+`inbody_mvp/coach_trends.py` carga en lectura privada InBody
+**primera fecha de examen + las 10 últimas fechas**, ordenadas
+cronológicamente, deduplicadas y sin límite temporal del chat Gemini.
+No limitar filas antes de elegir fechas, ni sustituir la primera por
+una fecha dentro de los últimos 365 días. Los cuatro mini-gráficos
+(peso, músculo esquelético, % grasa corporal, InBody Score) se muestran
+a la izquierda del chat en `app.py` y encima en móvil. Respeta
+`require_database_access` y la identidad privada resuelta en servidor;
+no envíes nuevas consultas ni datos al LLM al actualizar gráficas.
+Si las fuentes solo registran fecha, dos exámenes el mismo día se
+consolidan visualmente en un punto por métrica y fecha; nunca inventar
+horas ni valores. Las correcciones se leen de la vista revisada;
+mediciones confirmadas legadas solo si no hay auditoría. Un límite
+anti-truncamiento impide tendencias visuales parciales.
+Contrato: `tests/test_coach_first_last_trends.py`; control en
+`harness/11_cobertura_codigo_main.md`.
+
+
 ## Entregables académicos Módulo 1 (propuesta en PR)
 
 El archivo `docs/entregable-modulo1-obs.md` es el contrato derivado de la consigna HTML proporcionada por el alumno, y `inbody_mvp/module1_deliverable.py` genera un DOCX real de ocho apartados desde la vista Proyecto, sin Gemini/Neon. El usuario revisa texto, completa el nombre y agrega cuatro capturas; ninguna prueba de terceros o evidencia ausente se inventa. Mantener los tests `tests/test_module1_deliverable.py`, dependencia `python-docx`, archivos de deployment y matriz `harness/11_cobertura_codigo_main.md` sincronizados.
