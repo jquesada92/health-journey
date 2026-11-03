@@ -38,7 +38,7 @@ from inbody_mvp.project_overview import PROJECT_OVERVIEW
 from inbody_mvp.module1_deliverable import (
     TITLE as MODULE1_TITLE, SECTION_ORDER as MODULE1_SECTION_ORDER,
     DEFAULT_CONTENT as MODULE1_DEFAULT_CONTENT,
-    DEFAULT_CAPTIONS_TEXT as MODULE1_CAPTIONS,
+    DEFAULT_CAPTIONS_TEXT as MODULE1_CAPTIONS_TEXT,
     render_submission_preview, generate_submission_docx,
 )
 from inbody_mvp.ai_coach import (
@@ -203,11 +203,11 @@ with gr.Blocks(
             with gr.Accordion("Entregables académicos · Módulo 1", open=False,
                               elem_id="hj-module1-deliverables"):
                 gr.Markdown(
-                    "### Fundamentos de la Programación · Actividad principal\\n"
+                    "### Fundamentos de la Programación · Actividad principal\n"
                     "La actividad representa **60 % de la nota del módulo**. "
                     "El documento de Blackboard solicita **ocho apartados en orden**, "
                     "un **pitch de cinco frases** y **cuatro capturas comentadas**. "
-                    "La fecha de cierre indicada es **02/11/2026**.\\n\\n"
+                    "La fecha de cierre indicada es **02/11/2026**.\n\n"
                     "El editor está rellenado con información verificable del proyecto. "
                     "Completa el nombre del autor, las pruebas personales y las capturas. "
                     "**No envía contenido a Gemini ni guarda este borrador en Neon.**"
