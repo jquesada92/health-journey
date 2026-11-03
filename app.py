@@ -39,7 +39,7 @@ from inbody_mvp.ai_coach import (
     SUPPORTED_WINDOWS,
 )
 from inbody_mvp.prelogin_consent import (
-    PrivacyFirstMiddleware, privacy_page, submit_consent,
+    PrivacyFirstMiddleware, privacy_page, submit_consent, verify_consent_session,
     current_choices, coach_choice, has_consent,
 )
 from inbody_mvp.oauth_ui import standalone_oauth_urls
@@ -1399,6 +1399,7 @@ if __name__ == "__main__":
             "routes": [
                 Route("/privacy", privacy_page, methods=["GET"]),
                 Route("/privacy/consent", submit_consent, methods=["POST"]),
+                Route("/privacy/verify", verify_consent_session, methods=["GET"]),
             ],
             "middleware": [Middleware(PrivacyFirstMiddleware)],
         },
