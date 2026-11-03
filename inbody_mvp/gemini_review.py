@@ -384,6 +384,11 @@ def _mutation_review_grid(table, snapshot):
     for index, (row, original) in enumerate(
         zip(frame.to_dict("records"), snapshot["rows"]), start=1
     ):
+        for key in ("exam_datetime", "filename", "person_id", "age"):
+            if key in row and _string(row.get(key)) != _string(original.get(key)):
+                raise ValueError(
+                    f"Fila {index}: no se permiten cambios en datos originales."
+                )
         if _string(row.get("original_value")) != _string(original["original_value"]):
             raise ValueError(
                 f"Fila {index}: el valor original no se puede cambiar ni reordenar."
