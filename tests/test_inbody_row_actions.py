@@ -7,7 +7,8 @@ import pytest
 
 from inbody_mvp.gemini_review import (
     COLUMNS, DISPLAY_COLUMNS, compact_review_table, correct_review_value,
-    remove_review_row, validate_review, review_status,
+    remove_review_row, sync_review_corrections,
+    validate_review, review_status,
 )
 
 APP = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
@@ -135,11 +136,95 @@ def test_invalid_number_shows_row_and_measurement_in_review_error(sample):
 def test_row_editing_and_deletion_are_explicit_and_one_validation_button():
     assert "selected_review_row = gr.State(value=None)" in APP
     assert "gemini_table.select(" in APP
-    assert "correct_review_value(" in APP
+    assert "sync_review_corrections(" in APP
     assert "remove_review_row(" in APP
     assert "delete_review_row.click(" in APP
-    assert "apply_row_correction.click(" in APP
+    assert "apply_row_correction.click(" not in APP
+    assert 'static_columns=[4]' in APP
+    assert 'gemini_check = gr.Button("Guardar cambios"' in APP
+    assert 'fn=sync_inline_table_edit' in APP
+    assert "row_corrected_value" not in APP
+    assert "row_correction_reason" not in APP
     assert "gemini_review_continue" not in APP
     assert "Continuar a validación" not in APP
-    assert APP.count('"Validar revisión"') == 1
+    assert APP.count('"Validar revisión"') == 0
+    assert APP.count('"Guardar cambios"') == 1
     assert "save_audit(" in APP
+
+
+def test_in_table_value_edit_auto_checks_was_corrected(sample):
+    snapshot, original = sample
+    table = original.copy()
+    table.at[1, "value"] = "75.30"
+    assert table.at[1, "was_corrected"] == False
+    normalized = sync_review_corrections(table, snapshot)
+    assert normalized.at[1, "was_corrected"] == True
+    assert normalized.at[1, "value"] == "75.30"
+    assert normalized.at[1, "original_value"] == "75.20"
+    assert original.at[1, "was_corrected"] == False
+    assert snapshot["rows"][1]["value"] == "75.20"
+
+
+def test_mismatched_flag_cannot_hide_a_real_change(sample):
+    snapshot, frame = sample
+    frame.at[1, "value"] = "80.20"
+    frame.at[1, "was_corrected"] = False
+    normalized = sync_review_corrections(frame, snapshot)
+    assert normalized.at[1, "was_corrected"] == True
+    normalized.at[1, "correction_comment"] = "Confirmado en reporte."
+    rows = validate_review(normalized, snapshot)
+    assert rows[1]["was_corrected"] is True
+    assert rows[1]["value"] == "80.20"
+
+
+def test_restoring_original_value_unchecks_flag(sample):
+    snapshot, frame = sample
+    frame.at[1, "was_corrected"] = True
+    restored = sync_review_corrections(frame, snapshot)
+    assert restored.at[1, "was_corrected"] == False
+    frame.at[1, "value"] = "77.0"
+    updated = sync_review_corrections(frame, snapshot)
+    assert updated.at[1, "was_corrected"] == True
+    updated.at[1, "value"] = "75.20"
+    assert sync_review_corrections(updated, snapshot).at[1, "was_corrected"] == False
+
+
+def test_inline_edits_keep_negative_and_trailing_zeroes(sample):
+    snapshot, frame = sample
+    frame.at[2, "value"] = "-0.3700"
+    updated = sync_review_corrections(frame, snapshot)
+    assert updated.at[2, "value"] == "-0.3700"
+    assert updated.at[2, "was_corrected"] == True
+    updated.at[2, "correction_comment"] = "Revisé el número."
+    assert validate_review(updated, snapshot)[2]["value"] == "-0.3700"
+
+
+def test_edited_non_numeric_value_may_be_fixed_before_save(sample):
+    snapshot, frame = sample
+    pending = sync_review_corrections(frame, snapshot)
+    assert pending.at[0, "value"] == "sin lectura"
+    pending.at[0, "value"] = "8.20"
+    ready = sync_review_corrections(pending, snapshot)
+    assert ready.at[0, "was_corrected"] == True
+    assert "Fila 1" in review_status(ready, snapshot)
+    ready.at[0, "correction_comment"] = "Confirmado con el PDF."
+    assert len(validate_review(ready, snapshot)) == 3
+
+
+def test_manual_checkbox_update_is_reconciled_without_source_changes(sample):
+    snapshot, frame = sample
+    frame.at[1, "was_corrected"] = True
+    assert sync_review_corrections(frame, snapshot).at[1, "was_corrected"] == False
+    frame.at[1, "unit"] = "lb"
+    assert sync_review_corrections(frame, snapshot).at[1, "was_corrected"] == True
+
+
+def test_delete_after_inline_edit_keeps_correction_and_alignment(sample):
+    snapshot, frame = sample
+    frame.at[2, "value"] = "-0.375"
+    normalized = sync_review_corrections(frame, snapshot)
+    pruned, new_snapshot = remove_review_row(normalized, snapshot, 0)
+    result = sync_review_corrections(pruned, new_snapshot)
+    assert result.at[1, "value"] == "-0.375"
+    assert result.at[1, "was_corrected"] == True
+    assert result.at[1, "original_value"] == "-0.370"
