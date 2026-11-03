@@ -4,8 +4,9 @@
 
 Código desarrollado en la rama `feature/training-fitnotes-neon-import-20261102`.
 **No fusionado, no desplegado ni probado end-to-end en Hugging Face.**
-La migración de tablas se preparó y verificó en una rama temporal de Neon,
-pero no se ha aplicado a la rama principal. El archivo personal del usuario
+La migración se probó en una rama temporal de Neon y se aplicó a la rama principal
+`health_journey` el 2 de noviembre de 2026, con autorización expresa del usuario.
+Se verificó que ambas tablas existen, están vacías y sus permisos privados funcionan. El archivo personal del usuario
 no se ha insertado en Neon ni se ha incorporado a GitHub.
 
 ## Experiencia de usuario
@@ -60,8 +61,9 @@ un identificador persistente de serie desde el origen.
 
 ## Migración y despliegue
 
-Antes de fusionar o desplegar, obtener aprobación explícita para aplicar la
-migración en Neon; luego confirmar roles y restricciones. Activar las
+La migración ya fue aplicada a Neon principal, y se comprobaron los permisos
+privados y la ausencia de lecturas públicas. Antes de fusionar o desplegar,
+revisar el PR, las pruebas CI y la configuración de autenticación. Activar las
 variables privadas ya documentadas de `DATABASE_URL`, `ENABLE_PERSISTENCE`,
 `HF_ALLOWED_USERS` o login maestro. Usar URL TLS de rol restringido,
 nunca una URL administradora en código. Para un Space público, se recomienda
