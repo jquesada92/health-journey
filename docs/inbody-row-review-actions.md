@@ -1,3 +1,30 @@
+## Visor original junto a la tabla (3 de noviembre de 2026)
+
+Tras seleccionar el PDF o la imagen, el visor integrado se prepara sin
+invocar a Gemini. Una vez extraídas las mediciones, la pantalla de
+revisión coloca **la tabla editable a la izquierda y el documento
+original a la derecha** en escritorio. Ya no es necesario expandir
+«Ver examen original» ni navegar a otro panel. El visor único muestra
+todas las páginas del PDF, permite abrirlas en pantalla completa y
+sigue siendo de solo lectura.
+
+En escritorio el visor permanece próximo durante el desplazamiento de
+la tabla. En tabletas y celulares (ancho inferior a 1100 px), el diseño
+se apila: tabla primero y documento después, con desplazamiento
+horizontal de las columnas sin comprimir las mediciones.
+
+Se preservan: corrección directa en `value`, indicador
+`was_corrected`, comentarios, exclusión nativa de filas, `reviewed`,
+validación de `original_value`, consentimiento, deduplicación antes
+de Gemini y guardado privado en Neon. El visor y su estado se limpian
+después de un guardado exitoso. El cambio no altera el esquema ni
+hace otra llamada al modelo.
+
+**Pruebas:** contratos de Gradio sobre posiciones de columnas, visor
+único no colapsable, páginas/PDF, flujo de reset y enlace del estado
+de deduplicación al callback de extracción; CI y validación visual
+en el Space son comprobaciones independientes.
+
 ## Presentación de errores — ajuste del 3 de noviembre de 2026
 
 El navegador ya no debe mostrar pequeñas marcas o recuadros de error
