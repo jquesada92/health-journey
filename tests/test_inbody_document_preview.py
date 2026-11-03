@@ -97,5 +97,6 @@ def test_review_ui_has_read_only_pdf_viewer_and_reset_on_upload():
     assert "outputs=[gemini_preview, gemini_preview_status]" in source
     assert "gemini_preview, gemini_preview_status, gemini_table" in source
     assert "outputs=[gemini_snapshot]" in source
-    assert "outputs=[gemini_table, gemini_status, gemini_save_status]" in source
+    assert 'gemini_table, gemini_status, gemini_save_status,' in source
+    assert 'gemini_review_status,' in source
     assert "outputs=[gemini_table, gemini_status, gemini_consent, gemini_save_status]" not in source
