@@ -1,3 +1,24 @@
+## UI InBody: diagrama al inicio absoluto del módulo y sin título global duplicado (2026-11-03)
+
+Rama: `fix/inbody-top-sticky-progress-no-global-header-20261103`.
+Por petición posterior a PR #67, el orden correcto **actual** es:
+**indicador de 5 pasos → título de InBody → instrucciones → carga**.
+Se eliminó la cabecera Markdown global `# Health Journey · Asistente
+virtual de fitness y bienestar`, ya que el título principal figura en
+`gr.Sidebar`. También se movió el acordeón de los tres consentimientos
+dentro del Sidebar, **después de las cuatro opciones del menú** y cerrado
+por defecto: no debe volver a aparecer como franja horizontal por encima
+del diagrama. No eliminar los consentimientos firmados ni sus tres callbacks;
+el usuario debe poder retirarlos durante la sesión. En móvil el menú
+permanece plegable.
+
+El indicador sigue anclado a `#hj-inbody-sticky` con CSS
+`position: sticky; top: 0` limitado al panel InBody; no convertirlo en
+`position: fixed` global porque tapa Proyecto/Entrenamiento/Chat.
+No cambiar estados de progreso, Gemini, Neon ni datos. Las pruebas en
+`tests/test_inbody_flow.py` y `tests/test_session_consent.py`
+comprueban posición y controles; prueba visual real en Space pendiente.
+
 ## InBody: indicador de pasos debajo del título y visible durante scroll (2026-11-02)
 
 Rama: `fix/inbody-sticky-progress-below-title-20261102`.
