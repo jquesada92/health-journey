@@ -78,6 +78,16 @@ def popup_error(exc: Exception, fallback: str = "No se pudo completar la operaci
     gr.Warning(str(message).replace("Neon", "la base de datos"))
 
 
+# Gradio 6 draws small per-component validation banners in addition to the
+# application-level alert. Keep a single toast/status and suppress only these
+# redundant validation badges. Never hide inputs, labels, or toast modals.
+SINGLE_ERROR_MESSAGE_CSS = """
+.gradio-container div.validation-error {
+    display: none !important;
+}
+"""
+
+
 def keep_components(count: int):
     """Preserve existing file, review, plots and status on a failed event."""
     return tuple(gr.update() for _ in range(count))
@@ -445,7 +455,12 @@ with gr.Blocks(
                 elem_id="hj-inbody-step-4"
             )
             gemini_check = gr.Button("Guardar cambios", variant="secondary")
-            gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
+            # Review status still drives the progress workflow internally,
+            # but human-facing errors are delivered once via gr.Warning.
+            gemini_review_status = gr.Markdown(
+                "Revisión pendiente: guarda los cambios antes de continuar.",
+                visible=False,
+            )
             def select_review_row(table, snapshot, evt: gr.SelectData):
                 index = evt.index
                 row = index[0] if isinstance(index, (tuple, list)) else index
@@ -525,12 +540,14 @@ with gr.Blocks(
                     )
                     if result.startswith("Revisión pendiente:"):
                         gr.Warning(result.removeprefix("Revisión pendiente:").strip())
-                        return updated, gr.update()
+                        # Clear any prior success to prevent advancing on stale
+                        # validation while showing only one warning popup.
+                        return updated, ""
                     gr.Info("Cambios de revisión confirmados. Continúa a guardar el examen.")
                     return updated, result
                 except Exception as exc:
                     popup_error(exc, "No se pudieron confirmar los cambios.")
-                    return gr.update(), gr.update()
+                    return gr.update(), ""
 
             def progress_after_validation(message, snapshot):
                 if snapshot is None:
@@ -716,16 +733,8 @@ with gr.Blocks(
                         state, profile=profile, request=request
                     )
                     status = result["status"]
-                    if status == "duplicate":
-                        gr.Warning(
-                            "Este archivo ya fue procesado. La extracción con Gemini "
-                            "está bloqueada para evitar consumir tokens."
-                        )
-                    elif status == "unverified":
-                        gr.Warning(
-                            "No se pudo comprobar si el archivo ya existe. "
-                            "La extracción podría consumir tokens de un duplicado."
-                        )
+                    # The file-status area is the only message for duplicate
+                    # or unverified uploads; do not also create warning toasts.
                     return (
                         result["message"], result,
                         gr.update(interactive=status in {"new", "unverified"}),
@@ -733,9 +742,7 @@ with gr.Blocks(
                 except Exception as exc:
                     popup_error(exc, "No se pudo verificar el archivo seleccionado.")
                     return (
-                        "No se verificó el archivo; vuelve a seleccionarlo.",
-                        None,
-                        gr.update(interactive=False),
+                        "", None, gr.update(interactive=False),
                     )
 
             def advance_after_duplicate_check(state, preflight):
@@ -1405,7 +1412,8 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", "7860")),
         share=False,
         ssr_mode=False,
-        css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS,
+        css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS + SINGLE_ERROR_MESSAGE_CSS,
+        show_error=False,
         auth=authenticate_master_demo if password_login_enabled() else None,
         auth_message=LOGIN_AUTH_MESSAGE if password_login_enabled() else None,
         app_kwargs={
