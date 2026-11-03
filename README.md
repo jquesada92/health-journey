@@ -8,6 +8,26 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Visión del asistente de fitness y bienestar
+
+Health Journey busca convertirse en un **asistente virtual de fitness y bienestar**
+que permita conversar sobre el historial personal y priorizar cambios según
+metas, necesidades y preferencias. La pantalla de acceso presenta esta visión
+sin dar a entender que todas las funcionalidades ya están implementadas.
+
+- **Disponible actualmente:** carga/revisión de exámenes InBody, importación
+  de entrenamientos FitNotes a Neon, historial privado y gráficas de progreso.
+- **Planificado:** registro de dieta y nutrición, exámenes médicos, nuevas
+  fuentes de datos y un chat de IA que ayude a interpretar tendencias,
+  proponer ajustes y ordenar prioridades de acuerdo con objetivos personales.
+
+La pantalla de login usa el `auth_message` HTML integrado de Gradio y un
+diseño adaptable al ancho disponible. La autenticación sigue siendo la misma
+función segura del servidor, `authenticate_master_demo`; no se introducen
+nuevas pantallas de credenciales ni se cambia el acceso a Neon. Las futuras
+sugerencias serán informativas y no reemplazarán orientación profesional
+médica o nutricional.
+
 ## Inicio de sesión propio `obs-master-demo`
 
 La aplicación puede exigir un login general de Gradio, sin crear una
