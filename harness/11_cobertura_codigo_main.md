@@ -1,5 +1,27 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+## Cambio pendiente de merge: dos formatos de fecha InBody
+
+`inbody_mvp/filename_timestamp.py` añade dos normalizadores:
+`exam_datetime_from_filename` para `AAAAMMDDHHMMSS`
+después del primer `_` y
+`normalize_report_exam_datetime` para encabezado
+`DD.MM.AAAA HH:MM`/variantes imprimibles. Se
+conecta en `inbody_mvp/gemini_review.py`,
+`inbody_mvp/upload_preflight.py` y se documenta
+en `inbody_mvp/prompts/inbody_extraction.md`.
+Se incorpora en allowlist
+`.github/workflows/deploy-huggingface.yml`.
+`tests/test_inbody_filename_timestamp.py` y
+`tests/test_exam_timestamp.py` protegen los
+formatos. `migrations/011_correct_inbody_dates_from_filenames.sql`
+archiva fechas antiguas y corrige cabeceras en una
+transacción solo tras autorización; no hay modificación
+automática de datos en Neon. El inventario anterior
+es un corte histórico de `main`, no la rama
+en desarrollo.
+
+
 ## Cambio pendiente de merge: reingesta de archivo InBody
 
 Se incorpora `migrations/010_private_inbody_filename_replace.sql`,
