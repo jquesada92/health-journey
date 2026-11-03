@@ -122,20 +122,18 @@ validando consentimiento y acceso privado del lado servidor.
 
 ## Flujo de captura InBody — cinco pasos
 
-El módulo **Extractor de InBody** comienza directamente con la guía
+El módulo **Extractor de InBody** muestra una barra de navegación fija
 **1. Cargar → 2. Extraer → 3. Revisar → 4. Validar → 5. Guardar**,
-seguida del título «InBody · Registrar un examen» y las instrucciones.
-No se vuelve a mostrar la cabecera global «Health Journey · Asistente virtual
-de fitness y bienestar»: el nombre de la aplicación ya figura en la barra
-lateral. El acordeón para modificar los consentimientos firmados durante la
-sesión está colapsado **debajo de las cuatro opciones del menú lateral**,
-no por encima del contenido del módulo.
-La guía está montada en un contenedor Gradio `hj-inbody-sticky` con
-`position: sticky; top: 0`, por lo que continúa a la vista al
-desplazarse por el formulario y desaparece al cambiar de módulo.
-Los contenedores padres permiten el desplazamiento sin recortar la guía.
-En teléfonos conserva cinco columnas en formato compacto. Muestra el
-paso activo y los completados, sin depender de la posición del scroll.
+en la parte superior de la ventana, mientras el usuario se desplaza por
+el formulario. La barra usa `position: fixed` y pertenece al nivel
+principal de Gradio (fuera del contenedor que hace scroll).
+Se activa solo al seleccionar InBody y se oculta al ir a Proyecto,
+Captador de logs o Chat. El panel InBody reserva espacio vertical debajo
+de la barra para no tapar el título, las instrucciones ni los formularios.
+En móvil se ajustan las dimensiones y la barra conserva las cinco etapas.
+El encabezado global duplicado permanece eliminado y los permisos
+continúan en el menú lateral. La selección de modelo Gemini y el estado
+de avance por acciones reales se mantienen sin cambios.
 
 El indicador avanza con eventos reales: después de cargar el archivo
 señala la extracción; tras obtener mediciones señala la revisión; al
