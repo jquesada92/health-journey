@@ -29,7 +29,6 @@ INBODY_FLOW_CSS = """
     height: auto;
     max-width: none !important;
     z-index: 200;
-    display: flex;
     align-items: stretch;
     padding: 8px 0 10px !important;
     margin: 0 !important;
