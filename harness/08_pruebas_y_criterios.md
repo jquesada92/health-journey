@@ -1,5 +1,29 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## AC-V — reemplazo seguro por nombre de archivo (propuesta)
+
+- Al cargar un nombre repetido, se bloquea la extracción salvo
+  opt-in explícito; el usuario ve aviso de consumo de tokens.
+- El opt-in no basta para editar a otro usuario: consulta privada
+  de propiedad previa a Gemini, y nueva verificación al guardar.
+- El único botón Guardar persiste solo filas `reviewed`, corrige
+  valores originales auditables y usa `DATABASE_URL` privado
+  para reemplazar por nombre; guardado normal sigue en
+  DEMO_DATABASE_URL sin permisos de DELETE.
+- SQL 010 exige confirmación, valida persona/archivo/hash y
+  que no existan conflictos con otros archivos. Antes de
+  eliminar filas activas, crea un backup completo. La
+  transacción revertirá todos los cambios si falla el INSERT.
+- Fecha y etiquetas no eliminadas de otros documentos.
+  Una reingesta exitosa no duplica resultados; el historial
+  InBody y el chat ven solo la versión nueva.
+- Pruebas sintéticas de UI, derechos, payload, negativas,
+  procedimiento SQL y contrato de rollback en
+  `tests/test_inbody_filename_replacement.py`.
+  E2E en HF/Neon requiere aplicación autorizada de SQL 010
+  y prueba funcional manual.
+
+
 ## Regresión de formatos e inicio del Space
 
 - Con 17 exámenes simulados y variantes `Body Fat
