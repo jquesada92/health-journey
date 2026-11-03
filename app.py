@@ -189,7 +189,7 @@ with gr.Blocks(
                 extract_gemini, review_status,
                 remove_review_row, correct_review_value,
                 save_audit, get_free_inbody_models, render_document_preview,
-                check_processed_filename,
+                check_processed_filename, preflight_processed_upload,
                 audit_write_enabled,
             )
             # Top-level viewport navbar is displayed only for InBody.
@@ -215,6 +215,7 @@ with gr.Blocks(
                 type="filepath",
             )
             gemini_upload_state = gr.State(value=None)
+            gemini_upload_preflight = gr.State(value=None)
             gemini_file_status = gr.Markdown("Sin archivo seleccionado.")
             gemini_snapshot = gr.State(value=None)
             with gr.Group(elem_id="hj-ai-extraction"):
@@ -266,7 +267,8 @@ with gr.Blocks(
                     concurrency_limit=1,
                 )
                 gemini_extract = gr.Button(
-                    "Extraer mediciones con IA", variant="primary"
+                    "Extraer mediciones con IA", variant="primary",
+                    interactive=False,
                 )
                 gemini_status = gr.Markdown(
                     "Esperando extracción. Carga un archivo y selecciona un modelo."
@@ -381,16 +383,37 @@ with gr.Blocks(
                         "Eliminar fila seleccionada", variant="stop",
                     )
             def extract_with_popup(
-                state, consent, model, request: gr.Request | None = None,
+                state, consent, model, preflight,
+                profile: gr.OAuthProfile | None = None,
+                request: gr.Request | None = None,
             ):
                 try:
                     if consent is not True or not has_consent(request, "ai"):
                         raise PermissionError(
                             "Autoriza el envío a la IA antes de extraer el examen."
                         )
+                    if not state or not isinstance(state.get("data"), bytes):
+                        raise ValueError("Primero selecciona un examen válido.")
                     if not model:
                         raise ValueError(
                             "Selecciona un modelo Gemini disponible antes de extraer."
+                        )
+                    # Defensive check on the server: even a forged or stale
+                    # enabled button must never reach Gemini for a known duplicate.
+                    import hashlib
+                    uploaded_sha = hashlib.sha256(state["data"]).hexdigest()
+                    if (isinstance(preflight, dict)
+                            and preflight.get("sha256") == uploaded_sha
+                            and preflight.get("status") == "duplicate"):
+                        raise ValueError(
+                            "Este archivo ya fue procesado. No se enviará a Gemini."
+                        )
+                    fresh = preflight_processed_upload(
+                        state, profile=profile, request=request
+                    )
+                    if fresh["status"] == "duplicate":
+                        raise ValueError(
+                            "Este archivo ya fue procesado. No se enviará a Gemini."
                         )
                     frame, snapshot, message = extract_gemini(
                         state, consent, selected_model=model
@@ -410,7 +433,10 @@ with gr.Blocks(
 
             gemini_extract.click(
                 fn=extract_with_popup,
-                inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
+                inputs=[
+                    gemini_upload_state, session_ai_consent,
+                    gemini_model_selector, gemini_upload_preflight,
+                ],
                 outputs=[
                     gemini_table, gemini_snapshot, gemini_status,
                     header_exam_datetime, header_filename, header_person_id,
@@ -714,25 +740,37 @@ with gr.Blocks(
                 state, profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
             ):
-                try:
-                    message = check_processed_filename(
-                        state, profile=profile, request=request
+                result = preflight_processed_upload(
+                    state, profile=profile, request=request
+                )
+                status = result["status"]
+                if status == "duplicate":
+                    gr.Warning(
+                        "Este archivo ya fue procesado. La extracción con Gemini "
+                        "está bloqueada para evitar consumir tokens."
                     )
-                    if message.startswith(("Este nombre de archivo ya fue procesado",
-                                           "No se pudo leer", "La verificación anticipada no")):
-                        gr.Warning(message.replace("Neon", "la base de datos"))
-                        return gr.update()
-                    return message.replace("Neon", "la base de datos")
-                except Exception as exc:
-                    popup_error(exc, "No se pudo comprobar el nombre del archivo.")
-                    return gr.update()
+                elif status == "unverified":
+                    gr.Warning(
+                        "No se pudo comprobar si el archivo ya existe. "
+                        "La extracción podría consumir tokens de un duplicado."
+                    )
+                return (
+                    result["message"], result,
+                    gr.update(interactive=status in {"new", "unverified"}),
+                )
+
+            def advance_after_duplicate_check(state, preflight):
+                if (not state or not isinstance(preflight, dict)
+                        or preflight.get("status") in {"duplicate", "empty"}):
+                    return render_inbody_flow(1), ""
+                return render_inbody_flow(2), "hj-inbody-step-2"
 
             def upload_with_popup(file_path):
                 try:
-                    return snapshot_upload(file_path)
+                    return snapshot_upload(file_path), gr.update(interactive=False)
                 except Exception as exc:
                     popup_error(exc, "No se pudo recibir el archivo.")
-                    return gr.update()
+                    return None, gr.update(interactive=False)
 
             def preview_with_popup(state):
                 try:
@@ -744,10 +782,10 @@ with gr.Blocks(
             gemini_upload.upload(
                 fn=upload_with_popup,
                 inputs=[gemini_upload],
-                outputs=[gemini_upload_state],
+                outputs=[gemini_upload_state, gemini_extract],
             ).then(
-                fn=lambda: None,
-                outputs=[gemini_snapshot],
+                fn=lambda: (None, None),
+                outputs=[gemini_snapshot, gemini_upload_preflight],
             ).then(
                 fn=lambda: (
                     pd.DataFrame(columns=GEMINI_DISPLAY_COLUMNS),
@@ -761,19 +799,18 @@ with gr.Blocks(
                     header_person_id, header_age, header_correction_reason,
                 ],
             ).then(
+                fn=show_processed_filename,
+                inputs=[gemini_upload_state],
+                outputs=[
+                    gemini_file_status, gemini_upload_preflight, gemini_extract,
+                ],
+            ).then(
                 fn=preview_with_popup,
                 inputs=[gemini_upload_state],
                 outputs=[gemini_preview, gemini_preview_status],
             ).then(
-                fn=show_processed_filename,
-                inputs=[gemini_upload_state],
-                outputs=[gemini_file_status],
-            ).then(
-                fn=lambda state: (
-                    render_inbody_flow(2 if state else 1),
-                    "hj-inbody-step-2" if state else "",
-                ),
-                inputs=[gemini_upload_state],
+                fn=advance_after_duplicate_check,
+                inputs=[gemini_upload_state, gemini_upload_preflight],
                 outputs=[inbody_flow, inbody_navigation_target],
                 show_progress="hidden",
             ).then(
