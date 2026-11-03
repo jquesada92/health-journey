@@ -23,7 +23,9 @@ def test_gemini_save_requires_consent_and_snapshot():
     assert len(save) == 1
     inputs = next(k.value for k in save[0].keywords if k.arg == "inputs")
     assert [x.id for x in inputs.elts] == [
-        "gemini_table", "gemini_snapshot", "session_db_consent", "gemini_overwrite"
+        "gemini_table", "gemini_snapshot", "session_db_consent", "gemini_overwrite",
+        "header_exam_datetime", "header_filename", "header_person_id",
+        "header_age", "header_correction_reason"
     ]
 
 def test_clear_resets_extraction_but_keeps_session_consents():
@@ -57,7 +59,7 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
     assert "fn=extract_with_popup" in app
     assert "extract_gemini(state, consent, selected_model=model)" in app
     assert "popup_error(exc" in app
-    assert "return keep_components(3)" in app
+    assert "return keep_components(8)" in app
     assert 'gr.Warning(str(message).replace("Neon", "la base de datos"))' in app
     assert "raise gr.Error(" not in app
     assert "fn=review_with_popup" in app
