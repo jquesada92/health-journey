@@ -1,5 +1,21 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+## Propuesta 2026-11-03 — normalización InBody y avisos HF
+
+La auditoría anterior se conserva como corte de `main`.
+El PR de correcciones modifica `app.py` (elimina
+`row_limits` no operativo), `README.md` (YAML
+`python_version: "3.12"`), `inbody_mvp/progress_dashboard.py`
+(alias multilingües y transformación de unidades solo para
+Plotly), `inbody_mvp/coach_trends.py` (nombres de InBody
+Score ES), `tests/test_inbody_row_actions.py` y agrega
+`tests/test_inbody_multilingual_trends.py` (regresiones
+de compatibilidad y equivalencia entre formatos).
+La suite `.github/workflows/test-inbody.yml` incluye
+la nueva prueba. No modifica datos personales de Neon
+ni requiere migración de esquema.
+
+
 ## Nueva cobertura pendiente de merge: tendencias en Chat
 
 Nuevo archivo `inbody_mvp/coach_trends.py`: lector InBody autorizado,
