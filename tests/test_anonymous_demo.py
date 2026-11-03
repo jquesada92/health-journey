@@ -148,7 +148,8 @@ def test_public_demo_view_and_database_role_are_restricted():
 def test_gemini_audit_uses_restricted_demo_writer_without_legacy_demo_callback():
     app = (ROOT / "app.py").read_text()
     gemini = (ROOT / "inbody_mvp/gemini_review.py").read_text()
-    assert "gemini_consent = gr.Checkbox(" in app
+    assert "session_db_consent = gr.Checkbox(" in app
+    assert "inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite]" in app
     assert "save_audit" in app
     assert "save_demo_exam" not in gemini
     assert "hj_submit_reviewed_audit" in gemini
