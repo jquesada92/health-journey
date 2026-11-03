@@ -9,6 +9,40 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Compatibilidad de arranque y normalización multilingüe (2026-11-03)
+
+El Space de Hugging Face indica por defecto Python 3.10 si su
+README no especifica `python_version`; ahora se declara
+`python_version: "3.12"` en el YAML para alinear el runtime
+con el Python 3.12 usado en CI. La advertencia de `pip` al
+instalar como root corresponde a la imagen administrada y no es
+un error fatal del producto. El aviso Gradio
+`row_limits parameter is not yet implemented` se evita al
+eliminar el parámetro no funcional del `gr.Dataframe`: la
+validación de filas conservadas sigue haciéndose en el callback
+`save_audit`. El rastro `BaseEventLoop.__del__ / Invalid file
+descriptor: -1` proviene de la limpieza del event loop;
+el log mostrado contiene `Running on local URL: 0.0.0.0:7860`,
+no un fallo fatal de carga de la app. Un cambio de versión
+**no garantiza eliminar** esa excepción; verificar nuevamente
+los logs del Space después del deploy.
+
+La normalización visual de InBody acepta en el mismo concepto
+`Body Fat Percentage`, `Percent Body Fat`,
+`Percentage of Body Fat`, así como traducciones españolas,
+acentos, variantes explícitas de unidades y nombres de secciones.
+La consulta agregada al catálogo revisado de Neon identificó
+13 + 2 + 2 registros con las tres etiquetas inglesas de grasa,
+mientras los originales se mantienen inmutables. Solo si el
+origen especifica `lb/lbs`, la gráfica puede representar peso
+en kg usando `0.45359237`; el valor original y su unidad no se
+modifican en Neon ni en la auditoría. No se adivina el porcentaje
+de grasa a partir de un número sin unidad ni se mezclan resultados
+segmentales con medidas globales. Pruebas:
+`tests/test_inbody_multilingual_trends.py`,
+`tests/test_coach_first_last_trends.py`.
+
+
 ## Corrección de visualización del Coach (2026-11-03)
 
 Las cuatro mini-gráficas del asistente se alinean **a la izquierda
