@@ -37,7 +37,9 @@ from inbody_mvp.coach_trends import (
     first_and_last_ten_exam_dates, load_private_coach_trend_rows,
     render_coach_trend_figures,
 )
-from inbody_mvp.upload_preflight import preflight_processed_upload
+from inbody_mvp.upload_preflight import (
+    preflight_processed_upload, assert_private_filename_replacement,
+)
 from inbody_mvp.chat_session import enqueue_user_message, append_assistant_message
 from inbody_mvp.project_overview import PROJECT_OVERVIEW
 from inbody_mvp.module1_deliverable import (
@@ -327,6 +329,17 @@ with gr.Blocks(
             gemini_upload_state = gr.State(value=None)
             gemini_upload_preflight = gr.State(value=None)
             gemini_file_status = gr.Markdown("Sin archivo seleccionado.")
+            gemini_replace_existing = gr.Checkbox(
+                label="Reprocesar y reemplazar el archivo existente en Neon",
+                info=(
+                    "Solo para archivos ya guardados y del historial privado "
+                    "autorizado. Extraer consume tokens de Gemini. El examen "
+                    "anterior se reemplaza únicamente al pulsar Guardar "
+                    "mediciones tras revisar todas las filas; si falla, "
+                    "los registros anteriores permanecen intactos."
+                ),
+                value=False,
+            )
             gemini_snapshot = gr.State(value=None)
             with gr.Group(elem_id="hj-ai-extraction"):
                 gr.Markdown(
@@ -485,7 +498,7 @@ with gr.Blocks(
                         "Carga un PDF o imagen para visualizarlo."
                     )
             def extract_with_popup(
-                state, consent, model, preflight,
+                state, consent, model, preflight, replace_existing,
                 profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
             ):
@@ -511,16 +524,31 @@ with gr.Blocks(
                     uploaded_sha = hashlib.sha256(state["data"]).hexdigest()
                     if (isinstance(preflight, dict)
                             and preflight.get("sha256") == uploaded_sha
-                            and preflight.get("status") == "duplicate"):
+                            and preflight.get("status") == "duplicate"
+                            and replace_existing is not True):
                         raise ValueError(
-                            "Este archivo ya fue procesado. No se enviará a Gemini."
+                            "Este archivo ya fue procesado. Activa Reprocesar "
+                            "y reemplazar si deseas corregirlo."
                         )
                     fresh = preflight_processed_upload(
                         state, profile=profile, request=request
                     )
                     if fresh["status"] == "duplicate":
+                        if replace_existing is not True:
+                            raise ValueError(
+                                "Archivo ya procesado. Activa la opción "
+                                "Reprocesar y reemplazar antes de extraer."
+                            )
+                        # Ownership is verified BEFORE consuming Gemini tokens.
+                        # The save procedure checks again within the transaction.
+                        assert_private_filename_replacement(
+                            state, profile=profile, request=request
+                        )
+                    elif replace_existing is True:
                         raise ValueError(
-                            "Este archivo ya fue procesado. No se enviará a Gemini."
+                            "Solo se puede reemplazar un archivo confirmado "
+                            "como existente en tu historial privado. "
+                            "Desmarca Reprocesar para una captura nueva."
                         )
                     frame, snapshot, message = extract_gemini(
                         state, consent, selected_model=model
@@ -549,6 +577,7 @@ with gr.Blocks(
                 inputs=[
                     gemini_upload_state, session_ai_consent,
                     gemini_model_selector, gemini_upload_preflight,
+                    gemini_replace_existing,
                 ],
                 outputs=[
                     gemini_table, gemini_snapshot, gemini_status,
@@ -669,8 +698,9 @@ with gr.Blocks(
             )
 
             def save_review_and_clear(
-                table, snapshot, consent, overwrite,
+                table, snapshot, consent, overwrite, replace_existing,
                 exam_datetime, filename, person_id, age, reason,
+                profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
             ):
                 try:
@@ -683,11 +713,19 @@ with gr.Blocks(
                     table, snapshot = reconcile_native_review_rows(table, snapshot)
                     # save_audit validates all reviewed flags, correction
                     # comments, numeric precision and exam header before SQL.
+                    replacement_options = (
+                        {
+                            "replace_filename": True,
+                            "profile": profile,
+                            "request": request,
+                        } if replace_existing is True else {}
+                    )
                     message = save_audit(
                         table, snapshot, consent, overwrite,
                         header_edits=exam_header_edits(
                             exam_datetime, filename, person_id, age, reason
                         ),
+                        **replacement_options,
                     )
                 except Exception as exc:
                     popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
@@ -724,7 +762,8 @@ with gr.Blocks(
                 fn=save_review_and_clear,
                 inputs=[
                     gemini_table, gemini_snapshot, session_db_consent,
-                    gemini_overwrite, header_exam_datetime, header_filename,
+                    gemini_overwrite, gemini_replace_existing,
+                    header_exam_datetime, header_filename,
                     header_person_id, header_age, header_correction_reason,
                 ],
                 outputs=[
@@ -749,6 +788,26 @@ with gr.Blocks(
                 inputs=[inbody_navigation_target], outputs=[],
                 show_progress="hidden", queue=False, api_name=False,
             )
+            # Duplicate documents remain blocked unless the user explicitly
+            # selects private reprocessing. Toggling the checkbox cannot bypass
+            # the independent server-side duplicate and identity checks.
+            def toggle_duplicate_reprocessing(replace_existing, preflight):
+                status = (
+                    preflight.get("status")
+                    if isinstance(preflight, dict) else "empty"
+                )
+                can_extract = (
+                    status in {"new", "unverified"} and not replace_existing
+                ) or (status == "duplicate" and replace_existing is True)
+                return gr.update(interactive=can_extract)
+
+            gemini_replace_existing.change(
+                fn=toggle_duplicate_reprocessing,
+                inputs=[gemini_replace_existing, gemini_upload_preflight],
+                outputs=[gemini_extract],
+                queue=False, show_progress="hidden", api_name=False,
+            )
+
             # Reset all previous-review state when a different file is selected.
             # Preview runs on the application server and requires no Gemini consent.
             # User upload event only: clearing after a successful save must not
@@ -774,9 +833,13 @@ with gr.Blocks(
                         "", None, gr.update(interactive=False),
                     )
 
-            def advance_after_duplicate_check(state, preflight):
+            def advance_after_duplicate_check(state, preflight, replace_existing):
                 if (not state or not isinstance(preflight, dict)
-                        or preflight.get("status") in {"duplicate", "empty"}):
+                        or preflight.get("status") == "empty"
+                        or (
+                            preflight.get("status") == "duplicate"
+                            and replace_existing is not True
+                        )):
                     return (
                         render_inbody_flow(1), "", gr.update(visible=False),
                     )
@@ -804,8 +867,11 @@ with gr.Blocks(
                 inputs=[gemini_upload],
                 outputs=[gemini_upload_state, gemini_extract],
             ).then(
-                fn=lambda: (None, None),
-                outputs=[gemini_snapshot, gemini_upload_preflight],
+                fn=lambda: (None, None, False),
+                outputs=[
+                    gemini_snapshot, gemini_upload_preflight,
+                    gemini_replace_existing,
+                ],
             ).then(
                 fn=lambda: (
                     pd.DataFrame(columns=GEMINI_DISPLAY_COLUMNS),
@@ -830,7 +896,10 @@ with gr.Blocks(
                 outputs=[gemini_preview, gemini_preview_status],
             ).then(
                 fn=advance_after_duplicate_check,
-                inputs=[gemini_upload_state, gemini_upload_preflight],
+                inputs=[
+                    gemini_upload_state, gemini_upload_preflight,
+                    gemini_replace_existing,
+                ],
                 outputs=[
                     inbody_flow, inbody_navigation_target, inbody_review_layout,
                 ],
