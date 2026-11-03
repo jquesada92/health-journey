@@ -37,11 +37,14 @@ de mediciones en la base de datos, y no modifica datos de Neon por sí sola.
    una diferencia siempre la marca; al restaurar la medición original
    se desmarca. Marcarla sin que exista una diferencia no crea una
    corrección inventada. `reviewed` permanece bajo control manual.
-3. **Eliminar:** selecciona cualquier celda de una fila y pulsa
-   `Eliminar fila seleccionada`. No existen cuadros de texto ni
-   botón alternativo para corregir una sola fila. Se conserva al menos
-   una medición. La fila se excluye del examen pendiente, pero el JSON
-   original de Gemini permanece intacto para auditoría.
+3. **Eliminar:** utiliza el menú nativo de la fila en la propia tabla
+   (con números de fila visibles). No hay selección ni botón externo
+   `Eliminar fila seleccionada`. La acción de usuario se procesa a través
+   del evento `Dataframe.input` de Gradio 6, tanto si edita valores como
+   si elimina una fila. Se conserva al menos una medición y no se pueden
+   añadir filas artificiales. La eliminación se aplica al examen pendiente,
+   no a registros existentes de Neon; el JSON original de Gemini permanece
+   intacto para auditoría.
 4. **Guardar cambios:** único botón para **confirmar la revisión**.
    Valida el encabezado, los valores numéricos, notas obligatorias
    por cambios y las casillas `reviewed` de las filas conservadas.
@@ -60,10 +63,16 @@ no aplica coerción de valores numéricos, de modo que también permite
 corregir después un valor inválido de IA. La misma regla se aplica
 antes de validar y guardar, no solo al recibir eventos visuales.
 
-No se admiten borrados o reordenamientos directos en la cuadrícula
-porque impedirían vincular con seguridad el valor original y el
-registro revisado. `remove_review_row` mantiene las filas retenidas
-alineadas con la revisión y registra en memoria las descartadas.
+Los borrados **directos en la cuadrícula** sí se admiten. La función
+`reconcile_native_review_rows` empareja las filas restantes con
+`original_value` y su orden original, utilizando las etiquetas de
+sección, medición y unidad para distinguir valores repetidos. Actualiza
+a la vez la tabla y el snapshot de auditoría, y conserva las mediciones
+excluidas en memoria. Si dos fuentes son indistinguibles o alguien
+reordena o modifica valores originales, rechaza la operación en lugar
+de atribuir una medida a otra persona o segmento. La cuadrícula no
+puede quedar vacía. `remove_review_row` continúa como compatibilidad
+interna de backend, pero ya no requiere un botón en pantalla.
 No se modifican migraciones ni permisos de Neon.
 
 ## Pruebas y límites
@@ -71,6 +80,8 @@ No se modifican migraciones ni permisos de Neon.
 Pruebas sintéticas de cambio de valor con autoselección, restauración
 del original, intento de desmarcado manual, texto numérico negativo,
 preservación de decimales, valor inválido corregible, y eliminación
-tras correcciones en línea. El CI y las pruebas de despliegue
+tras correcciones en línea, eliminación nativa por primera, última o
+varias filas, valores originales repetidos y protección contra cambios
+ambiguos de procedencia. El CI y las pruebas de despliegue
 web/móvil son verificaciones separadas. No afirmar disponibilidad
 en Hugging Face sin verificar el despliegue.
