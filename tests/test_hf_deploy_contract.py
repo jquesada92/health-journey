@@ -49,12 +49,13 @@ def test_space_upload_includes_runtime_python_import_closure():
     assert discovered <= selected, f"Missing from Space deployment: {sorted(discovered - selected)}"
 
 
-def test_deployed_space_contains_one_dashboard_tab_only():
+def test_deployed_space_uses_one_inbody_accordion_no_horizontal_tabs():
     app = (ROOT / "app.py").read_text()
-    assert app.count('with gr.Tab("Dashboard", id="dashboard")') == 1
-    assert 'with gr.Tab("Dashboard público")' not in app
-    assert 'with gr.Tab("Progress Dashboard")' not in app
-    assert 'with gr.Tab("Dashboard (siguiente fase)")' not in app
+    assert app.count('with gr.Accordion("Progreso histórico de InBody", open=False)') == 1
+    assert 'with gr.Tab(' not in app
+    assert 'with gr.Tabs(' not in app
+    assert 'elem_id="hj-panel-project"' in app
+    assert 'elem_id="hj-panel-coach"' in app
 
 
 def test_upload_triggers_on_workflow_edit():
