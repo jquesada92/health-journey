@@ -1,5 +1,8 @@
 # 04 — Motor de extracción, OCR, plantillas e idioma
 
+> **Extractor activo (2026-11-03):** `inbody_mvp/gemini_review.py` usa Gemini Flash de Google, con selección de modelo independiente, respuesta estructurada Pydantic, vista previa PyMuPDF/Pillow, revisión humana, encabezado único y conservación de los ceros decimales (ej. `8.20`). Solo captura el **examen actual**; etiquetas canónicas de sección/medición en inglés, unidad literal, frecuencia y fase angular como mediciones independientes. La selección de modelo no implica que su uso sea gratuito; depende de la cuota Gemini. `inbody_mvp/extractor.py` y los motores espaciales/OCR heredados permanecen en pruebas; su comportamiento no debe atribuirse al UI principal. **PR #72 (abierto)** propone mover el prompt incrustado del extractor a `prompts/inbody_extraction.md`; no existe aún así en `main`. Referencia: [inventario actual](00_estado_vigente_y_trazabilidad.md). Los estudios de OCR o instrucciones de vista por secciones posteriores son históricos/experimentales.
+
+
 
 ## Progress Dashboard — Gradio + Plotly (noviembre de 2026)
 
