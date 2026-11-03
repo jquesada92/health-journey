@@ -65,7 +65,10 @@ def test_document_is_alongside_editable_table_without_collapsible_panel():
     assert "gemini_table = gr.Dataframe(" in table_code
     assert "gemini_preview = gr.Gallery(" in original_code
     assert "gemini_preview_status = gr.Markdown(" in original_code
-    assert "height=540" in original_code
+    assert "height=820" in original_code
+    assert "preview=False" in original_code
+    assert "visible=False" in ast.get_source_segment(SOURCE, row.items[0].context_expr)
+    assert "as inbody_review_layout:" in SOURCE
     assert 'buttons=["fullscreen"]' in original_code
     assert 'columns=1' in original_code
     assert 'object_fit="contain"' in original_code
@@ -146,3 +149,24 @@ def test_duplicate_preflight_is_checked_at_upload_and_before_gemini():
     )[0]
     assert upload.index("fn=show_processed_filename") < upload.index("fn=preview_with_popup")
     assert "inputs=[gemini_upload_state, gemini_upload_preflight]" in upload
+
+
+def test_reviewer_appears_only_after_successful_ai_extraction_and_resets():
+    extracted = ast.unparse(_function("progress_after_extract"))
+    assert "if snapshot is not None" in extracted
+    assert "visible=True" in extracted
+    assert "visible=False" in extracted
+    assert "inbody_review_layout" in INBODY
+    extract_event = INBODY.split("gemini_extract.click(", 1)[1].split(
+        "gemini_check.click(", 1
+    )[0]
+    assert "inbody_review_layout" in extract_event
+    saved = ast.unparse(_function("progress_after_save"))
+    assert "visible=False" in saved
+    upload = ast.unparse(_function("advance_after_duplicate_check"))
+    assert "visible=False" in upload
+
+
+def test_consent_verification_endpoint_protected_by_original_signed_session():
+    assert "verify_consent_session" in SOURCE
+    assert 'Route("/privacy/verify", verify_consent_session, methods=["GET"])' in SOURCE
