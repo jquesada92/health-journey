@@ -109,6 +109,26 @@ def test_prelogin_storage_opt_in_independent_from_ai():
         assert privacy.current_choices(_gradio_request(client)) == (False, True)
 
 
+def test_fitness_chat_has_third_independent_opt_in_and_can_revoke():
+    with TestClient(make_test_app()) as client:
+        privacy_page = client.get("/privacy")
+        assert 'name="coach_consent"' in privacy_page.text
+        client.post(
+            "/privacy/consent",
+            data={"notice_read": "yes", "coach_consent": "yes"},
+            follow_redirects=False,
+        )
+        request = _gradio_request(client)
+        assert privacy.coach_choice(request)
+        assert privacy.has_consent(request, "coach")
+        assert not privacy.has_consent(request, "ai")
+        assert not privacy.has_consent(request, "db")
+        assert privacy.current_choices(request) == (False, False)
+        privacy.set_consent(request, "coach", False)
+        assert not privacy.coach_choice(request)
+        assert not privacy.has_consent(request, "coach")
+
+
 def test_signed_cookie_tampering_fails_closed():
     with TestClient(make_test_app()) as client:
         client.post("/privacy/consent", data={"notice_read": "yes", "ai_consent": "yes"})
