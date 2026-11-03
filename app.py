@@ -394,6 +394,137 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
              gemini_overwrite, gemini_file_status],
             value="Limpiar",
         )
+    with gr.Tab("Training Hub"):
+        from inbody_mvp.training_hub import (
+            PREVIEW_COLUMNS as TRAINING_COLUMNS,
+            inspect_fitnotes_upload, save_training_import, recent_training,
+        )
+        gr.Markdown(
+            "## Training Hub · importar FitNotes\\n"
+            "Carga una exportación CSV de FitNotes con fecha, ejercicio, categoría, "
+            "peso, repeticiones, distancia, duración y comentario. "
+            "Cada fila es una serie y conserva el orden original. "
+            "La importación no utiliza Gemini ni publica los entrenamientos. "
+            "El historial es privado y solo se guarda al confirmarlo."
+        )
+        if not database_enabled():
+            gr.Markdown(
+                "Para importar a Neon necesitas configurar la conexión privada "
+                "DATABASE_URL y un inicio de sesión autorizado."
+            )
+        with gr.Row():
+            with gr.Column(min_width=280):
+                training_upload = gr.File(
+                    label="Exportación FitNotes (.csv)", file_types=[".csv"],
+                    type="filepath", interactive=database_enabled(),
+                )
+                training_summary = gr.Markdown("Sin archivo validado.")
+                training_consent = gr.Checkbox(
+                    label="Autorizo guardar mi registro de entrenamiento en Neon",
+                    value=False,
+                )
+                training_overwrite = gr.Checkbox(
+                    label="Confirmo actualizar series previamente guardadas "
+                          "si sus valores cambiaron",
+                    value=False,
+                )
+                training_save = gr.Button(
+                    "Guardar entrenamiento en Neon",
+                    variant="primary", interactive=database_enabled(),
+                )
+            with gr.Column(min_width=300):
+                gr.Markdown(
+                    "### Revisar antes de guardar\\n"
+                    "Se muestran las primeras 60 series. El archivo completo "
+                    "se procesa únicamente cuando pulsas Guardar. "
+                    "Series idénticas del mismo día se conservan si tienen "
+                    "posiciones de serie diferentes."
+                )
+                training_preview = gr.Dataframe(
+                    headers=list(TRAINING_COLUMNS),
+                    label="Vista previa del CSV (solo lectura)",
+                    type="pandas", interactive=False,
+                )
+        training_state = gr.State(value=None)
+
+        def parse_training_with_popup(
+            file_path, profile: gr.OAuthProfile | None = None,
+            request: gr.Request | None = None,
+        ):
+            try:
+                require_database_access(profile, request=request)
+                return inspect_fitnotes_upload(file_path)
+            except Exception as exc:
+                popup_error(exc, "No se pudo validar el CSV de FitNotes.")
+                return keep_components(3)
+
+        def save_training_with_popup(
+            state, consent, overwrite,
+            profile: gr.OAuthProfile | None = None,
+            request: gr.Request | None = None,
+        ):
+            try:
+                result = save_training_import(
+                    state, consent, overwrite, profile=profile, request=request,
+                )
+            except Exception as exc:
+                popup_error(exc, "No se pudo guardar el entrenamiento en Neon.")
+                return keep_components(6)
+            gr.Info(result)
+            return (
+                result, None, None,
+                pd.DataFrame(columns=TRAINING_COLUMNS), False, False,
+            )
+
+        training_upload.upload(
+            fn=parse_training_with_popup, inputs=[training_upload],
+            outputs=[training_state, training_summary, training_preview],
+            concurrency_limit=1,
+        ).then(
+            fn=lambda: (False, False),
+            outputs=[training_consent, training_overwrite],
+        )
+        training_save.click(
+            fn=save_training_with_popup,
+            inputs=[training_state, training_consent, training_overwrite],
+            outputs=[
+                training_summary, training_upload, training_state,
+                training_preview, training_consent, training_overwrite,
+            ],
+            concurrency_limit=1,
+        )
+        gr.Markdown(
+            "### Últimas series guardadas\\n"
+            "La consulta solo muestra tus registros autorizados. "
+            "La misma exportación no se importa dos veces."
+        )
+        training_refresh = gr.Button(
+            "Consultar últimos entrenamientos",
+            interactive=database_enabled(),
+        )
+        training_recent_status = gr.Markdown("Sin consulta.")
+        training_recent_table = gr.Dataframe(
+            headers=list(TRAINING_COLUMNS),
+            label="Últimas 60 series en Neon", type="pandas", interactive=False,
+        )
+
+        def recent_training_with_popup(
+            profile: gr.OAuthProfile | None = None,
+            request: gr.Request | None = None,
+        ):
+            try:
+                frame = recent_training(profile=profile, request=request)
+                return f"{len(frame)} series recuperadas.", frame
+            except Exception as exc:
+                popup_error(exc, "No se pudo leer el historial de entrenamiento.")
+                return keep_components(2)
+
+        training_refresh.click(
+            fn=recent_training_with_popup,
+            outputs=[training_recent_status, training_recent_table],
+            concurrency_limit=1,
+        )
+
     with gr.Tab("Dashboard"):
         gr.Markdown(
             "## Dashboard InBody\\n"
