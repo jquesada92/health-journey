@@ -57,7 +57,9 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
                for n in handlers)
     app = (Path(__file__).resolve().parents[1] / "app.py").read_text()
     assert "fn=extract_with_popup" in app
-    assert "extract_gemini(state, consent, selected_model=model)" in app
+    assert 'extract_gemini(' in app
+    assert 'state, consent, selected_model=model' in app
+    assert 'compact_review_table(frame)' in app
     assert "popup_error(exc" in app
     assert "return keep_components(8)" in app
     assert 'gr.Warning(str(message).replace("Neon", "la base de datos"))' in app
