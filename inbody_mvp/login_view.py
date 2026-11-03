@@ -56,9 +56,10 @@ LOGIN_AUTH_MESSAGE = """
     priorizar acciones según tus metas y necesidades.
   </p>
   <p style="font-size:12px;line-height:1.5;color:#617086;margin:0 0 2px;">
-    Inicia sesión con tu cuenta autorizada para acceder a tu información.
-    Las futuras recomendaciones serán orientativas y no reemplazarán
-    la valoración de un profesional de salud.
+    Ya revisaste el aviso de tratamiento de datos antes de llegar aquí.
+    Tus consentimientos opcionales se restaurarán al iniciar sesión,
+    y podrás modificarlos en la aplicación. Las futuras recomendaciones
+    serán orientativas y no reemplazarán la valoración de un profesional de salud.
   </p>
 </section>
 """
