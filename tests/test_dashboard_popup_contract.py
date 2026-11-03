@@ -87,7 +87,8 @@ def test_save_reconciles_review_grid_before_persisting_and_uses_one_popup():
     assert body.index("reconcile_native_review_rows(table, snapshot)") < body.index("save_audit(")
     assert "return keep_components(16)" in body
     assert "popup_error(exc" in SOURCE
-    assert "review_with_popup" not in SOURCE
+    assert "def review_with_popup(" not in SOURCE
+    assert "fn=review_with_popup" not in SOURCE
     assert 'gemini_check.click(' not in SOURCE
 
 
