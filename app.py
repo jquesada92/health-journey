@@ -528,6 +528,7 @@ with gr.Blocks(
 
             def save_review_and_clear(
                 table, snapshot, consent, overwrite,
+                exam_datetime, filename, person_id, age, reason,
                 request: gr.Request | None = None,
             ):
                 try:
@@ -535,10 +536,15 @@ with gr.Blocks(
                         raise PermissionError(
                             "Autoriza guardar datos en la base de datos antes de continuar."
                         )
-                    message = save_audit(table, snapshot, consent, overwrite)
+                    message = save_audit(
+                        table, snapshot, consent, overwrite,
+                        header_edits=exam_header_edits(
+                            exam_datetime, filename, person_id, age, reason
+                        ),
+                    )
                 except Exception as exc:
                     popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
-                    return keep_components(11)
+                    return keep_components(16)
                 if message.startswith("Guardado en Neon:"):
                     # Show an accessible confirmation, clear the finished exam and
                     # preserve both user consents for the rest of this session.
@@ -547,13 +553,14 @@ with gr.Blocks(
                     return (
                         visible_message, None, None, None, [],
                         "Carga un PDF o imagen para visualizarlo.",
-                        pd.DataFrame(columns=GEMINI_COLUMNS),
+                        pd.DataFrame(columns=GEMINI_DISPLAY_COLUMNS),
                         "Esperando extracción. Carga un archivo y selecciona un modelo.",
                         False, "Sin archivo seleccionado.",
                         "Revisión pendiente: valida las filas antes de guardar.",
+                        "", "", "", "", "",
                     )
                 gr.Warning(message.replace("Neon", "la base de datos"))
-                return keep_components(11)
+                return keep_components(16)
 
             def progress_after_save(message):
                 if (isinstance(message, str)
@@ -563,12 +570,18 @@ with gr.Blocks(
 
             gemini_save.click(
                 fn=save_review_and_clear,
-                inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite],
+                inputs=[
+                    gemini_table, gemini_snapshot, session_db_consent,
+                    gemini_overwrite, header_exam_datetime, header_filename,
+                    header_person_id, header_age, header_correction_reason,
+                ],
                 outputs=[
                     gemini_save_status, gemini_upload, gemini_upload_state,
                     gemini_snapshot, gemini_preview, gemini_preview_status,
                     gemini_table, gemini_status, gemini_overwrite, gemini_file_status,
                     gemini_review_status,
+                    header_exam_datetime, header_filename, header_person_id,
+                    header_age, header_correction_reason,
                 ],
                 concurrency_limit=1,
             ).then(
@@ -621,13 +634,15 @@ with gr.Blocks(
                 outputs=[gemini_snapshot],
             ).then(
                 fn=lambda: (
-                    pd.DataFrame(columns=GEMINI_COLUMNS),
+                    pd.DataFrame(columns=GEMINI_DISPLAY_COLUMNS),
                     "Esperando extracción. Carga un archivo y selecciona un modelo.",
                     "", "Revisión pendiente: valida las filas antes de guardar.",
+                    *header_for_review(None),
                 ),
                 outputs=[
                     gemini_table, gemini_status, gemini_save_status,
-                    gemini_review_status,
+                    gemini_review_status, header_exam_datetime, header_filename,
+                    header_person_id, header_age, header_correction_reason,
                 ],
             ).then(
                 fn=preview_with_popup,
@@ -647,7 +662,9 @@ with gr.Blocks(
                 [gemini_upload, gemini_upload_state, gemini_snapshot,
                  gemini_preview, gemini_preview_status, gemini_table, gemini_status,
                  gemini_save_status, gemini_review_status,
-                 gemini_overwrite, gemini_file_status],
+                 gemini_overwrite, gemini_file_status,
+                 header_exam_datetime, header_filename, header_person_id,
+                 header_age, header_correction_reason],
                 value="Limpiar examen (conservar permisos)",
             )
             inbody_clear.click(
