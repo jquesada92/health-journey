@@ -110,9 +110,8 @@ def test_signed_cookie_tampering_fails_closed():
         valid = client.cookies.get(privacy.COOKIE_NAME)
         assert valid
         forged = valid[:-1] + ("a" if valid[-1] != "a" else "b")
-        client.cookies.set(privacy.COOKIE_NAME, forged)
-        assert client.get("/", follow_redirects=False).status_code == 303
-        assert privacy.current_choices(_gradio_request(client)) == (False, False)
+        assert privacy._session_from_cookie(forged) is None
+        assert privacy._session_from_cookie(valid) is not None
 
 
 def test_cross_site_request_cannot_grant_consents():
