@@ -1,5 +1,29 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Normalización y arranque HF (2026-11-03; propuesta)
+
+En `inbody_mvp/progress_dashboard.py` se usan alias explícitos
+de medidas, idiomas y unidades para visualización, sin alterar
+`value`, `original_value` ni Neon. La lista de etiquetas debe
+reconocer `Percentage of Body Fat`, `Percent Body Fat` y
+`Body Fat Percentage` como una sola métrica; no convertir
+unidades faltantes, ratios desconocidos ni regiones segmentales
+en valores totales. Solo convertir libras a kg cuando la unidad
+original sea explícita y conservar trazabilidad en la copia
+de la gráfica. Mantener pruebas con los tres nombres,
+secciones ES, unidades y fechas faltantes.
+
+El YAML frontal de `README.md` especifica Python 3.12 para HF,
+igual que CI. El `gr.Dataframe` de revisión no debe usar el
+parámetro `row_limits` mientras Gradio indique que todavía
+no está implementado; `save_audit` valida los registros
+conservados y rechaza la tabla vacía. Los avisos de root pip
+y las excepciones `BaseEventLoop.__del__` en Python no prueban
+por sí solos una falla de arranque. No ocultar excepciones reales
+ni modificar `asyncio` por el log de limpieza sin reproducirlo.
+Prueba: `tests/test_inbody_multilingual_trends.py`.
+
+
 ## Ajuste vigente propuesto: tendencias del Coach alineadas (2026-11-03)
 
 En `inbody_mvp/coach_chat_ui.py`, el layout de tendencias y chat debe
