@@ -198,8 +198,7 @@ INBODY_FLOW_CSS = """
     #hj-inbody-step-1,
     #hj-inbody-step-2,
     #hj-inbody-step-3,
-    #hj-inbody-step-4,
-    #hj-inbody-step-5 {
+    #hj-inbody-step-4 {
         scroll-margin-top: 145px;
     }
     #hj-panel-inbody {
