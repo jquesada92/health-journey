@@ -1,5 +1,8 @@
 # Publicar mi progreso InBody sin identificador real
 
+> **Documento de compatibilidad (2026-11-03):** esta funcionalidad de series públicas/seudónimos es distinta de la auditoría privada InBody y de la consulta de entrenamiento FitNotes. No se muestra como ruta principal en el menú de cuatro módulos. El consentimiento de almacenar no habilita publicación. La seudonimización con UUID no constituye anonimización irreversible ni row-level ownership para datos privados. Antes de habilitar nuevos consumidores, revisar permisos SQL, aislamiento, consentimiento específico y E2E. Ver [inventario vigente](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 ## Comportamiento solicitado
 
 Las **mediciones propias** (peso, grasa, músculo y medidas segmentales disponibles) pueden aparecer como líneas en el dashboard público, aunque la serie solo tenga una persona. **No se exige un mínimo de cinco personas para una tendencia individual**.
