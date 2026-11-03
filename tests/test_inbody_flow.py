@@ -6,12 +6,15 @@ import ast
 from html.parser import HTMLParser
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from inbody_mvp.inbody_flow import (
     INBODY_FLOW_CSS,
+    INBODY_NEXT_STEP_JS,
     STEPS,
     render_inbody_flow,
+    review_step_ready,
 )
 
 APP = (Path(__file__).resolve().parents[1] / "app.py").read_text()
@@ -92,7 +95,10 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
     assert "fn=progress_after_save" in INBODY
     assert "gemini_table.edit(" in INBODY
     assert "fn=progress_after_table_edit" in INBODY
-    assert "inbody_clear.click(" in INBODY
+    assert "inbody_clear.click(" not in INBODY
+    assert "gemini_review_continue.click(" in INBODY
+    assert "finish_review_step" in INBODY
+    assert "INBODY_NEXT_STEP_JS" in APP
 
     tree = ast.parse(APP)
     functions = {
@@ -111,16 +117,88 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
     assert "render_inbody_flow(3)" in edit
     assert "Revisión pendiente:" in edit
     save = ast.unparse(functions["progress_after_save"])
-    assert "saved=True" in save
+    assert "render_inbody_flow(1)" in save
+    assert "hj-inbody-step-1" in save
     assert "gr.update()" in save
 
 
-def test_flow_updates_do_not_reset_privacy_permissions_or_upload_snapshot():
-    flow = INBODY
-    clear = flow.split("inbody_clear.click(", 1)[1].split(
-        'with gr.Column(visible=False, elem_id="hj-panel-training") as training_panel:', 1
-    )[0] if 'with gr.Column(visible=False, elem_id="hj-panel-training") as training_panel:' in flow else flow.split("inbody_clear.click(", 1)[1]
-    assert "session_ai_consent" not in clear
-    assert "session_db_consent" not in clear
-    assert "outputs=[inbody_flow]" in clear
-    assert "gemini_save_status" in INBODY
+def test_reset_after_save_clears_fields_without_revoking_consents():
+    assert "gr.ClearButton(" not in INBODY
+    assert "Limpiar examen (conservar permisos)" not in APP
+    assert "save_review_and_clear" in INBODY
+    assert "gr.Info(visible_message)" in INBODY
+    assert "return keep_components(16)" in INBODY
+
+    save_output_section = INBODY.split("gemini_save.click(", 1)[1].split(
+        "concurrency_limit=1,", 1
+    )[0]
+    for field in (
+        "gemini_upload", "gemini_upload_state", "gemini_snapshot",
+        "gemini_preview", "gemini_preview_status", "gemini_table",
+        "gemini_status", "gemini_overwrite", "gemini_file_status",
+        "gemini_review_status", "header_exam_datetime",
+        "header_filename", "header_person_id", "header_age",
+        "header_correction_reason",
+    ):
+        assert field in save_output_section
+
+    after_save = INBODY.split("fn=progress_after_save", 1)[1]
+    assert "gemini_save_status" in after_save
+    assert "inbody_navigation_target" in after_save
+    assert "INBODY_NEXT_STEP_JS" in after_save
+    save = INBODY.split("def save_review_and_clear(", 1)[1].split(
+        "def progress_after_save(", 1
+    )[0]
+    assert "session_ai_consent" not in save
+    assert "session_coach_consent" not in save
+    assert "session_db_consent" not in save
+    assert "return keep_components(16)" in save
+    assert "gr.Info(visible_message)" in save
+
+
+def test_auto_advance_only_after_successful_stage_completion():
+    tree = ast.parse(APP)
+    funcs = {
+        n.name: n for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef)
+    }
+    extract = ast.unparse(funcs["progress_after_extract"])
+    assert 'hj-inbody-step-3' in extract
+    assert 'return (render_inbody_flow(2 if upload else 1), "")' in extract
+
+    review = ast.unparse(funcs["finish_review_step"])
+    assert "review_step_ready(table, snapshot)" in review
+    assert 'hj-inbody-step-4' in review
+    assert 'return (gr.update(), "")' in review
+
+    validate = ast.unparse(funcs["progress_after_validation"])
+    assert 'hj-inbody-step-5' in validate
+    assert 'Revisión completa:' in validate
+    assert 'return (render_inbody_flow(4), "")' in validate
+
+    save = ast.unparse(funcs["progress_after_save"])
+    assert 'Guardado en la base de datos:' in save
+    assert 'hj-inbody-step-1' in save
+    assert 'return (gr.update(), "", gr.update())' in save
+
+    assert APP.count("js=INBODY_NEXT_STEP_JS") == 5
+    for n in range(1, 6):
+        assert f'elem_id="hj-inbody-step-{n}"' in INBODY
+        assert f'"hj-inbody-step-{n}"' in INBODY_NEXT_STEP_JS
+        assert f"#hj-inbody-step-{n}" in INBODY_FLOW_CSS
+
+    assert "scrollIntoView" in INBODY_NEXT_STEP_JS
+    assert "prefers-reduced-motion" in INBODY_NEXT_STEP_JS
+    assert 'document.getElementById("hj-panel-inbody")' in INBODY_NEXT_STEP_JS
+
+
+def test_review_navigation_requires_actual_reviewed_measurements():
+    frame = pd.DataFrame({"reviewed": [True, False]})
+    assert review_step_ready(frame, {"sha256": "synthetic"})[0] is False
+    assert "1 mediciones pendientes" in review_step_ready(
+        frame, {"sha256": "synthetic"}
+    )[1]
+    frame.loc[1, "reviewed"] = True
+    assert review_step_ready(frame, {"sha256": "synthetic"}) == (True, "")
+    assert review_step_ready(frame, None)[0] is False
+    assert review_step_ready(pd.DataFrame(), {"sha256": "synthetic"})[0] is False
