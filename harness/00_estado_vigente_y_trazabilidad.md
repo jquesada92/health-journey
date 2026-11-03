@@ -122,16 +122,7 @@ histórica**, no se dan por aprobadas automáticamente.
   pytest de fixtures **sintéticos**, sin claves Gemini/Neon. Actualmente
   enumera explícitamente módulos de tests; no asumir que ejecuta todos los
   archivos de `tests/`. Actualizarlo al añadir suites nuevas.
-- `.github/workflows/validar-harness.yml` **no existe**; el nombre
-  real es `.github/workflows/validar-harness.yml` en algunos textos
-  históricos, mientras el archivo activo es
-  `.github/workflows/validar-harness.yml` si se renombra. **Verificar
-  el nombre exacto del repositorio antes de ejecutar**:
-  `.github/workflows/validar-harness.yml` no debe inventarse.
-- **Archivo real:** `.github/workflows/validar-harness.yml` NO.
-  El workflow verificado por inventario es
-  `.github/workflows/validar-harness.yml`; revisar
-  `.github/workflows/validar-harness.yml` solo como ejemplo histórico.
+- `.github/workflows/validar-harness.yml`: valida la estructura documental y los contratos estáticos mediante `harness/validar_reconstruccion.py`; no accede a servicios externos.
 - `harness/validar_reconstruccion.py`: comprueba estructura y los
   36 criterios CA + 10 CS heredados; requiere ampliación de validaciones
   actuales, no certifica instalación ni privacidad E2E.
