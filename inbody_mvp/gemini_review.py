@@ -512,8 +512,8 @@ def _effective_header(snapshot, header_edits):
             age = int(age_value)
         except ValueError as exc:
             raise ValueError("La edad debe ser un número entero.") from exc
-        if not 0 <= age <= 125:
-            raise ValueError("La edad debe estar entre 0 y 125 años.")
+        if not 0 <= age <= 120:
+            raise ValueError("La edad debe estar entre 0 y 120 años.")
     else:
         age = None
     effective = dict(old, exam_datetime=timestamp, person_id=person, age=age)
@@ -554,8 +554,9 @@ def validate_review(table, snapshot, header_edits=None):
         reviewed = row.get("reviewed") is True or str(row.get("reviewed")).lower() == "true"
         if not reviewed:
             raise ValueError(f"Fila {i}: marca revisado antes de guardar.")
-        # The change is entered once in the UI, then propagated for
-        # audit across all affected measurements. No schema migration.
+        # The change is entered once in the UI, then propagated as a
+        # comment across measurements. Keep was_corrected tied ONLY to
+        # measurement changes: the database validates that invariant.
         note = ("Corrección de encabezado: " + header_reason) if header_changed else ""
         combined_comment = "; ".join(part for part in (comment, note) if part)
         verified.append({
@@ -567,7 +568,7 @@ def validate_review(table, snapshot, header_edits=None):
             "value": _string(row["value"]), "unit": _string(row.get("unit")) or None,
             "original_value": base["original_value"], "original_section": base["section"],
             "original_measurement": base["measurement"], "original_unit": base["unit"],
-            "was_corrected": measurement_changed or header_changed,
+            "was_corrected": measurement_changed,
             "correction_comment": combined_comment or None,
         })
     if not verified:
