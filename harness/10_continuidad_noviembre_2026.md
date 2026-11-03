@@ -1,5 +1,8 @@
 # Continuidad de InBody Hub — 1 de noviembre de 2026
 
+> **Continuidad corregida 2026-11-03:** la aplicación actual no es solo InBody: comprende Proyecto, extractor Gemini, entrenamiento FitNotes, chat fitness, tres permisos previos al login, guía fija de cinco pasos y limpieza automática **solo al confirmar guardado exitoso**. **Nunca restablecer consentimientos al cargar otro documento**, aunque las instrucciones históricas siguientes lo sugieran. El PR #72 con prompts independientes y respuestas secuenciales está abierto; no asumirlo desplegado. Pendientes críticos: aislamiento privado InBody por propietario, comprobación real de migraciones, seguridad de Space y pruebas móviles/E2E. Priorizar [00 — estado y trazabilidad](00_estado_vigente_y_trazabilidad.md); no copiar secretos ni datos personales.
+
+
 > Registro de preservación de contexto, no certificación de implementación. **Solo documentación**. Consultar `AGENTS.md`, `harness/README.md`, `README.md`, los módulos Python, migraciones y PR concretos antes de modificar código.
 
 ## 1. Estado conocido y precauciones
