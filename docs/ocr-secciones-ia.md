@@ -1,5 +1,8 @@
 # Arquitectura de extracción InBody: detección visual de secciones + OCR + validación
 
+> **Investigación histórica/experimental (2026-11-03):** aquí se conservaron estrategias de OCR y evaluación espacial; no representan controles activos de la UI actual. Los módulos locales OCR/editor pueden seguir versionados para tests, pero el Space distribuido consume Gemini Flash para extracción de PDF/JPG/PNG. La migración del prompt InBody a un archivo separado y la corrección del chat científico están en PR #72 **sin merge**. Evaluar cualquier propuesta OCR nueva con fixtures sintéticos, tiempo/coste y regresiones, no con documentos privados. [Estado y pruebas](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 > **Estado:** experimento implementado en la rama `feature/ai-layout-first-inbody-ocr`, no validado como mejora de precisión ni desplegado en el Space de producción. **No confundir pruebas unitarias con una evaluación del modelo sobre imágenes reales.** El modo IA está desactivado por defecto.
 
 ## 1. Problema que resolvemos
