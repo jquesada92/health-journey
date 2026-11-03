@@ -1,5 +1,33 @@
 # 02 — Arquitectura técnica y flujos de datos
 
+## Arquitectura ejecutable de main, 2026-11-03
+
+```text
+Browser /privacy (3 permisos) -> auth Gradio 6 / OAuth por operación
+  -> app.py sidebar Proyecto | InBody | FitNotes | Chat
+  -> InBody PDF/imagen -> PyMuPDF/Pillow -> Gemini Flash -> Pydantic
+     -> tabla + visor -> reviewed -> guardar una vez -> Neon auditoría
+  -> CSV FitNotes -> Python/Pandas -> sets por owner_key -> Neon
+  -> dashboard InBody -> SQL autorizado -> Pandas/Plotly
+  -> chat -> acceso privado InBody + FitNotes -> contexto acotado
+     -> prompt específico -> Gemini Flash -> burbujas de sesión
+GitHub Actions -> tests/harness -> deploy allowlist -> Hugging Face Space
+```
+
+`inbody_mvp/coach_data.py` resuelve identidad InBody privada sin ID
+visible y aplica owner_key a FitNotes; eso **no** equivale a RLS
+multitenant. `inbody_mvp/prompt_loader.py` carga prompts externos
+versionados. La migración 009 de metadatos ya existe en Neon, mientras
+`semantic_metadata.py` está en PR #84 pendiente de integrar.
+
+El diagrama de OCR determinista, exportación CSV v1 y dashboard
+CSV+Neon que aparece debajo es **arquitectura legacy**, no flujo activo.
+Mapa exhaustivo de archivos en [11](11_cobertura_codigo_main.md).
+
+
+---
+
+
 > **Arquitectura vigente (2026-11-03):** [diagrama actualizado](00_estado_vigente_y_trazabilidad.md#2-arquitectura-y-tecnologías-reales). UI Gradio 6 en Hugging Face Spaces; `app.py` orquesta módulo Proyecto, InBody Gemini Flash (google-genai + PyMuPDF/Pillow + Pydantic), revisión y auditoría privada PostgreSQL/Neon (SQLAlchemy+psycopg), FitNotes CSV → Training Hub y chat Gemini sobre resúmenes autorizados. Los tres consentimientos se recogen en `/privacy` **antes** del login; el desplegable Gemini de InBody es independiente del chat. `spaces` se mantiene por compatibilidad con ZeroGPU, no para ejecutar Gemini localmente. EasyOCR/PaddleOCR y CSV multiarchivo corresponden a soporte **legacy o plan**, no al runtime principal. Los diagramas de OCR/CSV posteriores son HISTÓRICOS; no utilizarlos para reproducir sin contraste.
 
 
