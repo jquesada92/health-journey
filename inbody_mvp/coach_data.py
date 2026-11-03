@@ -38,7 +38,7 @@ def resolve_private_person_id(*, profile=None, request=None) -> str:
     Otherwise discover an ID only when all records identify one person.
     Refuse to infer a person when multiple identities are present.
     """
-    require_database_access(profile, request=request)
+    require_database_access(oauth_profile=profile, request=request)
     configured = (
         os.getenv("COACH_PERSON_ID", "").strip()
         or os.getenv("DASHBOARD_TEST_PERSON_ID", "").strip()
