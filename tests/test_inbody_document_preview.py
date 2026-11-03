@@ -110,7 +110,7 @@ def test_review_ui_has_read_only_pdf_viewer_and_reset_on_upload():
     assert "outputs=[gemini_table, gemini_status, gemini_consent, gemini_save_status]" not in source
 
 
-def test_original_viewer_is_always_visible_beside_table_after_extraction():
+def test_original_document_is_vertical_and_visible_after_extraction():
     import ast
     source = (Path(__file__).resolve().parents[1] / "app.py").read_text()
     assert 'elem_id="hj-inbody-review-layout"' in source
@@ -121,6 +121,14 @@ def test_original_viewer_is_always_visible_beside_table_after_extraction():
     )
     assert "with gr.Accordion(\n                \"Ver examen original" not in source
     assert source.count("gemini_preview = gr.Gallery(") == 1
+    assert "height=820" in source
+    assert "preview=False" in source
+    assert "visible=False," in source.split(
+        'elem_id="hj-inbody-review-layout"', 1
+    )[1].split('as inbody_review_layout:', 1)[0]
+    assert "visible=True" in source.split("def progress_after_extract(", 1)[1].split(
+        "gemini_extract.click(", 1
+    )[0]
     # Extraction output and save-clear output continue using the exact
     # same Gradio gallery, without a second copy or another AI call.
     assert "outputs=[gemini_preview, gemini_preview_status]" in source
