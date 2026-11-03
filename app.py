@@ -145,9 +145,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 label="Autorizo guardar mis datos de InBody y entrenamiento "
                       "en una base de datos",
                 value=False,
-                info="Se guardarán datos del examen (ID, fecha, mediciones, "
-                     "modelo y auditoría) o series de entrenamiento "
-                     "(fecha, ejercicio, repeticiones, peso y otros detalles).",
+                info="InBody: ID, edad, fecha, nombre del archivo, mediciones "
+                     "revisadas y respuesta de la IA. Entrenamientos: fechas, "
+                     "ejercicios, series, peso, repeticiones y comentarios.",
             )
         gr.Markdown(
             "**Importante:** al cargar un archivo, este llega al servidor de "
@@ -356,7 +356,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             concurrency_limit=1,
         )
         # Reset all previous-review state when a different file is selected.
-        # The preview runs locally and does not require Gemini consent.
+        # Preview runs on the application server and requires no Gemini consent.
         # User upload event only: clearing after a successful save must not
         # trigger another reset that hides the saved confirmation.
         def show_processed_filename(
@@ -369,7 +369,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 )
                 if message.startswith(("Este nombre de archivo ya fue procesado",
                                        "No se pudo leer", "La verificación anticipada no")):
-                    gr.Warning(message)
+                    gr.Warning(message.replace("Neon", "la base de datos"))
                     return gr.update()
                 return message.replace("Neon", "la base de datos")
             except Exception as exc:
