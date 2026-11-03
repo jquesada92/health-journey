@@ -210,7 +210,9 @@ with gr.Blocks(
     with gr.Tabs(selected="inbody", elem_id="hj-module-tabs") as module_tabs:
         with gr.Tab("InBody Upload", id="inbody"):
             from inbody_mvp.gemini_review import (
-                COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
+                COLUMNS as GEMINI_COLUMNS, DISPLAY_COLUMNS as GEMINI_DISPLAY_COLUMNS,
+                compact_review_table, header_for_review,
+                extract_gemini, review_status,
                 save_audit, get_free_inbody_models, render_document_preview,
                 check_processed_filename,
                 audit_write_enabled,
@@ -326,20 +328,52 @@ with gr.Blocks(
                     "Carga un PDF o imagen para visualizarlo."
                 )
             gr.Markdown(
-                "**Cómo revisar la tabla:** compara **original_value** (lectura de "
-                "la IA, no editable) con **value** (valor corregible), **unit** "
-                "(unidad), **measurement** y **section**. Si corriges un campo, "
-                "escribe el motivo en **correction_comment**. "
-                "Marca **reviewed** en **cada fila**, incluso si está correcta. "
-                "**was_corrected** se calcula automáticamente."
+                "#### Datos generales del examen\\n"
+                "Los datos siguientes se aplican a **todas las mediciones**. "
+                "Corrige fecha, ID o edad **una sola vez**. El nombre del "
+                "archivo original se conserva sin modificaciones."
+            )
+            with gr.Row():
+                header_exam_datetime = gr.Textbox(
+                    label="Fecha y hora del examen",
+                    placeholder="YYYY-MM-DD HH:MM:SS",
+                    info="Usa la fecha y hora exactas del reporte.",
+                    min_width=200,
+                )
+                header_person_id = gr.Textbox(
+                    label="ID de persona",
+                    info="Conserva los ceros iniciales si los tiene.",
+                    min_width=170,
+                )
+                header_age = gr.Textbox(
+                    label="Edad en el examen",
+                    info="Número entero; puede quedar vacía.",
+                    min_width=150,
+                )
+                header_filename = gr.Textbox(
+                    label="Archivo original",
+                    interactive=False,
+                    info="Nombre del archivo cargado (no editable).",
+                    min_width=210,
+                )
+            header_correction_reason = gr.Textbox(
+                label="Motivo de corrección del encabezado",
+                placeholder="Solo si corriges fecha, ID o edad",
+                info="Se registra una sola vez y se vincula a las mediciones del examen.",
+            )
+            gr.Markdown(
+                "**Cómo revisar las mediciones:** compara **original_value** "
+                "(lectura de la IA, no editable) con **value** (valor corregible), "
+                "**unit**, **measurement** y **section**. Si corriges una "
+                "medición, escribe su **correction_comment**. "
+                "Marca **reviewed** en todas las filas."
             )
             gemini_table = gr.Dataframe(
-                headers=GEMINI_COLUMNS,
-                datatype=["str","str","str","number","str","str","str","str",
-                          "str","bool","str","bool"],
+                headers=GEMINI_DISPLAY_COLUMNS,
+                datatype=["str", "str", "str", "str", "str", "bool", "str", "bool"],
                 type="pandas", interactive=True,
-                static_columns=[0,1,2,3,8,9],
-                label="Mediciones extraídas: revisa y edita cada fila",
+                static_columns=[4, 5],
+                label="Mediciones: revisa y edita cada fila",
             )
             def extract_with_popup(
                 state, consent, model, request: gr.Request | None = None,
@@ -353,10 +387,16 @@ with gr.Blocks(
                         raise ValueError(
                             "Selecciona un modelo Gemini disponible antes de extraer."
                         )
-                    return extract_gemini(state, consent, selected_model=model)
+                    frame, snapshot, message = extract_gemini(
+                        state, consent, selected_model=model
+                    )
+                    return (
+                        compact_review_table(frame), snapshot, message,
+                        *header_for_review(snapshot),
+                    )
                 except Exception as exc:
                     popup_error(exc, "No se pudo extraer el reporte.")
-                    return keep_components(3)
+                    return keep_components(8)
 
             def progress_after_extract(snapshot, upload):
                 if snapshot is not None:
@@ -366,7 +406,11 @@ with gr.Blocks(
             gemini_extract.click(
                 fn=extract_with_popup,
                 inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
-                outputs=[gemini_table, gemini_snapshot, gemini_status],
+                outputs=[
+                    gemini_table, gemini_snapshot, gemini_status,
+                    header_exam_datetime, header_filename, header_person_id,
+                    header_age, header_correction_reason,
+                ],
                 concurrency_limit=1,
             ).then(
                 fn=progress_after_extract,
@@ -383,9 +427,21 @@ with gr.Blocks(
             )
             gemini_check = gr.Button("Validar revisión", variant="secondary")
             gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
-            def review_with_popup(table, snapshot):
+            def exam_header_edits(exam_datetime, filename, person_id, age, reason):
+                return {
+                    "exam_datetime": exam_datetime, "filename": filename,
+                    "person_id": person_id, "age": age,
+                    "correction_comment": reason,
+                }
+
+            def review_with_popup(table, snapshot, exam_datetime, filename,
+                                  person_id, age, reason):
                 try:
-                    result = review_status(table, snapshot)
+                    result = review_status(
+                        table, snapshot, header_edits=exam_header_edits(
+                            exam_datetime, filename, person_id, age, reason
+                        ),
+                    )
                     if result.startswith("Revisión pendiente:"):
                         gr.Warning(result.removeprefix("Revisión pendiente:").strip())
                         return gr.update()
@@ -403,7 +459,11 @@ with gr.Blocks(
 
             gemini_check.click(
                 fn=review_with_popup,
-                inputs=[gemini_table, gemini_snapshot],
+                inputs=[
+                    gemini_table, gemini_snapshot, header_exam_datetime,
+                    header_filename, header_person_id, header_age,
+                    header_correction_reason,
+                ],
                 outputs=[gemini_review_status],
             ).then(
                 fn=progress_after_validation,
@@ -424,6 +484,15 @@ with gr.Blocks(
                 outputs=[inbody_flow, gemini_review_status],
                 show_progress="hidden", queue=False,
             )
+            for field in (
+                header_exam_datetime, header_person_id, header_age,
+                header_correction_reason,
+            ):
+                field.change(
+                    fn=progress_after_table_edit,
+                    outputs=[inbody_flow, gemini_review_status],
+                    show_progress="hidden", queue=False, api_name=False,
+                )
             gr.Markdown(
                 "### 5. Guarda el examen en la base de datos\n"
                 "Activa el **permiso para guardar datos** en la sección de "
