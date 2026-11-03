@@ -1,5 +1,8 @@
 # Hito de la semana 2 · Health Journey
 
+> **Documento histórico académico:** registra un hito previo, no el alcance activo en `main` del 2026-11-03. Para el menú actual de cuatro módulos, Gemini InBody, FitNotes, chat, privacidad prelogin, criterios y tecnologías, usar [inventario vigente](../harness/00_estado_vigente_y_trazabilidad.md). No confundir la entrega de una semana con pruebas de seguridad, CI ni funcionamiento del Space.
+
+
 ## Contexto breve para el debate
 
 Health Journey es un proyecto modular orientado a un asistente virtual que ayude a dar seguimiento a hábitos, entrenamientos y objetivos de bienestar mediante información confiable reunida en un mismo lugar. La visión contempla tres fases: (1) consolidación de InBody, (2) integración de logs de entrenamiento y macronutrientes, y (3) incorporación futura de exámenes clínicos. Para el reto de OBS, empezamos **solo por InBody**, porque los reportes pueden llegar desde establecimientos distintos en PDF de texto, PDF escaneados, PNG o JPG.
