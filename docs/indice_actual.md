@@ -1,6 +1,18 @@
-> **Actualización de consolidación (2026-11-03):** este documento conserva la fotografía de la auditoría original realizada sobre `main` (commit 5f8ea83). Los PR #71, #72, #74 y #75 ya se fusionaron posteriormente. El PR consolidado actual integra la auditoría de #73, las correcciones en línea de #76 y la verificación de duplicados antes de Gemini. Las descripciones de PR pendientes de fusión incluidas en secciones históricas deben interpretarse respecto a la fecha de aquella auditoría. El código de la rama consolidada y sus pruebas constituyen la referencia funcional del cambio; el Space aún requiere validación E2E.\n\n# Índice de documentación y estado de funcionalidades · Health Journey
+# Índice de documentación y estado de funcionalidades · Health Journey
 
-**Corte de auditoría:** 2026-11-03 UTC, `main` `5f8ea83a5041`.
+
+**Fuente normativa principal:**
+[00 — estado vigente](../harness/00_estado_vigente_y_trazabilidad.md)
+y [11 — matriz exhaustiva de archivos](../harness/11_cobertura_codigo_main.md).
+El corte audita 35 artefactos de la app, 55 tests, 17 docs, 10 SQL/DDL
+y 3 workflows en `main`. El código incluye cuatro módulos, InBody con
+cuatro etapas, un único guardar y Gemini chat multiturno con
+InBody+FitNotes. El catálogo semántico de Neon (35 conceptos, 47 alias,
+24 columnas) está aplicado, pero el lector se integra mediante PR #84.
+No confundir CI con Space E2E ni las propuestas OCR/CSV antiguas con UI.
+
+
+**Corte de auditoría:** 2026-11-03 UTC, `main` `4944fbe5355d66da94290c510e5e0393487f2918`.
 Leer primero [harness/00 — Estado vigente y trazabilidad](../harness/00_estado_vigente_y_trazabilidad.md).
 La existencia de un documento no demuestra que su funcionalidad esté
 activa, desplegada o validada E2E. Los históricos no deben usarse como
@@ -10,7 +22,7 @@ pasos operativos sin contrastar código y permisos.
 | --- | --- | --- |
 | [README raíz](../README.md) | Portada y configuración Hugging Face | MAIN; textos históricos internos pueden describir fases antiguas |
 | [AGENTS.md](../AGENTS.md) | Guardrails para agentes y continuidad | Vigencia subordinada al código y al harness 00 |
-| [ai-coach.md](ai-coach.md) | Asistente fitness, comparabilidad y privacidad | MAIN con limitaciones del chat; conversación multiturno y prompts por archivo **PR #72 pendiente** |
+| [ai-coach.md](ai-coach.md) | Asistente fitness, comparabilidad y privacidad | MAIN con limitaciones del chat; prompts en archivos y chat multiturno ya están en MAIN; E2E pendiente |
 | [training-hub.md](training-hub.md) | FitNotes CSV → Neon, series por usuario, idempotencia | Código en MAIN; no afirmar datos importados ni E2E |
 | [gemini-measurement-audit.md](gemini-measurement-audit.md) | Auditoría de mediciones Gemini y revisión | Vigente como contrato; verificar DDL y funciones en entorno |
 | [neon-postgres.md](neon-postgres.md) | Esquema, conexión y notas OAuth | Contiene procedimientos históricos CSV/OCR; contrastar con migraciones 004–008 |
@@ -47,7 +59,7 @@ cada uno debe revisarse antes de declararse entregado.
 - **EasyOCR/PaddleOCR/editores espaciales**: código histórico fuera del
   runtime distribuido principal, con tests heredados.
 - **Google Gemini prompts independientes + turnos reales**: implementado
-  en PR #72 abierto, **todavía no en `main`** en este corte.
+  ya fusionados en `main`; las referencias PR anteriores son históricas.
 - **RAG científico**: no reivindicar integración de evidencia recuperada
   hasta validarla expresamente; `fitness_evidence.py` existe en `main`
   pero no equivale por sí solo a un servicio de recuperación bibliográfica.
