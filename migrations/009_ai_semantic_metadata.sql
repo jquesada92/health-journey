@@ -181,3 +181,33 @@ ON CONFLICT (source_table, field_name) DO NOTHING;
 REVOKE ALL ON public.hj_measurement_aliases, public.hj_ai_field_dictionary FROM PUBLIC;
 
 GRANT SELECT ON public.hj_measurement_aliases, public.hj_ai_field_dictionary TO health_journey_app, health_journey_runtime;
+
+
+-- Cobertura adicional de las etiquetas observadas. Las fórmulas desconocidas
+-- se registran como no verificadas, sin equivalencias clínicas inventadas.
+INSERT INTO public.hj_measurement_catalog
+(canonical_code, display_label_es, display_label_en, categoria, dimension,
+ canonical_unit, comparability_rule, descripcion_medida,
+ interpretation_guidance, limitations)
+VALUES
+  ('waist_circumference', 'Circunferencia de cintura', 'Waist Circumference', 'antropometría', 'longitud', 'cm', 'Mismo método, equipo y unidad, respetando si es medida directa o estimada.', 'Perímetro de cintura presentado en el reporte InBody, su origen depende del equipo.', 'No comparar directamente con una medición con cinta sin conocer el método.', 'No diagnosticar riesgo metabólico de una sola estimación.'),
+  ('waist_hip_ratio', 'Relación cintura-cadera', 'Waist-Hip Ratio', 'antropometría', 'razón', NULL, 'Misma definición, método y equipo.', 'Relación entre circunferencia de cintura y cadera reportada por el dispositivo.', 'Distinguir de porcentaje de grasa y de centímetros de cintura.', 'Sin contexto de método y referencias no permite diagnóstico.'),
+  ('visceral_fat_level', 'Nivel de grasa visceral', 'Visceral Fat Level', 'grasa visceral', 'escala propietaria', NULL, 'Comparar solo la misma escala y modelo de equipo.', 'Indicador estimado del dispositivo de grasa visceral expresado como nivel o puntuación.', 'Describir tendencia conservando la escala reportada, no convertir a superficie o volumen.', 'No sustituye tomografía ni permite diagnóstico individual.'),
+  ('weight_control', 'Control de peso sugerido', 'Weight Control', 'recomendación del equipo', 'masa', 'kg', 'Valor objetivo sugerido, no una medición del cuerpo.', 'Cambio de peso recomendado por el algoritmo del equipo.', 'Distinguir recomendación de progreso observado, respetar signos.', 'No usar como indicación nutricional obligatoria.'),
+  ('inbody_mass_index_unverified', 'InBody Mass Index sin definición confirmada', 'InBody Mass Index', 'índice del reporte', 'fórmula no verificada', NULL, 'No comparar con BMI ni con otro índice sin confirmar método.', 'Nombre de índice proporcionado por el reporte, definición específica no verificada.', 'Solicitar comprobación del documento y el modelo antes de interpretarlo.', 'La etiqueta puede ser propietaria o error de OCR, no inferir fórmula.'),
+  ('inbody_metabolic_score_unverified', 'InBody Metabolic Score sin definición confirmada', 'InBody Metabolic Score', 'puntuación del reporte', 'fórmula no verificada', NULL, 'No equiparar a tasa metabólica basal.', 'Nombre de puntaje metabólico del reporte, definición no confirmada.', 'Describir solo si se conserva unidad y escala del mismo equipo.', 'Posible índice propietario o lectura OCR no validada.'),
+  ('informatical_metabolic_index_unverified', 'Informatical Metabolic Index sin definición confirmada', 'Informatical Metabolic Index', 'índice del reporte', 'fórmula no verificada', NULL, 'No equiparar a IMC, BMR o puntaje InBody estándar.', 'Etiqueta observada en reportes, significado no verificado.', 'Priorizar la comprobación de la imagen original antes de discutir el índice.', 'Posible error OCR, no atribuir propiedades fisiológicas.'),
+  ('informatical_muscle_evaluation_unverified', 'Informatical Muscle Evaluation sin definición confirmada', 'Informatical Muscle Evaluation', 'índice del reporte', 'fórmula no verificada', NULL, 'No equiparar a fuerza o masa muscular.', 'Etiqueta observada en reportes, fórmula no verificada.', 'Evitar conclusiones musculares a partir de un índice sin definición.', 'Posible error OCR o índice propietario de fabricante.')
+ON CONFLICT (canonical_code) DO NOTHING;
+
+INSERT INTO public.hj_measurement_aliases (alias_normalized, canonical_code)
+VALUES
+  ('waist circumference', 'waist_circumference'),
+  ('waist-hip ratio', 'waist_hip_ratio'),
+  ('visceral fat level', 'visceral_fat_level'),
+  ('weight control', 'weight_control'),
+  ('inbody mass index', 'inbody_mass_index_unverified'),
+  ('inbody metabolic score', 'inbody_metabolic_score_unverified'),
+  ('informatical metabolic index', 'informatical_metabolic_index_unverified'),
+  ('informatical muscle evaluation', 'informatical_muscle_evaluation_unverified')
+ON CONFLICT (alias_normalized) DO NOTHING;
