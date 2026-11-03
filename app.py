@@ -26,7 +26,10 @@ from inbody_mvp.public_dashboard import (
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
-from inbody_mvp.inbody_flow import INBODY_FLOW_CSS, render_inbody_flow
+from inbody_mvp.inbody_flow import (
+    INBODY_FLOW_CSS, INBODY_NEXT_STEP_JS, render_inbody_flow,
+    review_step_ready,
+)
 from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
 from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
 from inbody_mvp.project_overview import PROJECT_OVERVIEW
@@ -251,6 +254,7 @@ with gr.Blocks(
             )
             # Top-level viewport navbar is displayed only for InBody.
             # #hj-panel-inbody reserves vertical space for its fixed height.
+            inbody_navigation_target = gr.State("")
             gr.Markdown("## InBody · Registrar un examen", elem_id="hj-inbody-title")
             gr.Markdown(
                 "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
@@ -262,7 +266,8 @@ with gr.Blocks(
                 "Selecciona un archivo **PDF, JPG o PNG** de InBody. "
                 "La aplicación mostrará una vista previa y, si tienes una sesión "
                 "autorizada, comprobará si el nombre del archivo ya se procesó. "
-                "**Todavía no se enviará a la IA ni se guardará en la base de datos.**"
+                "**Todavía no se enviará a la IA ni se guardará en la base de datos.**",
+                elem_id="hj-inbody-step-1"
             )
             gemini_upload = gr.File(
                 label="Seleccionar examen InBody (PDF o imagen)",
@@ -278,7 +283,8 @@ with gr.Blocks(
                     "Comprueba que activaste el **permiso para enviar datos a la IA** "
                     "en el apartado de privacidad, antes de continuar. "
                     "Elige un modelo y pulsa **Extraer mediciones**. "
-                    "Google Gemini recibirá el documento solo cuando solicites la extracción."
+                    "Google Gemini recibirá el documento solo cuando solicites la extracción.",
+                    elem_id="hj-inbody-step-2"
                 )
                 with gr.Row():
                     gemini_model_selector = gr.Dropdown(
@@ -330,7 +336,8 @@ with gr.Blocks(
                 "Compara los valores extraídos con el examen original. "
                 "**No guardes datos sin comprobarlos.** "
                 "La tabla ocupa todo el ancho de la pantalla para facilitar "
-                "su lectura y edición, también desde el celular."
+                "su lectura y edición, también desde el celular.",
+                elem_id="hj-inbody-step-3"
             )
             with gr.Accordion(
                 "Ver examen original y comparar las mediciones",
@@ -403,6 +410,11 @@ with gr.Blocks(
                 static_columns=[4, 5],
                 label="Mediciones: revisa y edita cada fila",
             )
+            # Manual reviews can take several edits; advance only when
+            # the user explicitly finishes reviewing all the rows.
+            gemini_review_continue = gr.Button(
+                "Continuar a validación", variant="secondary",
+            )
             def extract_with_popup(
                 state, consent, model, request: gr.Request | None = None,
             ):
@@ -428,8 +440,8 @@ with gr.Blocks(
 
             def progress_after_extract(snapshot, upload):
                 if snapshot is not None:
-                    return render_inbody_flow(3)
-                return render_inbody_flow(2 if upload else 1)
+                    return render_inbody_flow(3), "hj-inbody-step-3"
+                return render_inbody_flow(2 if upload else 1), ""
 
             gemini_extract.click(
                 fn=extract_with_popup,
@@ -451,7 +463,8 @@ with gr.Blocks(
                 "Cuando termines de corregir la tabla y marcar **reviewed** en "
                 "todas las filas, pulsa **Validar revisión**. "
                 "Si falta algo, aparecerá un único aviso con lo que debes corregir. "
-                "**Este paso no guarda ni envía datos a la base de datos.**"
+                "**Este paso no guarda ni envía datos a la base de datos.**",
+                elem_id="hj-inbody-step-4"
             )
             gemini_check = gr.Button("Validar revisión", variant="secondary")
             gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
@@ -528,7 +541,8 @@ with gr.Blocks(
                 "Se almacenarán las mediciones revisadas y el registro de auditoría. "
                 "Antes de guardarlas, se verifican duplicados por archivo, "
                 "identificador, fecha y medición. "
-                "El permiso no publica tu examen ni envía nuevos datos a la IA."
+                "El permiso no publica tu examen ni envía nuevos datos a la IA.",
+                elem_id="hj-inbody-step-5"
             )
             if not audit_write_enabled():
                 gr.Markdown(
