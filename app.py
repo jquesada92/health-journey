@@ -633,8 +633,11 @@ with gr.Blocks(
             def progress_after_save(message):
                 if (isinstance(message, str)
                         and message.startswith("Guardado en la base de datos:")):
-                    return render_inbody_flow(5, saved=True)
-                return gr.update()
+                    # Save succeeded: the 16 exam fields were cleared by
+                    # save_review_and_clear. Reset to a fresh capture and
+                    # return to the upload section. Confirmation was a toast.
+                    return render_inbody_flow(1), "hj-inbody-step-1", ""
+                return gr.update(), "", gr.update()
 
             gemini_save.click(
                 fn=save_review_and_clear,
@@ -655,8 +658,12 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_save,
                 inputs=[gemini_save_status],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target, gemini_save_status],
                 show_progress="hidden",
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
             # Reset all previous-review state when a different file is selected.
             # Preview runs on the application server and requires no Gemini consent.
@@ -721,24 +728,17 @@ with gr.Blocks(
                 inputs=[gemini_upload_state],
                 outputs=[gemini_file_status],
             ).then(
-                fn=lambda state: render_inbody_flow(2 if state else 1),
+                fn=lambda state: (
+                    render_inbody_flow(2 if state else 1),
+                    "hj-inbody-step-2" if state else "",
+                ),
                 inputs=[gemini_upload_state],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target],
                 show_progress="hidden",
-            )
-            inbody_clear = gr.ClearButton(
-                [gemini_upload, gemini_upload_state, gemini_snapshot,
-                 gemini_preview, gemini_preview_status, gemini_table, gemini_status,
-                 gemini_save_status, gemini_review_status,
-                 gemini_overwrite, gemini_file_status,
-                 header_exam_datetime, header_filename, header_person_id,
-                 header_age, header_correction_reason],
-                value="Limpiar examen (conservar permisos)",
-            )
-            inbody_clear.click(
-                fn=lambda: render_inbody_flow(1),
-                outputs=[inbody_flow],
-                show_progress="hidden", queue=False,
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
             with gr.Accordion("Progreso histórico de InBody", open=False):
                 gr.Markdown(
