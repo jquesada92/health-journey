@@ -121,7 +121,7 @@ OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(
     title="Health Journey", analytics_enabled=False,
-    delete_cache=(60, 60), css=INBODY_FLOW_CSS + SIDEBAR_CSS,
+    delete_cache=(60, 60),
 ) as demo:
     gr.Markdown("# Health Journey · Asistente virtual de fitness y bienestar")
     # Infrastructure-only: this invisible registered handler is required by
@@ -1146,6 +1146,7 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", "7860")),
         share=False,
         ssr_mode=False,
+        css=INBODY_FLOW_CSS + SIDEBAR_CSS,
         auth=authenticate_master_demo if password_login_enabled() else None,
         auth_message=LOGIN_AUTH_MESSAGE if password_login_enabled() else None,
         app_kwargs={
