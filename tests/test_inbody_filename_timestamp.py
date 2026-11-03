@@ -18,7 +18,7 @@ from PIL import Image
 from inbody_mvp.filename_timestamp import (
     exam_datetime_from_filename, normalize_report_exam_datetime,
 )
-from inbody_mvp import gemini_review
+from inbody_mvp import gemini_review, upload_preflight
 
 ROOT = Path(__file__).resolve().parents[1]
 
