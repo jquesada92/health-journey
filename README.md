@@ -8,6 +8,38 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Estado de implementación y documentación verificada (2026-11-03 UTC)
+
+Este README conserva notas históricas. Para el estado funcional actual, usar
+**[inventario y criterios F-01…F-15 / AC-V-01…AC-V-12](harness/00_estado_vigente_y_trazabilidad.md)**,
+[índice de documentación](docs/indice_actual.md) y el código del commit base
+`main` `5f8ea83a5041`.
+
+**En `main`:** cuatro módulos verticales (Proyecto inicial, InBody Gemini,
+Training Hub FitNotes CSV y Chat fitness); extracción con Gemini Flash,
+revisión y auditoría privada en Neon, panel de tendencias Plotly dentro
+de InBody, selector Gemini independiente en extractor/chat, navbar fija
+con cinco pasos y reset al guardar correctamente. Los **tres consentimientos
+optativos se preguntan en `/privacy` ANTES del login**, se restauran en
+`gr.State` y no se vuelven a solicitar mediante checkboxes dentro de Gradio.
+El frontend es Gradio 6 en Hugging Face, el servidor Python usa Pydantic,
+Pandas, Plotly, PyMuPDF/Pillow, google-genai, SQLAlchemy/psycopg y Neon.
+
+**Trabajo pendiente de merge:** el PR #72 implementa prompts separados
+para extractor/chat y conversación Gemini multiturno con respuesta secuencial;
+CI pasó (317 pruebas), pero **todavía no forma parte de `main`** en este
+corte. El modelo actual no debe presentarse como un buscador de
+publicaciones científicas, aunque `fitness_evidence.py` exista en el repo.
+EasyOCR/PaddleOCR, exportación CSV de siete columnas y dashboard CSV+Neon
+son componentes históricos, compatibilidad o planes, no el recorrido
+principal de la interfaz.
+
+**Estado de validación:** GitHub Actions completó sincronización de `main`
+a Hugging Face, pero aquí no se realizó una prueba E2E de navegador,
+Gemini real o base de datos. El aislamiento InBody por dueño es deuda
+P0 antes de ofrecer multiusuario.
+
+
 ## Health Journey · motivación y propósito
 
 Health Journey integra **mediciones InBody** y **registros de entrenamiento**
@@ -23,12 +55,11 @@ en un panel desplegable. Se retiró la entrada independiente de Historial y
 el menú horizontal con sus controles de overflow. Esto no borra los datos
 históricos de Neon ni interfiere con el análisis del asistente.
 
-La nueva sección de chat, implementada en la rama
-`feature/ai-coach-simplified-navigation-20261102`, utiliza **Google Gemini
-Flash** para examinar resúmenes privados, no documentos completos, y
-recomendar ajustes con base en objetivos y restricciones que el usuario
-introduce. **No se ha fusionado ni desplegado** esta rama; no se afirma
-disponibilidad en el Space antes de verificarla.
+El asistente fitness ya existe en el código de `main` y utiliza
+**Google Gemini Flash** para analizar resúmenes privados autorizados,
+no documentos originales. Su conversación secuencial corregida y sus
+prompts en archivos independientes son cambios del PR #72, aún pendientes
+de fusión y verificación visual E2E.
 
 **Plataforma:** Gradio en Hugging Face Spaces, Python, Gemini API,
 Neon PostgreSQL, SQLAlchemy/psycopg, Pydantic, Pandas, PyMuPDF, Pillow
@@ -62,14 +93,13 @@ servidor también quedan invalidadas. No se comparte consentimiento entre
 navegadores o usuarios.
 
 Gradio conserva la autenticación original mediante
-`authenticate_master_demo`. Al iniciar sesión, los checkboxes de la
-aplicación restauran **las opciones declaradas antes del login**. Pueden
-modificarse durante la sesión; sus eventos actualizan el registro seguro del
-servidor. Los callbacks de extracción Gemini y los de guardado InBody y
-FitNotes requieren tanto el consentimiento actual de la interfaz como el
-permiso guardado en el servidor, evitando habilitarlos con parámetros
-forjados. Sin cookie válida no se puede acceder al login ni a las rutas
-de procesamiento de Gradio.
+`authenticate_master_demo`. Tras iniciar sesión, los permisos declarados
+antes del login se restauran en **tres estados internos `gr.State`**, sin
+checkboxes duplicados. Los callbacks de extracción Gemini, guardado InBody
+y FitNotes y el chat verifican la elección en el servidor además del estado
+de sesión. Para modificar una elección se inicia una nueva sesión desde
+`/privacy`; no se presentan nuevas preguntas dentro de la aplicación.
+Sin cookie válida no se accede al login ni a los endpoints privados.
 
 Esta pantalla es un aviso de privacidad práctico, **no una declaración de
 cumplimiento legal completo**. Antes de producción con múltiples usuarios,
@@ -174,7 +204,9 @@ Se conserva la verificación de consentimiento en servidor y la validación
 previa a cualquier escritura. Los mensajes de pantalla dicen
 **«base de datos»** sin nombres de proveedores de almacenamiento.
 
-## Consentimiento de sesión para IA y almacenamiento (noviembre de 2026)
+## Histórico: consentimiento de sesión anterior (pre-privacy)
+
+> **No normativo.** Esta sección conserva el diseño antiguo de dos checkboxes; el estado actual exige tres permisos antes del login. Ver [estado vigente](harness/00_estado_vigente_y_trazabilidad.md).
 
 La interfaz presenta dos decisiones **independientes**, ambas desmarcadas al entrar:
 
