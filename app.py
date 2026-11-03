@@ -1465,13 +1465,11 @@ with gr.Blocks(
             figures, exam_count = render_coach_trend_figures(trend_rows)
             selected_dates = first_and_last_ten_exam_dates(trend_rows)
             status = (
-                f"**{exam_count} fechas** · Primera: "
+                f"**{exam_count} fechas** · 1.ª: "
                 f"**{selected_dates[0]:%d/%m/%Y}** · Última: "
                 f"{selected_dates[-1]:%d/%m/%Y}. "
-                "Se muestra la primera prueba más hasta 10 recientes. "
-                "El eje horizontal separa pruebas por posición, no por "
-                "tiempo transcurrido. "
-                f"Fuente: {source}."
+                "Eje por prueba, no por tiempo transcurrido. "
+                f"{source}."
                 if selected_dates else
                 "No hay pruebas InBody revisadas o confirmadas para graficar."
             )
