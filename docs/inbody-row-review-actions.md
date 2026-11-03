@@ -1,3 +1,24 @@
+## Presentación de errores — ajuste del 3 de noviembre de 2026
+
+El navegador ya no debe mostrar pequeñas marcas o recuadros de error
+por componente de Gradio: el estilo suprime únicamente
+`div.validation-error`, sin ocultar el editor, los controles, los
+rótulos ni el popup global. Las incidencias de extracción, cambios,
+revisión y guardado se notifican por una sola alerta `gr.Warning`
+cuando el usuario debe actuar.
+
+La confirmación de la revisión mantiene su resultado interno oculto
+para controlar el paso siguiente, pero una validación fallida borra
+cualquier resultado de éxito anterior. Para archivos ya procesados
+o no verificables se conserva solo el mensaje del archivo, sin un
+segundo aviso redundante. La validación y la protección de auditoría
+siguen ejecutándose: ocultar una marca visual no elimina controles
+de integridad ni permisos.
+
+**Verificación:** pruebas de contratos sintéticas y revisión visual
+pendiente en Hugging Face, móvil y escritorio. El cambio no altera
+persistencia Neon ni solicitudes Gemini.
+
 # Revisión InBody: correcciones en la tabla y Guardar cambios
 
 **3 de noviembre de 2026.** La revisión es un paso previo al guardado
