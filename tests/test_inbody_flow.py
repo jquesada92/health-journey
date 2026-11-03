@@ -33,31 +33,31 @@ class _StepParser(HTMLParser):
             self.steps.append(dict(attrs))
 
 
-@pytest.mark.parametrize("active", range(1, 6))
+@pytest.mark.parametrize("active", range(1, 5))
 def test_exactly_one_active_step_and_preceding_steps_completed(active):
     markup = render_inbody_flow(active)
     parser = _StepParser()
     parser.feed(markup)
-    assert len(parser.steps) == len(STEPS) == 5
+    assert len(parser.steps) == len(STEPS) == 4
     assert sum("current" in item["class"] for item in parser.steps) == 1
     assert sum("done" in item["class"] for item in parser.steps) == active - 1
     assert parser.steps[active - 1].get("aria-current") == "step"
-    assert f"Paso {active} de 5" in markup
+    assert f"Paso {active} de 4" in markup
     assert '<ol class="hj-flow-track">' in markup
     assert all(label in markup for label in STEPS)
 
 
 def test_save_success_shows_all_steps_completed_without_active_step():
-    markup = render_inbody_flow(5, saved=True)
+    markup = render_inbody_flow(4, saved=True)
     parser = _StepParser()
     parser.feed(markup)
-    assert len(parser.steps) == 5
+    assert len(parser.steps) == 4
     assert all("done" in item["class"] for item in parser.steps)
     assert all("aria-current" not in item for item in parser.steps)
     assert "Examen guardado" in markup
 
 
-@pytest.mark.parametrize("invalid", [0, 6, -1, "3", False])
+@pytest.mark.parametrize("invalid", [0, 5, -1, "3", False])
 def test_invalid_stage_fails_closed(invalid):
     with pytest.raises(ValueError):
         render_inbody_flow(invalid)
@@ -71,7 +71,7 @@ def test_fixed_navbar_is_viewport_attached_and_hides_outside_inbody():
     assert "padding-top: 180px !important;" in INBODY_FLOW_CSS
     assert "padding-top: 146px !important;" in INBODY_FLOW_CSS
     assert "anchor-name: --hj-main-content;" in INBODY_FLOW_CSS
-    assert "grid-template-columns: repeat(5, minmax(0, 1fr))" in INBODY_FLOW_CSS
+    assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in INBODY_FLOW_CSS
     assert "@media (max-width: 600px)" in INBODY_FLOW_CSS
     assert '<nav aria-label="Progreso del registro InBody"' in render_inbody_flow()
     assert 'with gr.Column(visible=False, elem_id="hj-inbody-fixedbar") as inbody_navbar:' in APP
@@ -96,7 +96,7 @@ def test_fixed_navbar_is_viewport_attached_and_hides_outside_inbody():
 def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
     assert "inbody_flow = gr.HTML(" in APP
     assert "fn=progress_after_extract" in INBODY
-    assert "fn=progress_after_validation" in INBODY
+    assert "fn=progress_after_validation" not in INBODY
     assert "fn=progress_after_save" in INBODY
     assert "gemini_table.input(" in INBODY
     assert "fn=progress_after_table_edit" in INBODY
@@ -106,10 +106,10 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
     assert "gemini_table.select(" not in INBODY
     assert "delete_review_row.click(" not in INBODY
     assert "apply_row_correction.click(" not in INBODY
-    assert INBODY.count('"Guardar cambios"') == 1
+    assert INBODY.count('"Guardar cambios"') == 0
     assert INBODY.count('"Validar revisión"') == 0
     assert "fn=sync_inline_table_edit" in INBODY
-    assert "outputs=[gemini_table, gemini_snapshot, gemini_review_status]" in INBODY
+    assert "table, snapshot = reconcile_native_review_rows(table, snapshot)" in INBODY
     assert "INBODY_NEXT_STEP_JS" in APP
 
     tree = ast.parse(APP)
@@ -121,10 +121,10 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
     assert "if snapshot is not None" in upload
     assert "render_inbody_flow(3)" in upload
     assert "render_inbody_flow(2 if upload else 1)" in upload
-    review = ast.unparse(functions["progress_after_validation"])
-    assert "Revisión completa:" in review
-    assert "render_inbody_flow(5)" in review
-    assert "render_inbody_flow(4)" in review
+    assert "progress_after_validation" not in functions
+    inline = ast.unparse(functions["sync_inline_table_edit"])
+    assert "review_step_ready(updated, new_snapshot)" in inline
+    assert "render_inbody_flow(4 if ready else 3)" in inline
     edit = ast.unparse(functions["progress_after_table_edit"])
     assert "render_inbody_flow(3)" in edit
     assert "Revisión pendiente:" in edit
@@ -181,18 +181,17 @@ def test_auto_advance_only_after_successful_stage_completion():
 
     assert "finish_review_step" not in funcs
     assert "gemini_review_continue" not in INBODY
-    validate = ast.unparse(funcs["progress_after_validation"])
-    assert 'hj-inbody-step-5' in validate
-    assert 'Revisión completa:' in validate
-    assert "render_inbody_flow(4)" in validate
+    assert "progress_after_validation" not in funcs
+    save_action = ast.unparse(funcs["save_review_and_clear"])
+    assert "reconcile_native_review_rows(table, snapshot)" in save_action
 
     save = ast.unparse(funcs["progress_after_save"])
     assert 'Guardado en la base de datos:' in save
     assert 'hj-inbody-step-1' in save
     assert "gr.update()" in save
 
-    assert APP.count("js=INBODY_NEXT_STEP_JS") == 4
-    for n in range(1, 6):
+    assert APP.count("js=INBODY_NEXT_STEP_JS") == 3
+    for n in range(1, 5):
         assert f'elem_id="hj-inbody-step-{n}"' in INBODY
         assert f'"hj-inbody-step-{n}"' in INBODY_NEXT_STEP_JS
         assert f"#hj-inbody-step-{n}" in INBODY_FLOW_CSS
