@@ -447,6 +447,25 @@ def correct_review_value(table, snapshot, row_index, value, reason):
     return frame
 
 
+def sync_review_corrections(table, snapshot):
+    """Reconcile inline edits with original AI values without autoapproving.
+
+    Numeric strings are not coerced to float: '-0.370' and '8.20' retain
+    their literal precision. A changed value (or another edited measurement
+    field) always takes precedence over a manually unchecked flag. A flag
+    cannot be forced True when the measurement still matches the original;
+    this invariant is also enforced by the audit writer.
+    """
+    frame = _mutation_review_grid(table, snapshot)
+    for index, original in enumerate(snapshot["rows"]):
+        changed = any(
+            _string(frame.at[index, key]) != _string(original.get(key))
+            for key in ("value", "unit", "section", "measurement")
+        )
+        frame.at[index, "was_corrected"] = bool(changed)
+    return frame
+
+
 def compact_review_table(table):
     """Hide repeated exam metadata from the editable measurements grid."""
     frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=COLUMNS)
@@ -523,10 +542,8 @@ def _effective_header(snapshot, header_edits):
 def validate_review(table, snapshot, header_edits=None):
     if not snapshot:
         raise ValueError("Primero extrae un documento.")
-    frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=DISPLAY_COLUMNS)
+    frame = sync_review_corrections(table, snapshot)
     original = snapshot["rows"]
-    if len(frame) != len(original):
-        raise ValueError("No se permite agregar o eliminar filas de auditoría.")
     header, header_changed, header_reason = _effective_header(snapshot, header_edits)
     verified = []
     for i, (row, base) in enumerate(zip(frame.to_dict("records"), original), start=1):
