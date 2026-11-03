@@ -727,6 +727,50 @@ def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
             "logs del Space, sin compartir datos personales ni claves.",
         )) from None
 
+
+def preflight_processed_upload(upload_state, *, profile=None, request=None) -> dict:
+    """Check an uploaded filename against authorized private audit history.
+
+    The file is never sent to Gemini. Only its filename goes to the
+    parameterized database existence lookup. A local SHA-256 binds this
+    decision to exactly the bytes that were selected; no hash or contents
+    are transmitted to the database by this check.
+    """
+    if not isinstance(upload_state, dict):
+        return {
+            "status": "empty", "sha256": None,
+            "message": "Selecciona un archivo para verificar duplicados.",
+        }
+    name = upload_state.get("filename")
+    data = upload_state.get("data")
+    if not isinstance(name, str) or not name or not isinstance(data, bytes):
+        return {
+            "status": "empty", "sha256": None,
+            "message": "El archivo seleccionado es inválido. Cárgalo de nuevo.",
+        }
+    fingerprint = hashlib.sha256(data).hexdigest()
+    message = check_processed_filename(
+        upload_state, profile=profile, request=request
+    )
+    if message.startswith("Este nombre de archivo ya fue procesado"):
+        return {
+            "status": "duplicate", "sha256": fingerprint,
+            "message": "Archivo ya procesado. Extracción bloqueada para ahorrar tokens.",
+        }
+    if message.startswith("Archivo nuevo:"):
+        return {
+            "status": "new", "sha256": fingerprint,
+            "message": "Archivo no registrado por nombre. Puedes extraer sus mediciones.",
+        }
+    return {
+        "status": "unverified", "sha256": fingerprint,
+        "message": (
+            "No fue posible verificar si este nombre ya existe en la base de datos. "
+            "Puedes continuar, pero podrías consumir tokens de un archivo duplicado."
+        ),
+    }
+
+
 def check_processed_filename(upload_state, profile=None, request=None):
     """Only authenticated private users may query processed file names.
 
