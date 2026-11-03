@@ -555,7 +555,9 @@ with gr.Blocks(
                 header_exam_datetime, header_person_id, header_age,
                 header_correction_reason,
             ):
-                field.change(
+                # .input is user-only; .change also fires when save clears
+                # header fields programmatically and would undo the reset.
+                field.input(
                     fn=progress_after_table_edit,
                     outputs=[inbody_flow, gemini_review_status],
                     show_progress="hidden", queue=False, api_name=False,
