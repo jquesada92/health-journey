@@ -1,5 +1,26 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## Regresiones para la alineación y fecha inicial del coach
+
+- Los 11 slots seleccionados deben incluir la **primera prueba**
+  y las diez últimas, aun cuando la primera sea de años antes.
+- El eje es **ordinal** con tick inicial «1.ª DD/MM/AA» y tick
+  final «Últ. DD/MM/AA», no una escala de tiempo implícita.
+- Si una variable no está en la primera prueba, el primer slot
+  debe quedar `None`, con anotación de ausencia y sin
+  interpolación de datos inventados. Las otras medidas
+  conservan su valor inicial disponible.
+- El árbol AST de `app.py` debe tener dos columnas hijas
+  directas de `hj-coach-layout`. El `Chatbot`, la caja
+  de mensaje, controles y el encabezado deben pertenecer
+  a la columna derecha, no salir de ella.
+- CSS debe forzar dos columnas desktop y una móvil, y
+  evitar min-width que provoque wrap.
+- Tests sintéticos `tests/test_coach_first_last_trends.py`,
+  además de CI; la prueba de aspecto real sigue pendiente
+  al desplegar en Hugging Face.
+
+
 ## Aceptación: primera + diez últimas pruebas en coach
 
 Con N fechas distintas en Neon, las cuatro gráficas usan
