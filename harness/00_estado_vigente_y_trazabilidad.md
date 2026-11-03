@@ -1,3 +1,15 @@
+> **Revisión paralela InBody (2026-11-03, PR propuesto):** tras extraer,
+> la tabla de mediciones aparece a la izquierda del visor original
+> PDF/imagen en escritorio, sin acordeón. El visor muestra páginas,
+> permite pantalla completa y se mantiene en el flujo de validación;
+> en móvil la disposición se apila. Los controles de edición,
+> `was_corrected`, eliminación nativa, revisión humana, consentimiento
+> y persistencia no cambian. Se incluye corrección del input
+> `gemini_upload_preflight` en la llamada a `extract_with_popup`.
+> Pruebas: `test_inbody_guided_layout.py`,
+> `test_inbody_document_preview.py`, `test_gemini_consent.py`.
+> Requiere CI y validación manual en Space.
+
 > **Revisión y filas nativas (PR #79, 2026-11-03):** la tabla InBody
 > permite corregir valores y eliminar filas directamente con las
 > herramientas nativas de Gradio 6. Ya no se selecciona una fila para
