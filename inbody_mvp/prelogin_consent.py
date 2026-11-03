@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import html
+from ipaddress import ip_address
 import os
 import secrets
 import threading
@@ -257,11 +258,36 @@ async def submit_consent(request):
     return response
 
 
+def _internal_startup_request(request, path: str) -> bool:
+    """Permit Gradio's *local* startup handshake, never arbitrary API access.
+
+    Gradio's launch() calls http://localhost:<port>/gradio_api/startup-events
+    before the first browser can receive a consent cookie. Redirecting that
+    self-check to /privacy returns HTTP 303 and aborts the application boot.
+
+    Trust only the actual TCP peer address; Host, Origin, X-Forwarded-For and
+    other client-controlled proxy headers MUST NOT grant an exception.
+    """
+    if path != "/gradio_api/startup-events" or request.method != "GET":
+        return False
+    peer = getattr(request.client, "host", None)
+    try:
+        address = ip_address(peer)
+    except (ValueError, TypeError):
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    return address.is_loopback or bool(mapped and mapped.is_loopback)
+
+
 class PrivacyFirstMiddleware(BaseHTTPMiddleware):
-    """No native login or Gradio data/API route before actual consent choice."""
+    """Require privacy choices for users without breaking local Gradio boot."""
 
     async def dispatch(self, request, call_next):
         path = request.url.path.rstrip("/") or "/"
+        # Gradio performs this GET locally during launch(), before anyone has
+        # accepted the privacy notice. No other endpoint is exempted.
+        if _internal_startup_request(request, path):
+            return await call_next(request)
         if path == "/privacy" and request.method == "GET":
             return await call_next(request)
         if path == "/privacy/consent" and request.method == "POST":
