@@ -1,5 +1,20 @@
 # 04 — Motor de extracción, OCR, plantillas e idioma
 
+## Resultado de la corrección histórica (2026-11-03)
+
+Se ejecutó la migración 011 sobre Neon y se verificó
+que las 17 extracciones guardadas tienen ahora
+`exam_datetime` igual al token `AAAAMMDDHHMMSS`
+posterior al primer `_`. La vista revisada conserva
+1.087 filas, ya asociadas a las fechas corregidas.
+El respaldo privado mantiene las 17 marcas anteriores;
+no se modificó el resultado OCR/Gemini ni ninguna
+medida. El normalizador para **nuevas** extracciones
+y reingestas está en este PR, no todavía en main/HF.
+La migración 010 para reemplazar mediciones por
+filename NO se ejecutó. 
+
+
 ## Fuentes de timestamp y discrepancias entre formatos (propuesta)
 
 La fecha/hora impresa en InBody es **DD.MM.AAAA HH:MM**
