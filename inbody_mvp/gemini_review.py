@@ -472,6 +472,115 @@ def sync_review_corrections(table, snapshot):
     return frame
 
 
+def reconcile_native_review_rows(table, snapshot):
+    """Accept Gradio's native row deletion while preserving audit provenance.
+
+    A dataframe edit has no stable source-row ID. Find the unique best
+    order-preserving match against immutable original_value and unchanged
+    source labels. If source rows are indistinguishable after edits/deletion,
+    fail closed rather than attribute measurements to the wrong source.
+    """
+    if not snapshot or not isinstance(snapshot.get("rows"), list):
+        raise ValueError("Primero extrae un examen InBody.")
+    frame = table.copy() if isinstance(table, pd.DataFrame) else pd.DataFrame(
+        table, columns=DISPLAY_COLUMNS
+    )
+    if not set(DISPLAY_COLUMNS).issubset(frame.columns):
+        raise ValueError("Faltan columnas obligatorias de la revisión.")
+    frame = frame.reindex(columns=DISPLAY_COLUMNS).reset_index(drop=True)
+    source = snapshot["rows"]
+    if len(frame) > len(source):
+        raise ValueError(
+            "No puedes agregar filas al examen desde la tabla. "
+            "Solo corrige o elimina las mediciones extraídas."
+        )
+    if not len(frame):
+        raise ValueError("Debes conservar al menos una medición para revisar.")
+    if len(frame) == len(source):
+        return sync_review_corrections(frame, snapshot), snapshot
+
+    # Gradio's native delete event reports only the remaining grid. Original
+    # readings and relative row order identify retained measurements; labels
+    # are used to distinguish repeated values such as segmental 0.375.
+    rows = frame.to_dict("records")
+    n, m = len(rows), len(source)
+    impossible = -10 ** 9
+    scores = [[impossible] * (m + 1) for _ in range(n + 1)]
+    counts = [[0] * (m + 1) for _ in range(n + 1)]
+    decisions = [[None] * m for _ in range(n)]
+    for j in range(m + 1):
+        scores[n][j], counts[n][j] = 0, 1
+
+    for i in range(n - 1, -1, -1):
+        for j in range(m - 1, -1, -1):
+            # Option A: this source measurement was deleted.
+            best, possibilities, choice = scores[i][j + 1], counts[i][j + 1], "skip"
+            candidate = source[j]
+            if _string(rows[i].get("original_value")) == _string(
+                candidate.get("original_value")
+            ) and counts[i + 1][j + 1]:
+                # Value is immutable. Labels can be edited during human
+                # review, so we score hints rather than require equality.
+                match_score = (
+                    16 * (_string(rows[i].get("measurement")) == _string(
+                        candidate.get("measurement")
+                    ))
+                    + 8 * (_string(rows[i].get("section")) == _string(
+                        candidate.get("section")
+                    ))
+                    + 4 * (_string(rows[i].get("unit")) == _string(
+                        candidate.get("unit")
+                    ))
+                    + (_string(rows[i].get("value")) == _string(
+                        candidate.get("value")
+                    ))
+                ) + scores[i + 1][j + 1]
+                if match_score > best:
+                    best = match_score
+                    possibilities = counts[i + 1][j + 1]
+                    choice = "match"
+                elif match_score == best:
+                    possibilities = min(2, possibilities + counts[i + 1][j + 1])
+            scores[i][j], counts[i][j], decisions[i][j] = best, possibilities, choice
+
+    if not counts[0][0]:
+        raise ValueError(
+            "No se pueden relacionar las filas restantes con sus valores "
+            "originales. Comprueba que original_value no haya cambiado."
+        )
+    if counts[0][0] > 1:
+        raise ValueError(
+            "Hay varias filas originales indistinguibles después del borrado. "
+            "No se puede determinar qué medición se eliminó sin arriesgar "
+            "su auditoría; vuelve a cargar el reporte y revisa esas filas."
+        )
+
+    retained = []
+    i = j = 0
+    while i < n and j < m:
+        if decisions[i][j] == "match":
+            retained.append(j)
+            i += 1
+        j += 1
+    if len(retained) != n:
+        raise ValueError("No fue posible identificar las filas conservadas.")
+
+    # Reuse the same provenance checks after reducing the immutable snapshot.
+    from copy import deepcopy
+
+    updated_snapshot = deepcopy(snapshot)
+    keep = set(retained)
+    updated_snapshot["rows"] = [source[index] for index in retained]
+    updated_snapshot.setdefault("excluded_review_rows", []).extend(
+        {
+            "measurement": original.get("measurement"),
+            "original_value": original.get("original_value"),
+        }
+        for index, original in enumerate(source) if index not in keep
+    )
+    return sync_review_corrections(frame, updated_snapshot), updated_snapshot
+
+
 def compact_review_table(table):
     """Hide repeated exam metadata from the editable measurements grid."""
     frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(table, columns=COLUMNS)
