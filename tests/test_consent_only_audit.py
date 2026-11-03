@@ -247,7 +247,8 @@ def test_migration_007_requires_confirmation_and_keeps_history():
 
 def test_review_ui_clears_only_after_success():
     source = (ROOT / "app.py").read_text()
-    assert 'def save_review_and_clear(table, snapshot, consent, overwrite):' in source
+    assert 'def save_review_and_clear(' in source
+    assert 'request: gr.Request | None = None' in source
     assert 'if message.startswith("Guardado en Neon:"):' in source
     assert "pd.DataFrame(columns=GEMINI_COLUMNS)" in source
     assert "gr.Info(visible_message)" in source
