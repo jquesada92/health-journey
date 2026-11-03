@@ -1,5 +1,10 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+## Reorganización documental — README vigente e historial (2026-11-03)
+
+`README.md` se simplifica a guía técnica: arquitectura, organización de directorios, responsabilidad de los módulos y archivos, flujos InBody/FitNotes/Chat y enlaces operativos. Se conserva el frontmatter de Hugging Face (`sdk: gradio`, `app_file: app.py`). El contenido previo se archiva **íntegro** en `docs/history/README-historico-2026-11-03.md` como fuente histórica, sin eliminar decisiones. `docs/indice_actual.md` señala qué documento es vigente y cuál es histórico. Este cambio es documental: no modifica código de la aplicación, SQL, datos personales ni secretos; requerirá comprobar links, CI y no inferir E2E. 
+
+
 ## Estado de la migración 011 (Neon, 2026-11-03)
 
 `migrations/011_correct_inbody_dates_from_filenames.sql`

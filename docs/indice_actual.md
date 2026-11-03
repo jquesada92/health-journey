@@ -20,7 +20,7 @@ pasos operativos sin contrastar código y permisos.
 
 | Archivo | Uso actual | Estado y advertencia |
 | --- | --- | --- |
-| [README raíz](../README.md) | Portada y configuración Hugging Face | MAIN; textos históricos internos pueden describir fases antiguas |
+| [README raíz](../README.md) | Guía técnica, estructura y archivos; conserva frontmatter HF | MAIN, no es bitácora histórica |
 | [AGENTS.md](../AGENTS.md) | Guardrails para agentes y continuidad | Vigencia subordinada al código y al harness 00 |
 | [ai-coach.md](ai-coach.md) | Asistente fitness, comparabilidad y privacidad | MAIN con limitaciones del chat; prompts en archivos y chat multiturno ya están en MAIN; E2E pendiente |
 | [training-hub.md](training-hub.md) | FitNotes CSV → Neon, series por usuario, idempotencia | Código en MAIN; no afirmar datos importados ni E2E |
@@ -35,6 +35,10 @@ pasos operativos sin contrastar código y permisos.
 | [ocr-secciones-ia.md](ocr-secciones-ia.md) | Investigación de secciones y evaluación OCR | Investigación/histórico, no flujo UI operativo |
 | [auditoria-tecnica-2026-10-31.md](auditoria-tecnica-2026-10-31.md) | Corte histórico de auditoría | No usar como estado vigente posterior a 2026-11-03 |
 | [hito-semana-2.md](hito-semana-2.md) | Entrega académica/hitos previos | Documento histórico, no contrato de arquitectura actual |
+
+## README vigente e historial de cambios
+
+El [README principal](../README.md) es ahora la guía técnica de entrada: arquitectura, flujo de datos, carpetas, archivos y referencias de operación. Las notas históricas del antiguo README se conservan íntegramente en [docs/history/README-historico-2026-11-03.md](history/README-historico-2026-11-03.md). Son un archivo de consulta, **no requisitos vigentes**: ver estado actual en `harness/00_estado_vigente_y_trazabilidad.md`.
 
 ## Requisitos y criterios vigentes
 
