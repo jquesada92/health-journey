@@ -1,5 +1,30 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## CA — fechas del reporte versus fecha del nombre
+
+- Reporte de InBody `DD.MM.AAAA HH:MM` / con
+  punto tras año debe convertirse a ISO SQL y, al
+  faltar segundos, completar `:00` sin inventar hora.
+- Después del primer `_` del nombre aceptar solo
+  14 dígitos `AAAAMMDDHHMMSS` con fecha/hora reales.
+  No buscar otros tokens del nombre ni adivinar.
+- Si nombre y reporte difieren, prevalece nombre,
+  conservar lectura IA original y segundos del nombre;
+  si no hay timestamp en nombre, usar encabezado impreso.
+- Un nombre inválido no debe corregirse silenciosamente
+  con una fecha inventada.
+- El usuario no debe cambiar arbitrariamente una
+  fecha validada por nombre en el guardado.
+- La reparación histórica 011 archiva primero fechas
+  originales y actualiza sólo la cabecera auditada,
+  conservando mediciones y filas originales; se
+  debe revertir toda la operación si ocurre error.
+- Tests sintéticos
+  `tests/test_inbody_filename_timestamp.py`,
+  `tests/test_exam_timestamp.py`. Validación real
+  del Space y migración de datos pendientes.
+
+
 ## AC-V — reemplazo seguro por nombre de archivo (propuesta)
 
 - Al cargar un nombre repetido, se bloquea la extracción salvo
