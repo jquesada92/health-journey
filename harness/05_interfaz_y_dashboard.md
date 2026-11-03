@@ -1,5 +1,29 @@
 # 05 — Interfaz actual, navegación y dashboard
 
+## Variantes de medidas y unidades de InBody (2026-11-03)
+
+El panel de chat con tendencias y el dashboard InBody usan
+`progress_dashboard._metric_points`: etiquetas en español,
+inglés, acentos y secciones equivalentes se normalizan antes
+de graficar. Para porcentaje de grasa se agrupan los tres
+nombres ingleses confirmados en Neon, sin rellenar fechas
+que genuinamente no tienen dato. Las unidades reconocidas
+incluyen kg/kilogramos y %/percent/porcentaje; lb se convierte
+a kg con un factor explícito solo en memoria y conserva
+la fuente para auditoría. No suponer unidades vacías ni
+interpretar medidas segmentales como totales. El formato
+de nombre no obliga a hacer ninguna migración SQL.
+El esquema de cuatro tendencias utiliza el primer examen
+y las 10 fechas finales, las faltas se representan con
+`None`, y el chat queda a la derecha.
+
+Se retira `row_limits` de la tabla de revisión porque
+la implementación actual de Gradio muestra que no opera.
+La última fila no puede persistir si se elimina, porque
+`save_audit` valida la tabla del lado servidor. E2E
+requiere nueva validación de HF tras Python 3.12.
+
+
 ## Ajuste de alineación de minigráficas y chat (2026-11-03)
 
 Se reemplaza la envoltura flexible de Gradio en
