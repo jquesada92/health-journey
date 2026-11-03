@@ -140,7 +140,8 @@ def test_inline_edits_native_deletions_and_single_save_button():
     assert "delete_review_row.click(" not in APP
     assert "gemini_table.input(" in APP
     assert "gemini_table.edit(" not in APP
-    assert "row_limits=(1, None)" in APP
+    assert "row_limits=(1, None)" not in APP
+    # Minimum row count is enforced by save_audit, not unsupported Gradio row_limits.
     assert "show_row_numbers=True" in APP
     assert "apply_row_correction.click(" not in APP
     assert 'static_columns=[4]' in APP
