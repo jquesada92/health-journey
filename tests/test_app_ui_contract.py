@@ -11,7 +11,7 @@ def _widget(name):
     return matches[0].value
 
 def test_private_consent_is_explicit_and_off_by_default():
-    widget = _widget("gemini_consent")
+    widget = _widget("session_db_consent")
     assert widget.func.attr == "Checkbox"
     assert next(k.value.value for k in widget.keywords if k.arg == "value") is False
 
@@ -23,15 +23,20 @@ def test_gemini_save_requires_consent_and_snapshot():
     assert len(save) == 1
     inputs = next(k.value for k in save[0].keywords if k.arg == "inputs")
     assert [x.id for x in inputs.elts] == [
-        "gemini_table", "gemini_snapshot", "gemini_consent", "gemini_overwrite"
+        "gemini_table", "gemini_snapshot", "session_db_consent", "gemini_overwrite"
     ]
 
-def test_clear_resets_consent_and_extraction():
+def test_clear_resets_extraction_but_keeps_session_consents():
     clears = [n for n in ast.walk(TREE) if isinstance(n, ast.Call)
               and isinstance(n.func, ast.Attribute) and n.func.attr == "ClearButton"]
-    assert any({"gemini_consent", "gemini_snapshot", "gemini_table"} <=
-               {x.id for x in n.args[0].elts if isinstance(x, ast.Name)}
-               for n in clears)
+    assert any(
+        {"gemini_snapshot", "gemini_table"} <=
+        {x.id for x in n.args[0].elts if isinstance(x, ast.Name)}
+        and {"session_db_consent", "session_ai_consent"}.isdisjoint(
+            {x.id for x in n.args[0].elts if isinstance(x, ast.Name)}
+        )
+        for n in clears
+    )
 
 
 def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
@@ -53,7 +58,7 @@ def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
     assert "extract_gemini(state, consent, selected_model=model)" in app
     assert "popup_error(exc" in app
     assert "return keep_components(3)" in app
-    assert "gr.Warning(message)" in app
+    assert 'gr.Warning(str(message).replace("Neon", "la base de datos"))' in app
     assert "raise gr.Error(" not in app
     assert "fn=review_with_popup" in app
     assert "fn=save_review_and_clear" in app
