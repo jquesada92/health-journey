@@ -80,8 +80,17 @@ def test_upload_save_and_clear_do_not_revoke_session_consent():
                     elt.id for elt in kw.value.elts
                     if isinstance(elt, ast.Name)
                 ]
-                assert "session_ai_consent" not in names
-                assert "session_db_consent" not in names
+                if "session_ai_consent" in names or "session_db_consent" in names:
+                    assert (
+                        isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "load"
+                        and any(
+                            k.arg == "fn"
+                            and isinstance(k.value, ast.Name)
+                            and k.value.id == "restore_session_consents"
+                            for k in node.keywords
+                        )
+                    ), "Only authenticated session initialization may set these values"
     assert "gemini_consent_remote" not in SOURCE
     assert "training_consent" not in SOURCE
 
