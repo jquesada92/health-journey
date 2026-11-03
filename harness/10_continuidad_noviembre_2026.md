@@ -1,5 +1,37 @@
 # 10 — Continuidad de Health Journey (auditado 2026-11-03)
 
+## Estado de continuidad de main · 2026-11-03
+
+El estado de desarrollo principal es un Space Gradio con **cuatro
+módulos** (Proyecto, InBody, FitNotes y coach), barra InBody de
+**cuatro etapas**, documentación original a la derecha de la
+tabla de revisión, eliminación de filas nativa, confirmación
+`reviewed` y un único botón **Guardar mediciones** que valida
+y persiste solo después del consentimiento DB. Se mantienen
+separados el permiso de extracción Gemini, el de almacenamiento
+Neon y el de chat Gemini. El chat ordena mensajes, usa prompts
+independientes y lee automáticamente InBody/FitNotes autorizados
+con límites de contexto, sin exigir ID del usuario.
+
+**Neon:** migración 009 de glosario semántico ya aplicada y
+verificada (35 conceptos, 47 alias, 24 columnas); la conexión
+del coach al catálogo, tests y despliegue están en PR #84. No
+decir que esto está en `main` o HF hasta fusionar/desplegar.
+Mantener en cada cambio el inventario
+[11](11_cobertura_codigo_main.md), la matriz
+[00](00_estado_vigente_y_trazabilidad.md), los criterios y CI.
+
+**Advertencia de continuidad:** instrucciones históricas sobre
+consentimientos en UI, cinco pasos, PR #72 pendiente, CSV v1
+y OCR local no representan el contrato actual. No borrar
+datos personales ni `.venv/` rastreado durante una mera
+auditoría documental. Pruebas multiusuario y E2E móvil siguen
+pendientes.
+
+
+---
+
+
 > **Continuidad corregida 2026-11-03:** la aplicación actual no es solo InBody: comprende Proyecto, extractor Gemini, entrenamiento FitNotes, chat fitness, tres permisos previos al login, guía fija de cinco pasos y limpieza automática **solo al confirmar guardado exitoso**. **Nunca restablecer consentimientos al cargar otro documento**, aunque las instrucciones históricas siguientes lo sugieran. El PR #72 con prompts independientes y respuestas secuenciales está abierto; no asumirlo desplegado. Pendientes críticos: aislamiento privado InBody por propietario, comprobación real de migraciones, seguridad de Space y pruebas móviles/E2E. Priorizar [00 — estado y trazabilidad](00_estado_vigente_y_trazabilidad.md); no copiar secretos ni datos personales.
 
 

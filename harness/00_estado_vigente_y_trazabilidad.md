@@ -1,92 +1,19 @@
-> **Flujo único de revisión y guardado (2026-11-03, PR en validación):**
-> Se reducen cinco etapas a cuatro: Cargar → Extraer → Revisar → Guardar.
-> La tabla conserva el indicador `reviewed` y correcciones editables;
-> al marcar todas las filas, se puede presionar **Guardar mediciones**
-> sin un paso de validación duplicado. El botón único reconcilia
-> eliminaciones, valida columnas y encabezado mediante `save_audit`
-> y persiste solo con consentimiento válido para Neon. Si falla, no
-> borra el formulario; si tiene éxito, limpia y vuelve a Cargar.
-> No se altera el flujo de consentimiento a Gemini, detección de
-> duplicados ni auditoría de valores originales. Contratos:
-> `tests/test_inbody_one_click_review.py`, `test_inbody_flow.py`,
-> `test_inbody_guided_layout.py`, `test_inbody_row_actions.py`.
-> Pendiente prueba visual y persistencia real en Space.
+# 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
-> **Asistente fitness con datos privados automáticos (2026-11-03, PR #82, verificación pendiente):**
-> El chat elimina el campo de ID de InBody. Cada turno lee el historial
-> autorizado de InBody (auditoría revisada, o confirmado heredado si no
-> hay auditorías) y las series FitNotes de `hj_training_sets`, siempre
-> con filtros de sesión y permisos privados. El backend resuelve una
-> identidad única, priorizando `COACH_PERSON_ID` como Secret; sin
-> configuración solo permite la detección si existe exactamente una.
-> El contexto para Gemini incluye resúmenes y filas recientes limitadas
-> de ambos orígenes, indicadores `truncated` y nunca identificadores,
-> comentarios, PDFs ni OCR. Se conserva consentimiento del chat.
-> `tests/test_coach_auto_data.py` verifica autorización, privacidad,
-> lectura dual, negativos, precisión decimal y la interfaz.
-> No se ha verificado aún ejecución E2E en HF/Neon/Gemini.
+**Corte de código GitHub:** `main` **`4944fbe5355d66da94290c510e5e0393487f2918`**, 2026-11-03.  
+**Inventario verificable completo:** [11 — matriz de cobertura de todos los artefactos de main](11_cobertura_codigo_main.md).
+**Alcance:** auditoría estática de GitHub y esquema de Neon; no equivale a prueba E2E del Space.
 
-> **Confirmación única de correcciones (2026-11-03, PR propuesto):**
-> **Guardar cambios** toma directamente los valores editados en la tabla,
-> reconcilia eliminaciones nativas y valida comentarios, unidades y valores.
-> Solo si la validación finaliza correctamente marca automáticamente
-> `reviewed` para todas las filas conservadas y avanza. No hay que marcar
-> cada fila por separado; las lecturas originales siguen inmutables.
-> Al extraer, la elección de consentimiento firmada en servidor prevalece
-> sobre el estado de Gradio para evitar falsos avisos por inicialización
-> tardía; sin consentimiento real, el envío a Gemini sigue bloqueado.
-> No cambia el consentimiento independiente de escritura en Neon.
-> Regresión: `tests/test_inbody_one_click_review.py`.
+**Contrato vigente sin contradicciones:** la aplicación presenta **Proyecto, InBody, FitNotes, Chat Gemini**; el extractor tiene exactamente **Cargar → Extraer → Revisar → Guardar**, con visor paralelo en escritorio y apilado en móvil. El usuario confirma `reviewed` en la tabla y presiona **Guardar mediciones** una vez. `save_audit` valida y persiste con consentimiento independiente de Neon; no existe botón de validación previo. El chat usa prompts separados, mensajes secuenciales y contexto privado automático InBody/FitNotes: el ID no se solicita en el chat. El modelo Gemini recibe solo contexto acotado después de permiso explícito. Los controles de acceso InBody aún requieren endurecimiento para un futuro producto multiusuario.
 
-> **Visor y consentimiento (2026-11-03, PR #80, verificación pendiente):**
-> la vista paralela se activa solamente después de extracción válida;
-> PDF/imágenes a la derecha en una galería vertical, tabla a la
-> izquierda, y apilados en móvil. `privacy/verify` verifica la sesión
-> firmada después del formulario antes de entrar a Gradio y proporciona
-> una explicación si el navegador no conserva la cookie, sin relajar
-> CSRF ni el consentimiento obligatorio. Se mantiene el bloqueo
-> de duplicados previo a Gemini. Contratos:
-> `tests/test_inbody_guided_layout.py`,
-> `tests/test_inbody_document_preview.py`,
-> `tests/test_prelogin_privacy.py`. CI no demuestra visualización
-> real en Hugging Face.
+**Cambios aún NO fusionados:** el PR #84 agrega el lector de diccionario semántico `semantic_metadata.py` y la migración `009_ai_semantic_metadata.sql`. **La migración SQL ya fue aplicada y contrastada en Neon `health_journey/main`**: 35 conceptos InBody, 47 alias, 24 campos documentados, comentarios SQL y permisos privados verificados. El código de `main` no lee este diccionario hasta integrar el PR. No se confunde existencia de metadatos en DB con capacidad desplegada en HF.
 
-> **Revisión paralela InBody (2026-11-03, PR propuesto):** tras extraer,
-> la tabla de mediciones aparece a la izquierda del visor original
-> PDF/imagen en escritorio, sin acordeón. El visor muestra páginas,
-> permite pantalla completa y se mantiene en el flujo de validación;
-> en móvil la disposición se apila. Los controles de edición,
-> `was_corrected`, eliminación nativa, revisión humana, consentimiento
-> y persistencia no cambian. Se incluye corrección del input
-> `gemini_upload_preflight` en la llamada a `extract_with_popup`.
-> Pruebas: `test_inbody_guided_layout.py`,
-> `test_inbody_document_preview.py`, `test_gemini_consent.py`.
-> Requiere CI y validación manual en Space.
+**Precedencia ante documentos históricos:** este documento y el 11 son la referencia de requisitos y cobertura actuales. Los capítulos 01–10 conservan decisiones de fases anteriores **solo bajo la etiqueta LEGACY/HISTÓRICO**, nunca como especificación de una UI pendiente. Toda afirmación de PR abierto, cinco pasos, CSV principal o consentimientos duplicados en esos capítulos está superada. Para E2E se exige verificación independiente.
 
-> **Revisión y filas nativas (PR #79, 2026-11-03):** la tabla InBody
-> permite corregir valores y eliminar filas directamente con las
-> herramientas nativas de Gradio 6. Ya no se selecciona una fila para
-> pulsar un botón externo. Cada edición actualiza `was_corrected`
-> automáticamente y cada borrado reconcilia la tabla con sus orígenes
-> auditables; se rechazan fuentes indistinguibles o manipuladas. El
-> botón **Guardar cambios** verifica revisión y comentarios, pero no
-> persiste en Neon. Se conservan los avisos de error unificados del
-> mismo PR. Contratos: `tests/test_inbody_row_actions.py`,
-> `tests/test_dashboard_popup_contract.py`,
-> `tests/test_inbody_flow.py`. Falta validación visual en el Space.
 
-> **Ajuste de UX propuesto (2026-11-03, aún no desplegado):** retirar las
-> marcas/recuadros de validación por componente de Gradio 6, conservar
-> un único popup de error (`gr.Warning`) o el mensaje contextual del
-> archivo, y mantener oculto el estado interno de validación. La
-> comprobación de mediciones, `original_value`, consentimiento y
-> deduplicación continúa en backend. Contratos en
-> `tests/test_dashboard_popup_contract.py`. Requiere CI y prueba en Space.
-
-> **Actualización de consolidación (2026-11-03):** este documento conserva la fotografía de la auditoría original realizada sobre `main` (commit 5f8ea83). Los PR #71, #72, #74 y #75 ya se fusionaron posteriormente. El PR consolidado actual integra la auditoría de #73, las correcciones en línea de #76 y la verificación de duplicados antes de Gemini. Las descripciones de PR pendientes de fusión incluidas en secciones históricas deben interpretarse respecto a la fecha de aquella auditoría. El código de la rama consolidada y sus pruebas constituyen la referencia funcional del cambio; el Space aún requiere validación E2E.\n\n# 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
 **Auditoría documental:** 2026-11-03 (UTC). **Base contrastada:** `main`
-`5f8ea83a504182211f090ff45e1d0e5fd9434927`, árbol de archivos
+`4944fbe5355d66da94290c510e5e0393487f2918`, árbol de archivos
 GitHub, `app.py`, módulos, requisitos, migraciones, tests y workflows.
 **No es una prueba de operaciones reales ni de datos de usuarios**:
 no se abrieron expedientes, se ejecutó SQL contra Neon ni se verificó
@@ -113,16 +40,16 @@ implementado en el flujo de la aplicación. MAIN no equivale a E2E.
 | F-02 | Carga PDF/JPG/JPEG/PNG, vista previa, consulta de nombre previamente procesado | MAIN | `app.py`, `gemini_review.py`, `extractor.py` | `test_inbody_document_preview.py`, `test_consent_only_audit.py` |
 | F-03 | Dropdown Gemini del extractor, extracción explícita y JSON tipado; no importar historial dibujado | MAIN | `gemini_review.py` | `test_gemini_api_contract.py`, `test_gemini_consent.py`, `test_gemini_measurement_audit.py` |
 | F-04 | Encabezado InBody único, tabla editable, revisión humana, valores textuales con decimales exactos; fase angular/impedancia como mediciones | MAIN | `app.py`, `gemini_review.py` | `test_inbody_header.py`, `test_phase_angle_measurement.py`, `test_gemini_measurement_audit.py` |
-| F-05 | Guía fija de 5 pasos Cargar → Extraer → Revisar → Validar → Guardar; navegación tras éxito, no saltar por cada edición | MAIN | `inbody_flow.py`, `app.py` | `test_inbody_flow.py`, `test_inbody_guided_layout.py` |
+| F-05 | Guía fija **4 pasos** Cargar → Extraer → Revisar → Guardar; sin botón intermedio; progreso al marcar `reviewed`, reinicio tras persistencia | MAIN | `inbody_flow.py`, `app.py` | `test_inbody_flow.py`, `test_inbody_one_click_review.py` |
 | F-06 | Auditoría privada en Neon después de revisar; detectar archivo previo y pedir confirmación antes de sobreescribir; reset tras guardar correctamente | MAIN (código) | `gemini_review.py`, `migrations/004–007` | `test_consent_only_audit.py`, `test_inbody_guided_layout.py` |
 | F-07 | Plotly de progreso InBody, incluido InBody Score y ángulo de fase, dentro del extractor; no pestaña «Historial» separada | MAIN | `progress_dashboard.py`, `app.py` | `test_progress_dashboard.py`, `test_sidebar_navigation.py` |
 | F-08 | FitNotes CSV → validación, vista previa, series por usuario, unidades/negativos, duplicados, sobreescritura explícita y escritura a Neon | MAIN (código) | `training_hub.py`, `migrations/008_fitnotes_training_hub.sql` | `test_training_hub.py`, `test_training_ui_contract.py` |
 | F-09 | Consentimientos independientes de extracción Gemini, escritura DB y chat Gemini, desmarcados y preguntados **antes del login** | MAIN | `prelogin_consent.py`, `app.py` (tres `gr.State`) | `test_prelogin_privacy.py`, `test_session_consent.py` |
-| F-10 | Gemini Chat privado con selección de modelo **independiente** del extractor, objetivos, restricciones y resúmenes FitNotes/InBody | MAIN (código, comportamiento conversacional limitado) | `ai_coach.py`, `coach_chat_ui.py`, `app.py` | `test_ai_coach.py`, `test_coach_chat_ui.py` |
-| F-11 | Mensajes secuenciales estilo WhatsApp, multi-turno real, historial visual independiente del contexto Gemini y prompts en ficheros separados | **PR #72; NO MAIN** | rama `fix/multiturn-gemini-chat-separate-prompts-20261103` | CI del PR: 317 pruebas, 1 aviso; no E2E |
+| F-10 | Chat Gemini privado, modelo independiente del extractor, metas/restricciones y **lectura automática InBody + series FitNotes** por sesión autorizada; ID oculto | MAIN (código) | `ai_coach.py`, `coach_data.py`, `coach_chat_ui.py` | `test_ai_coach.py`, `test_coach_auto_data.py` |
+| F-11 | Chat secuencial tipo WhatsApp, turnos Gemini y dos prompts separados versionados | MAIN (código; E2E pendiente) | `chat_session.py`, `prompt_loader.py`, `prompts/*.md`, `app.py` | `test_coach_conversation.py`, `test_coach_chat_ui.py` |
 | F-12 | Biblioteca local de referencias de entrenamiento | MAIN **como módulo, sin integración demostrada en chatbot** | `fitness_evidence.py` | No afirmar que el chat recupere citas verificadas |
 | F-13 | OCR EasyOCR/PaddleOCR, editor espacial y CSV de siete columnas con dashboard combinado CSV/Neon | LEGACY o propuesta previa | `extractor.py`, `review.py`, módulos espaciales y `db/schema.sql` | Tests heredados; no activarlo de oficio en el Space |
-| F-14 | Aislamiento verdadero de datos InBody por propietario en escenario multiusuario | PENDIENTE | lectores InBody aceptan ID indicado; FitNotes sí usa `owner_key` | Revisión de seguridad y pruebas multitenant requeridas |
+| F-14 | Aislamiento InBody robusto por propietario para escenarios multiusuario, distinto de selección interna de único usuario y del `owner_key` FitNotes | PENDIENTE | `coach_data.py` tiene selección privada de identidad única, **no RLS general** | Auditoría y tests multitenant pendientes |
 | F-15 | Validación integral en el Space, navegador móvil, Gemini real y Neon autorizado | PENDIENTE de evidencia E2E | despliegue GitHub Actions y secretos externos | No se certifica mediante pytest o status de workflow |
 
 **Precisión de límites:** la utilidad heredada `extractor.py` usa
@@ -191,13 +118,13 @@ histórica**, no se dan por aprobadas automáticamente.
 | AC-V-01 | Al entrar tras login, se abre Proyecto y el sidebar tiene cuatro opciones en el orden especificado, también en móvil | Sintético: `test_sidebar_navigation.py`; **E2E pendiente** |
 | AC-V-02 | Antes del login, los tres permisos están sin marcar; operaciones Gemini/Neon rechazan consentimientos ausentes o forjados | `test_prelogin_privacy.py`, `test_session_consent.py`, `test_gemini_consent.py`; E2E pendiente |
 | AC-V-03 | InBody extrae solo valores actuales y preserva `8.20`, unidades, fecha, ID y segmento; correcciones exigen revisión | `test_inbody_header.py`, `test_gemini_measurement_audit.py`, `test_inbody_document_preview.py`; fixture real anon. pendiente |
-| AC-V-04 | La barra de 5 pasos no se mueve al hacer scroll ni tapa campos; el avance ocurre solo al completar el paso | `test_inbody_flow.py`, `test_inbody_guided_layout.py`; **test visual móvil pendiente** |
+| AC-V-04 | La barra fija de **4 pasos** no tapa controles; revisión y validación son una operación de guardado, no dos botones | `test_inbody_flow.py`, `test_inbody_guided_layout.py`, `test_inbody_one_click_review.py`; móvil E2E pendiente |
 | AC-V-05 | Ante fallo de guardado no se pierden datos; al éxito limpia y vuelve a Cargar sin cambiar permisos | `test_inbody_guided_layout.py`, `test_consent_only_audit.py`; DB real pendiente |
 | AC-V-06 | FitNotes mantiene orden, decimales, unidad, negativos y series reales; duplicado solicita confirmación | `test_training_hub.py`, `test_training_ui_contract.py`; Neon E2E pendiente |
 | AC-V-07 | InBody Plotly compara series compatibles, InBody Score y ángulo de fase con reglas de calidad | `test_progress_dashboard.py`; verificación con varias fechas reales pendiente |
 | AC-V-08 | Chat consulta datos autorizados y no envía documento, identificador, CSV o OCR sin permiso, ni inventa comparabilidad | `test_ai_coach.py`; seguridad multiusuario y Gemini real pendientes |
-| AC-V-09 | En PR #72: Enviar y Enter producen burbuja inmediata, indicador temporal y respuesta en orden; segunda pregunta retiene contexto | `test_coach_conversation.py` de **PR**, 317 aprobadas; **pendiente de merge/E2E** |
-| AC-V-10 | Un prompt distinto controla extractor y chat; se incluyen archivos en deploy y el coach no inventa bibliografía | **PR #72**: `prompt_loader.py`, `prompts/*.md`, test de aislamiento; pendiente en `main` |
+| AC-V-09 | Enviar y Enter muestran burbuja inmediata, mantienen orden de turnos y conservan la conversación visual para una segunda pregunta | MAIN: `test_coach_conversation.py`; verificación Gemini real pendiente |
+| AC-V-10 | El extractor y coach usan prompts independientes por fichero, incluidos en deploy, sin citas inventadas | MAIN: `prompt_loader.py`, `prompts/*.md`, `test_coach_conversation.py`; E2E pendiente |
 | AC-V-11 | Una instancia nueva instala DDL necesario, configura Secrets sin exponerlos, levanta Space y permite guardado/consulta autorizados | **PENDIENTE** de prueba de reconstrucción completa |
 | AC-V-12 | Una segunda cuenta no puede consultar, adivinar, modificar ni exportar un ID InBody ajeno | **PENDIENTE** de aislamiento multiusuario; no declarar listo para producción |
 
@@ -214,7 +141,7 @@ histórica**, no se dan por aprobadas automáticamente.
 - `.github/workflows/deploy-huggingface.yml`: despliega `main`
   al Space usando allowlist explícita, variable `HF_SPACE_ID` y secreto
   `HF_TOKEN`; éxito en Actions no prueba funcionalidad visual.
-- Evidencia más reciente verificada: CI de **PR #72**: 317 tests
+- Evidencia: pruebas sintéticas CI de las ramas; consultar verificaciones del HEAD, no resultados antiguos.
   aprobados, 1 aviso; está abierto y sus cambios de chat/prompts NO
   forman parte de este snapshot de `main`.
 - `main` `5f8ea83a5041`: workflow de sincronización HF concluyó
@@ -227,7 +154,7 @@ histórica**, no se dan por aprobadas automáticamente.
    todas las consultas InBody): riesgo crítico para multiusuario.
 2. **P0:** validar consentimientos, auth, Gemini real, escritura, consulta,
    sobrescritura y reinicio en Space con datos de prueba seguros.
-3. **P1:** cerrar y probar PR #72 (prompts, mensajes secuenciales).
+3. **P1:** validar chat multiturno contra Gemini real y su recuperación de errores; el código ya está en MAIN.
 4. **P1:** generar evidencia visual móvil de navbar fija y del chat.
 5. **P1:** confirmar migraciones realmente aplicadas en Neon y
    mínimos privilegios de roles (sin leer datos personales).
@@ -248,7 +175,7 @@ histórica**, no se dan por aprobadas automáticamente.
 4. `harness/09–10`: decisiones y continuidad; conservar fechas y PR.
 5. `docs/indice_actual.md`: mapas a docs operativas.
 6. `requirements.txt`, `app.py`, `inbody_mvp/`, `migrations/`,
-   `tests/`, workflows y PR #72 para resolver discrepancias.
+   `tests/`, workflows y el inventario 11 para resolver discrepancias.
 
 **Regla de documentación:** todo cambio de alcance o función debe actualizar
 los criterios AC-V pertinentes, el test asociado, el harness y el inventario

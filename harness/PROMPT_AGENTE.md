@@ -1,5 +1,35 @@
 # Prompt operativo para reconstruir o continuar Health Journey
 
+## Instrucciones prioritarias para agentes · corte 2026-11-03
+
+La tarea al retomar no es reconstruir el producto original de
+octubre: hay **cuatro módulos operativos en `main`**, un
+proceso InBody **Cargar → Extraer → Revisar → Guardar**, y un
+**único botón Guardar mediciones** que requiere que el usuario
+marque `reviewed` antes de persistir. La interfaz dispone
+tabla/visor juntos y se adapta a móvil. El coach funciona como
+chat multiturno con `prompts/fitness_coach.md` y lee datos
+InBody y FitNotes en forma privada sin campo de ID.
+`/privacy` exige tres decisiones independientes antes del
+login y validación firmada del lado servidor.
+
+**Primero comparar `main` con**
+[00](00_estado_vigente_y_trazabilidad.md) y
+[11](11_cobertura_codigo_main.md); actualizar ambas, tests
+relevantes y docs en cada cambio. El SQL `009` fue aplicado
+en Neon, pero el lector semántico está en PR #84 y no
+debe describirse como parte de `main` hasta fusionar.
+No afirmar E2E si solo se ha ejecutado pytest. Nunca exponer
+cédulas, credenciales, PDFs u OCR personales al prompt o a CI.
+Aislamiento multiusuario de InBody continúa como P0.
+El texto anterior/abajo que mencione PR #72 pendiente, cinco
+pasos o exportación CSV como ruta principal es material
+**HISTÓRICO**, no una instrucción vigente.
+
+
+---
+
+
 > **Regla de precedencia (2026-11-03):** leer [00 — estado y criterios vigentes](00_estado_vigente_y_trazabilidad.md) y [índice documental](../docs/indice_actual.md) ANTES de las instrucciones históricas siguientes. El sistema actual utiliza Gradio 6, cuatro módulos, Gemini Flash remoto (dos dropdown independientes), FitNotes y Neon; tres consentimientos opcionales **antes del login**. No reintroducir EasyOCR/PaddleOCR, CSV v1 ni un selector dashboard CSV/Neon como si fueran funciones principales. Conservar navbar fija y reset después de guardar. Los CA/CS viejos son backlog/legado; usar AC-V actuales. PR #72 (prompts separados/chat multiturno) sigue pendiente de merge. No fusionar ni desplegar sin autorización, no usar datos personales en pruebas y no atribuir «aprobado» a funcionalidades que solo tienen CI sintético.
 
 

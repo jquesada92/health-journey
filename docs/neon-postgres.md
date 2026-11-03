@@ -1,5 +1,20 @@
 # Neon PostgreSQL — arquitectura, permisos y procedimientos históricos
 
+
+> **Inventario verificado de Neon (2026-11-03):** sobre
+> `health_journey/main` se aplicó la migración
+> `migrations/009_ai_semantic_metadata.sql`: existen
+> **35 conceptos**, **47 alias** y **24 definiciones de campo**,
+> con comentarios descriptivos nativos en tablas/columnas.
+> Los roles privados `health_journey_app` y
+> `health_journey_runtime` tienen SELECT sobre los catálogos
+> nuevos; el escritor demo carece de SELECT. **No se modificaron
+> los valores de exámenes ni sets FitNotes**. Esto verifica
+> específicamente los metadatos 009, **no** todas las migraciones
+> históricas ni pruebas E2E. El lector del chat está en PR #84.
+> Inventario [11](../harness/11_cobertura_codigo_main.md).
+
+
 > **Aclaración vigente al 2026-11-03:** este manual conserva pasos del MVP histórico de OCR/CSV que NO describen la interfaz actual. Hoy el flujo principal usa Gemini estructurado, revisión de auditoría con confirmación de sobrescritura y FitNotes Training Hub; el acceso a Neon usa SQLAlchemy+psycopg y DDL aditivo 004–008. La app puede ofrecer operaciones privadas desde Space **solo con autenticación, autorización, consentimiento previo al login, secretos y roles adecuados**; la frase histórica «Neon deshabilitado siempre en Hugging Face» no representa el código actual. **No se comprobó el estado SQL del entorno real**; antes de aplicar migraciones comparar objetos ya existentes y ejecutar en QA con permisos mínimos. No ejecutar SQL destructivo ni usar datos personales. Ver [contratos actuales](../harness/00_estado_vigente_y_trazabilidad.md).
 
 

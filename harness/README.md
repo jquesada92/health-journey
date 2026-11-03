@@ -1,5 +1,30 @@
 # Harness de reconstrucción — Health Journey
 
+## Lectura obligatoria: corte verificable de main
+
+**MAIN auditado:** `4944fbe5355d66da94290c510e5e0393487f2918` (2026-11-03).
+Consulta primero [00 — contrato vigente](00_estado_vigente_y_trazabilidad.md) y
+[11 — cobertura exhaustiva](11_cobertura_codigo_main.md). Los **35
+artefactos del app, 55 ficheros de pruebas, 17 docs, 10 SQL/DDL y tres
+workflows** de main están inventariados. El indicador InBody tiene cuatro
+pasos **Cargar → Extraer → Revisar → Guardar**; el botón único persiste
+después de marcar `reviewed`. Los prompts de extractor y coach ya
+son archivos, y ambos módulos Gemini se ofrecen como capacidades
+distintas con consentimiento propio. El chat lee automáticamente
+InBody y FitNotes. Migrations 004–008 están en main; la migración
+semántica 009 **ya está aplicada en Neon**, pero el código que la consume
+está solo en PR #84 hasta fusionarlo.
+
+**Nota de precedencia:** las anotaciones cronológicas antiguas, incluido
+PR #72 pendiente, cinco pasos, exportación CSV como función del UI y
+consentimientos en la pantalla InBody, son **HISTORIA**, no instrucciones
+para reconstruir la versión actual. La documentación no es certificado
+de Space E2E; revisar aislamiento multiusuario antes de producción.
+
+
+---
+
+
 ## Estado operativo consolidado · 2026-11-03
 
 **Empieza por [00 — Estado vigente y trazabilidad](00_estado_vigente_y_trazabilidad.md).**

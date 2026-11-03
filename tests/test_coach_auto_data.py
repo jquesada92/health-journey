@@ -158,12 +158,18 @@ def test_coach_reads_both_sources_with_no_typed_id(monkeypatch):
             "weight": "90", "weight_unit": "kg", "reps": "7",
         }], "truncated": False}
     monkeypatch.setattr(ai_coach, "load_private_training_sets", sets)
+    # Generic semantic dictionary is read only after the private data gate.
+    monkeypatch.setattr(ai_coach, "load_coach_semantics", lambda names: {
+        "available": True, "metric_definitions": [{"code": "body_weight"}],
+        "field_definitions": [], "truncated": False,
+    })
     context = ai_coach.load_coach_context("ignored-client-id", days=90)
     assert calls == [("inbody", "synthetic-id"), ("training", "app:synthetic")]
     assert context["inbody"]["distinct_series"] == 1
     assert context["inbody_measurements"]["measurements"][0]["value"] == "75.20"
     assert context["training"]["sets_recorded"] == 2
     assert context["training_sets"]["sets"][0]["reps"] == "7"
+    assert context["semantic_metadata"]["metric_definitions"][0]["code"] == "body_weight"
     assert "synthetic-id" not in str(context)
     assert "ignored-client-id" not in str(context)
     assert "app:synthetic" not in str(context)

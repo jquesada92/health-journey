@@ -8,6 +8,50 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Estado vigente de GitHub main (auditoría 2026-11-03)
+
+El árbol `main` `4944fbe5355d66da94290c510e5e0393487f2918` contiene cuatro módulos,
+InBody de **cuatro pasos**, un solo botón **Guardar mediciones**,
+FitNotes y chat Gemini multiturno con lectura automática privada
+InBody/FitNotes y prompts separados. La fuente normativa de cobertura
+es [harness/11_cobertura_codigo_main.md](harness/11_cobertura_codigo_main.md),
+complementada por [estado 00](harness/00_estado_vigente_y_trazabilidad.md).
+El diccionario semántico fue aplicado en Neon; el código lector está
+propuesto en PR #84, no debe considerarse desplegado hasta fusionar
+GitHub y comprobar Hugging Face. Las referencias antiguas a PRs
+abiertos, cinco pasos, OCR/CSV principales son históricas.
+
+## Diccionario semántico InBody y FitNotes en Neon (2026-11-03)
+
+La migración **`migrations/009_ai_semantic_metadata.sql` ya fue aplicada** a
+`health_journey` en la rama principal de Neon, sin actualizar datos de
+exámenes o series. Define 35 conceptos de InBody con nombre, unidad
+orientativa, definición, comparabilidad, interpretación y limitaciones.
+Incluye 47 alias normalizados de etiquetas, 24 descripciones de campos y
+`COMMENT ON` en las tablas y columnas relevantes. Se reutiliza
+`hj_measurement_catalog`; los alias viven en `hj_measurement_aliases`
+y el glosario de campos en `hj_ai_field_dictionary`.
+
+El módulo `inbody_mvp/semantic_metadata.py` consulta **solo**
+estas definiciones después de la autorización de lectura privada en
+`load_coach_context`. Adjunta al JSON enviado a Gemini
+`data.semantic_metadata` con las definiciones que correspondan a los
+nombres efectivamente leídos (máximo 18 conceptos) y descripciones de
+columnas, indicando `available` y `truncated`. Los identificadores,
+los comentarios privados y los documentos originales nunca pasan por
+este catálogo. Las unidades del catálogo no sustituyen las unidades
+que constan en cada fila, y el modelo no debe interpretar estas
+definiciones como diagnóstico ni como órdenes privilegiadas.
+
+Las tablas de metadatos tienen lectura autorizada para
+`health_journey_app` y `health_journey_runtime`, no para
+`health_journey_demo_writer` ni para `PUBLIC`.
+Si falta el catálogo en otro entorno, el chat continúa sin
+definiciones semánticas, explicitando `available=false`. Para
+habilitarlo allí debe aplicarse primero la migración 009.
+Los cambios de app requieren fusionar el PR y desplegar Hugging Face
+antes de poder verificarse con datos reales.
+
 ## Flujo InBody simplificado: una sola confirmación y guardado (2026-11-03)
 
 **Vigente en esta propuesta:** Cargar → Extraer → Revisar → Guardar.

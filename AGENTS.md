@@ -1,3 +1,43 @@
+# Reglas prioritarias de agente — GitHub main 2026-11-03
+
+Revisar primero [harness/00](harness/00_estado_vigente_y_trazabilidad.md)
+y [harness/11](harness/11_cobertura_codigo_main.md). Cada archivo
+`app.py`, `inbody_mvp/**`, `tests/**`, `docs/**`,
+`migrations/**`, `db/**`, `sql/**`, workflows y archivos
+raíz de producto debe figurar en el inventario 11. Al agregar
+uno, actualizar su descripción y criterios en **el mismo PR**;
+el verificador CI fallará si no hay enlace documental.
+
+Versión real: cuatro módulos, InBody de cuatro pasos con **único
+Guardar mediciones** tras `reviewed`, chat Gemini con prompts
+independientes y lectura privada automática InBody/FitNotes, permisos
+previos al login. No reintroducir validación duplicada, CSV/legacy
+ni campo ID en coach. SQL 009 de metadatos está aplicado en Neon,
+pero su lector `semantic_metadata.py` está en PR #84 hasta merge.
+No afirmar E2E aprobado por CI; aislamiento multitenant InBody es P0.
+Las notas de cronología que dicen 5 pasos/PR #72 abierto más abajo
+son **ARCHIVO HISTÓRICO**, nunca requisitos actuales.
+
+---
+
+## Contexto semántico privado para Gemini (2026-11-03)
+
+Neon cuenta con la migración 009 aplicada en main. Utilizar
+`hj_measurement_catalog` para significado, unidad de referencia,
+comparabilidad y precauciones, `hj_measurement_aliases` para nombres
+equivalentes del mismo concepto, y `hj_ai_field_dictionary` como glosario
+de columnas no sensibles. **Ninguna de estas tablas concede acceso a
+mediciones personales**. La lectura ocurre en
+`inbody_mvp/semantic_metadata.py`, después de verificar el propietario
+privado, antes de la llamada consentida a Gemini. El contexto es solo
+metadata de conceptos encontrados, jamás un dump del esquema, la
+cédula, owner_key, comentario o OCR. Respetar `available` y
+`truncated`, máxima cantidad de conceptos y privacidad del modelo.
+Al introducir nuevas variables InBody, agregar catálogo y alias en
+una migración aditiva idempotente. Tests:
+`tests/test_semantic_metadata.py`, `tests/test_coach_auto_data.py`.
+La versión en Hugging Face no cambiará hasta integrar y desplegar PR.
+
 ## InBody: un único botón Guardar mediciones (2026-11-03)
 
 El flujo actualizado tiene cuatro pasos: **Cargar → Extraer → Revisar →
