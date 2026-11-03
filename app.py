@@ -1026,16 +1026,6 @@ with gr.Blocks(
             # Messaging layout: independent Gemini selector, chat header,
             # collapsible private context, chat bubbles and bottom composer.
             gr.HTML(COACH_CHAT_HEADER_HTML, elem_id="hj-chat-header-host")
-            with gr.Row(elem_id="hj-chat-settings"):
-                coach_model = gr.Dropdown(
-                    label="Modelo Gemini Flash para el chat",
-                    choices=coach_model_choices(),
-                    value=default_coach_model(), scale=3,
-                )
-                coach_refresh_models = gr.Button(
-                    "Actualizar modelos", scale=1,
-                )
-
             with gr.Accordion("Mis objetivos, contexto y privacidad", open=False):
                 gr.Markdown(
                     "El asistente analiza mediciones InBody revisadas y "
@@ -1072,6 +1062,7 @@ with gr.Blocks(
             # This prevents later Gradio events from dropping or reordering turns.
             coach_history = gr.State(value=[])
             coach_pending_question = gr.State(value="")
+            coach_pending_model = gr.State(value="")
             coach_chat = gr.Chatbot(
                 label=None,
                 show_label=False,
@@ -1094,7 +1085,9 @@ with gr.Blocks(
                     "Limpiar conversación", variant="secondary", size="sm",
                     elem_id="hj-chat-clear",
                 )
-            with gr.Row(elem_id="hj-chat-composer"):
+            # The model belongs to the same composer as the current question.
+            # Freeze it for each turn so model changes cannot affect a pending call.
+            with gr.Column(elem_id="hj-chat-composer"):
                 coach_question = gr.Textbox(
                     label="Mensaje para el asistente",
                     show_label=False,
@@ -1102,35 +1095,63 @@ with gr.Blocks(
                     lines=1, max_lines=4, scale=8, min_width=170,
                     elem_id="hj-chat-input",
                 )
-                coach_send = gr.Button(
-                    "Enviar", variant="primary", scale=1,
-                    min_width=90, elem_id="hj-chat-send",
-                )
-
-            def coach_refresh_model_options():
-                try:
-                    options = get_free_inbody_models()
-                    ids = [item[1] for item in options]
-                    selected = default_coach_model()
-                    return gr.update(
-                        choices=options,
-                        value=selected if selected in ids else ids[0],
+                with gr.Row(elem_id="hj-chat-composer-actions"):
+                    coach_model = gr.Dropdown(
+                        label="Modelo Gemini para esta respuesta",
+                        show_label=False,
+                        choices=coach_model_choices(),
+                        value=default_coach_model(),
+                        interactive=True, scale=0, min_width=170,
+                        elem_id="hj-chat-model",
                     )
+                    coach_refresh_models = gr.Button(
+                        "↻", variant="secondary", size="sm", scale=0,
+                        min_width=44, elem_id="hj-chat-refresh-models",
+                    )
+                    coach_send = gr.Button(
+                        "Enviar", variant="primary", scale=0,
+                        min_width=90, elem_id="hj-chat-send",
+                    )
+
+            def coach_refresh_model_options(selected_model):
+                try:
+                    # Extraction can list multimodal models which are not
+                    # supported by the chat. Only offer chat-approved models.
+                    supported = {model_id for _, model_id in coach_model_choices()}
+                    options = [
+                        (label, model_id)
+                        for label, model_id in get_free_inbody_models()
+                        if model_id in supported
+                    ]
+                    if not options:
+                        raise ValueError("No hay modelos Gemini Flash para el chat.")
+                    ids = {model_id for _, model_id in options}
+                    selected = (
+                        selected_model if selected_model in ids else
+                        default_coach_model()
+                    )
+                    if selected not in ids:
+                        selected = options[0][1]
+                    return gr.update(choices=options, value=selected)
                 except Exception as exc:
                     popup_error(exc, "No se pudieron consultar los modelos Gemini.")
                     return gr.update()
 
-            def enqueue_coach_message(question, messages):
+            def enqueue_coach_message(question, messages, model):
                 try:
                     updated, pending = enqueue_user_message(question, messages)
+                    if model not in {item[1] for item in coach_model_choices()}:
+                        raise ValueError("Selecciona un modelo Gemini válido.")
                 except ValueError as exc:
                     raise ValueError(str(exc)) from None
                 # Display the user's new message immediately and a temporary
                 # typing bubble. Only confirmed turns are stored in State.
                 typing = updated + [{"role": "assistant", "content": "Escribiendo…"}]
                 return (
-                    updated, typing, pending,
+                    updated, typing, pending, model,
                     gr.update(value="", interactive=False),
+                    gr.update(interactive=False),
+                    gr.update(interactive=False),
                     gr.update(interactive=False),
                     gr.update(interactive=False),
                 )
@@ -1173,14 +1194,17 @@ with gr.Blocks(
                     )
                     status = "No se completó la consulta. El mensaje sigue en el chat."
                 return (
-                    updated, updated, status, "",
+                    updated, updated, status, "", "",
+                    gr.update(interactive=True),
+                    gr.update(interactive=True),
                     gr.update(interactive=True),
                     gr.update(interactive=True),
                     gr.update(interactive=True),
                 )
 
             coach_refresh_models.click(
-                fn=coach_refresh_model_options, outputs=[coach_model],
+                fn=coach_refresh_model_options,
+                inputs=[coach_model], outputs=[coach_model],
                 concurrency_limit=1,
             )
             # One shared trigger handles both Enter and Enviar. The first
@@ -1188,10 +1212,11 @@ with gr.Blocks(
             gr.on(
                 triggers=[coach_send.click, coach_question.submit],
                 fn=enqueue_coach_message,
-                inputs=[coach_question, coach_history],
+                inputs=[coach_question, coach_history, coach_model],
                 outputs=[
                     coach_history, coach_chat, coach_pending_question,
-                    coach_question, coach_send, coach_clear,
+                    coach_pending_model, coach_question, coach_send, coach_clear,
+                    coach_model, coach_refresh_models,
                 ],
                 trigger_mode="once",
                 concurrency_limit=1,
@@ -1202,21 +1227,23 @@ with gr.Blocks(
                 inputs=[
                     coach_history, coach_pending_question, coach_report_id,
                     coach_goals, coach_restrictions, coach_window,
-                    coach_model, session_coach_consent,
+                    coach_pending_model, session_coach_consent,
                 ],
                 outputs=[
                     coach_history, coach_chat, coach_context_status,
-                    coach_pending_question, coach_question, coach_send, coach_clear,
+                    coach_pending_question, coach_pending_model,
+                    coach_question, coach_send, coach_clear,
+                    coach_model, coach_refresh_models,
                 ],
                 concurrency_limit=1,
                 concurrency_id="hj-fitness-chat-turn",
                 api_name=False,
             )
             coach_clear.click(
-                fn=lambda: ([], [], "Conversación limpiada.", "", "",),
+                fn=lambda: ([], [], "Conversación limpiada.", "", "", ""),
                 outputs=[
                     coach_history, coach_chat, coach_context_status,
-                    coach_pending_question, coach_question,
+                    coach_pending_question, coach_pending_model, coach_question,
                 ],
                 queue=False,
                 api_name=False,

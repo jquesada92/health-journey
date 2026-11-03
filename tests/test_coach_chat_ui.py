@@ -75,7 +75,8 @@ def test_coach_model_stays_separate_and_privacy_callbacks_preserved():
     assert "coach_history = gr.State(value=[])" in APP
     assert "coach_pending_question = gr.State(value=\"\")" in APP
     assert "concurrency_id=\"hj-fitness-chat-turn\"" in APP
-    assert "fn=coach_refresh_model_options, outputs=[coach_model]" in APP
+    assert "fn=coach_refresh_model_options" in APP
+    assert "inputs=[coach_model], outputs=[coach_model]" in APP
     assert "outputs=[gemini_model_selector, gemini_models_status]" in APP
     assert "triggers=[coach_send.click, coach_question.submit]" in APP
     assert "gr.on(" in APP
@@ -84,3 +85,44 @@ def test_coach_model_stays_separate_and_privacy_callbacks_preserved():
     assert "append_assistant_message(messages, reply)" in APP
     assert 'content": "Escribiendo…"' in APP
     assert 'updated, updated, status, ""' in APP
+
+def test_model_picker_is_inside_send_bubble_not_in_settings_header():
+    def with_elem_id(node, target):
+        return isinstance(node, ast.With) and any(
+            isinstance(item.context_expr, ast.Call)
+            and any(
+                kw.arg == "elem_id"
+                and isinstance(kw.value, ast.Constant)
+                and kw.value.value == target
+                for kw in item.context_expr.keywords
+            )
+            for item in node.items
+        )
+
+    composer = next(
+        node for node in ast.walk(TREE)
+        if with_elem_id(node, "hj-chat-composer")
+    )
+    toolbar = next(
+        node for node in ast.walk(composer)
+        if with_elem_id(node, "hj-chat-composer-actions")
+    )
+    source = ast.get_source_segment(APP, toolbar)
+    assert "coach_model = gr.Dropdown(" in source
+    assert "coach_refresh_models = gr.Button(" in source
+    assert "coach_send = gr.Button(" in source
+    assert 'elem_id="hj-chat-model"' in source
+    assert "hj-chat-settings" not in APP
+    assert "#hj-chat-composer #hj-chat-model" in COACH_CHAT_CSS
+
+
+def test_model_is_frozen_per_turn_and_reenabled_after_answer():
+    assert 'coach_pending_model = gr.State(value="")' in APP
+    assert "def enqueue_coach_message(question, messages, model):" in APP
+    assert "updated, typing, pending, model," in APP
+    assert "coach_history, coach_chat, coach_pending_question,\n                    coach_pending_model" in APP
+    assert "coach_pending_model, session_coach_consent" in APP
+    assert "coach_model, coach_refresh_models," in APP
+    assert "def coach_refresh_model_options(selected_model):" in APP
+    assert "selected_model if selected_model in ids else" in APP
+    assert "if model_id in supported" in APP

@@ -72,14 +72,6 @@ COACH_CHAT_CSS = """
     line-height: 1.4;
 }
 
-/* The chat's model selector remains independent of the InBody selector. */
-#hj-chat-settings {
-    align-items: end;
-    gap: .6rem;
-    flex-wrap: wrap;
-}
-#hj-chat-settings button { min-height: 42px; }
-
 #hj-coach-chatbot {
     min-width: 0;
     border: 1px solid #d5ded7;
@@ -120,32 +112,53 @@ COACH_CHAT_CSS = """
 }
 #hj-chat-clear { flex: 0 0 auto; }
 
-/* Composer feels like a messaging app and remains reachable while scrolling. */
+/* The composer holds both the message and its model picker, as one bubble. */
 #hj-chat-composer {
     position: sticky;
     bottom: max(8px, env(safe-area-inset-bottom));
     z-index: 10;
-    gap: .5rem;
-    align-items: end;
-    flex-wrap: nowrap;
+    gap: .35rem;
+    min-width: 0;
     border: 1px solid #d7dfda;
     border-radius: 18px;
-    padding: .55rem;
+    padding: .55rem .7rem;
     background: var(--body-background-fill, #fff);
     box-shadow: 0 5px 22px rgb(30 54 43 / 10%);
 }
 #hj-chat-composer #hj-chat-input {
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
 }
 #hj-chat-composer #hj-chat-input textarea,
 #hj-chat-composer #hj-chat-input input {
-    border-radius: 14px !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    background: transparent !important;
+}
+#hj-chat-composer-actions {
+    align-items: center;
+    gap: .45rem;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+#hj-chat-composer #hj-chat-model {
+    flex: 0 1 235px;
+    max-width: 235px;
+    min-width: 0 !important;
+}
+#hj-chat-composer #hj-chat-refresh-models {
+    flex: 0 0 auto;
+    min-width: 40px !important;
+    width: 40px;
+    padding-inline: .3rem;
+    min-height: 40px;
 }
 #hj-chat-composer #hj-chat-send {
     flex: 0 0 auto;
+    margin-left: auto;
     min-width: 88px;
-    min-height: 44px;
+    min-height: 42px;
     border-radius: 13px;
 }
 
@@ -159,13 +172,14 @@ COACH_CHAT_CSS = """
         padding: .7rem .8rem;
         min-height: 62px;
     }
-    #hj-chat-settings { gap: .4rem; }
     #hj-coach-chatbot { border-radius: 12px; }
     #hj-chat-composer {
-        padding: .4rem;
+        padding: .4rem .5rem;
         border-radius: 14px;
         bottom: max(4px, env(safe-area-inset-bottom));
     }
+    #hj-chat-composer-actions { gap: .3rem; }
+    #hj-chat-composer #hj-chat-model { flex-basis: 165px; }
     #hj-chat-composer #hj-chat-send {
         min-width: 70px;
         padding-inline: .55rem;
