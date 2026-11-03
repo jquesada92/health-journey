@@ -9,6 +9,30 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Estado verificado en Neon — corrección histórica ejecutada (2026-11-03)
+
+**La migración 011 YA fue ejecutada transaccionalmente** en la rama
+principal de Neon `health_journey`, con autorización del usuario.
+Resultado posterior verificado: **17/17 exámenes** tienen su
+`exam_datetime` igual al timestamp de 14 dígitos después del primer
+`_` del nombre de archivo, **0 discrepancias**, y las **1.087
+mediciones** de `hj_measurement_audits` se conservan y reciben la
+fecha correcta mediante su relación con `hj_extraction_audits`.
+La vista `hj_audit_reviewed_private` conserva las 1.087 filas.
+Hay **17 backups de fecha anterior** en
+`hj_exam_datetime_repair_history`; el escritor demo y el runtime
+carecen de SELECT sobre ese respaldo. No se actualizaron valores
+ni unidades, y las tablas canónicas `hj_exams` y
+`hj_measurements` continúan vacías.
+
+**La migración 010 de reemplazo privado por filename NO está
+aplicada**: la funcionalidad de re-subir, re-extraer y reemplazar
+registros activos se activará después de aplicar 010, fusionar
+el PR y desplegar/verificar el Space. No confundir la
+reparación de fechas YA realizada con el reemplazo de
+mediciones pendiente.
+
+
 ## Fechas InBody: dos formatos de origen y corrección histórica
 
 **Dentro del documento InBody** se imprime la fecha/hora como
