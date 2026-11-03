@@ -165,7 +165,8 @@ def test_source_requires_signed_session_at_actual_ai_and_db_callbacks():
     assert "PrivacyFirstMiddleware" in source
     assert 'Route("/privacy", privacy_page, methods=["GET"])' in source
     assert 'Route("/privacy/consent", submit_consent, methods=["POST"])' in source
-    assert 'not has_consent(request, "ai")' in source
+    assert 'consent = has_consent(request, "ai")' in source
+    assert 'if not consent:' in source
     assert source.count('not has_consent(request, "db")') == 2
     assert "fn=restore_session_consents" in source
     assert "session_ai_consent = gr.State(value=False)" in source
