@@ -1079,7 +1079,7 @@ with gr.Blocks(
                 "El historial del chat vive solo en esta sesión."
             )
             coach_chat = gr.Chatbot(
-                label="Asistente fitness", type="messages", height=430,
+                label="Asistente fitness", height=430,
             )
             coach_context_status = gr.Markdown(
                 "Sin análisis aún. Puedes empezar con una pregunta sobre tus metas."
