@@ -112,7 +112,7 @@ def diagnose_zerogpu() -> str:
 OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
-    gr.Markdown("# Health Journey · InBody Hub")
+    gr.Markdown("# Health Journey · Asistente virtual de fitness y bienestar")
     # Infrastructure-only: this invisible registered handler is required by
     # existing ZeroGPU hardware. It never runs during Gemini extraction.
     # Keep it mounted so the Space boots, but show no technical controls to
@@ -122,6 +122,40 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         _zerogpu_keepalive.click(
             fn=diagnose_zerogpu, outputs=[], api_name=False,
             concurrency_limit=1,
+        )
+
+    # Gradio checkbox values are scoped to the current session and shared by tabs.
+    # Neither permission is stored in a database or persisted across logins.
+    with gr.Accordion("Privacidad y consentimiento de esta sesión", open=True):
+        gr.Markdown(
+            "Elige por separado qué operaciones autorizas. Ambas opciones están "
+            "**desactivadas de forma predeterminada**. Se conservarán mientras "
+            "permanezca abierta esta sesión, incluso al cambiar de módulo "
+            "o cargar varios archivos. Puedes desmarcarlas cuando quieras."
+        )
+        with gr.Row():
+            session_ai_consent = gr.Checkbox(
+                label="Autorizo enviar mis documentos InBody a Google Gemini "
+                      "para extraer datos con inteligencia artificial",
+                value=False,
+                info="Solo al pulsar Extraer. El documento se envía al servicio "
+                     "externo de Google; los entrenamientos no se envían a la IA.",
+            )
+            session_db_consent = gr.Checkbox(
+                label="Autorizo guardar mis datos de InBody y entrenamiento "
+                      "en una base de datos",
+                value=False,
+                info="Se guardarán datos del examen (ID, fecha, mediciones, "
+                     "modelo y auditoría) o series de entrenamiento "
+                     "(fecha, ejercicio, repeticiones, peso y otros detalles).",
+            )
+        gr.Markdown(
+            "**Importante:** la carga y vista previa locales no envían el "
+            "documento a la IA. Guardar requiere pulsar el botón correspondiente. "
+            "Los datos almacenados permanecen en la base de datos después de "
+            "cerrar sesión; desmarcar un permiso detiene nuevos envíos, "
+            "pero no elimina datos ya enviados o guardados. "
+            "El permiso de guardado no autoriza publicar datos."
         )
 
     with gr.Tab("InBody Upload"):
@@ -140,20 +174,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "Gemini procesa la imagen en el servicio de Google."
         )
         gr.Markdown(
-            "### Consentimientos del examen\n"
-            "Selecciona independientemente dónde autorizas enviar los datos. "
-            "No se necesita iniciar sesión para guardar una auditoría. "
-            "**En un Space público utiliza solo documentos anonimizados.**"
+            "Los permisos para IA y base de datos se configuran en la sección "
+            "**Privacidad y consentimiento de esta sesión**, encima de las pestañas. "
+            "No necesitas volver a marcarlos para cada examen."
         )
-        with gr.Row():
-            gemini_consent_remote = gr.Checkbox(
-                label="Autorizo enviar el documento a Google Gemini",
-                value=False,
-            )
-            gemini_consent = gr.Checkbox(
-                label="Autorizo guardar las mediciones revisadas en Neon",
-                value=False,
-            )
         gemini_upload = gr.File(
             label="Reporte InBody", file_types=[".pdf", ".jpg", ".jpeg", ".png"],
             type="filepath",
@@ -280,10 +304,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[gemini_status],
         )
         gr.Markdown(
-            "### Guardar auditoría en Neon\n"
-            "Se utiliza el consentimiento marcado al inicio y una conexión "
-            "restringida de solo escritura. No se requiere login para enviar, "
-            "pero el historial privado continúa protegido."
+            "### Guardar mediciones en la base de datos\n"
+            "Se utiliza tu autorización de guardado para esta sesión y una "
+            "conexión restringida de solo escritura. Se almacenan las mediciones "
+            "revisadas y su auditoría; el historial privado continúa protegido."
         )
         if not audit_write_enabled():
             gr.Markdown(
@@ -405,8 +429,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "Carga una exportación CSV de FitNotes con fecha, ejercicio, categoría, "
             "peso, repeticiones, distancia, duración y comentario. "
             "Cada fila es una serie y conserva el orden original. "
-            "La importación no utiliza Gemini ni publica los entrenamientos. "
-            "El historial es privado y solo se guarda al confirmarlo."
+            "La importación no utiliza IA ni publica los entrenamientos. "
+            "Solo se guarda en la base de datos al confirmarlo y si autorizaste "
+            "el guardado en la sección de privacidad de esta sesión."
         )
         if not database_enabled():
             gr.Markdown(
@@ -420,10 +445,6 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                     type="filepath", interactive=database_enabled(),
                 )
                 training_summary = gr.Markdown("Sin archivo validado.")
-                training_consent = gr.Checkbox(
-                    label="Autorizo guardar mi registro de entrenamiento en Neon",
-                    value=False,
-                )
                 training_overwrite = gr.Checkbox(
                     label="Confirmo actualizar series previamente guardadas "
                           "si sus valores cambiaron",
