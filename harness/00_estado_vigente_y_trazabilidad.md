@@ -1,3 +1,16 @@
+> **Metadatos para IA incorporados a Neon (2026-11-03):**
+> Migración `009_ai_semantic_metadata.sql` aplicada sobre Neon
+> `health_journey/main`: 27 conceptos InBody, 39 alias y 24 columnas
+> descritas más `COMMENT ON` del esquema pertinente, sin mutar los
+> exámenes ni los registros de entrenamiento. Lectura autorizada solo
+> a roles privados, no a demo writer o PUBLIC. El app loader
+> `inbody_mvp/semantic_metadata.py` asocia el catálogo a las
+> variables presentes en el contexto InBody y FitNotes, con cautelas
+> sobre unidades, frecuencias, segmentos y algoritmos propietarios.
+> El prompt fitness se actualizó para usar el campo
+> `data.semantic_metadata`. Cambio de código pendiente de PR/CI
+> y despliegue HF. Prueba nueva `tests/test_semantic_metadata.py`.
+
 > **Flujo único de revisión y guardado (2026-11-03, PR en validación):**
 > Se reducen cinco etapas a cuatro: Cargar → Extraer → Revisar → Guardar.
 > La tabla conserva el indicador `reviewed` y correcciones editables;
