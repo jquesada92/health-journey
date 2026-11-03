@@ -124,3 +124,20 @@ def test_project_is_initial_and_coach_has_controls():
     assert 'label="Asistente fitness", height=430,' in app
     assert 'type="messages"' not in app
     assert 'with gr.Tab(' not in app
+
+
+def test_gradio6_chatbot_instantiation_and_message_history():
+    """Smoke test with the Gradio runtime, not just an app.py source assertion."""
+    import gradio as gr
+
+    chatbot = gr.Chatbot(
+        label="Asistente fitness",
+        height=430,
+        value=[
+            {"role": "user", "content": "¿Cómo voy?"},
+            {"role": "assistant", "content": "Necesito mediciones comparables."},
+        ],
+    )
+    assert chatbot.height == 430
+    assert len(chatbot.value) == 2
+    assert [message["role"] for message in chatbot.value] == ["user", "assistant"]
