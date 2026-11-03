@@ -223,7 +223,8 @@ def test_both_consents_at_start_and_login_only_for_history():
     assert app.index("session_ai_consent = gr.Checkbox") < start
     assert app.index("session_db_consent = gr.Checkbox") < start
     assert "interactive=audit_write_enabled()" in upload
-    assert "inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite]" in upload
+    assert '"gemini_table, gemini_snapshot, session_db_consent,"'.strip('"') in upload
+    assert "header_exam_datetime, header_filename" in upload
     assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in upload
     assert "inicia sesión en pestaña nueva" not in upload
     assert 'with gr.Tab("Historial en base de datos", id="history")' in app
@@ -250,9 +251,9 @@ def test_review_ui_clears_only_after_success():
     assert 'def save_review_and_clear(' in source
     assert 'request: gr.Request | None = None' in source
     assert 'if message.startswith("Guardado en Neon:"):' in source
-    assert "pd.DataFrame(columns=GEMINI_COLUMNS)" in source
+    assert "pd.DataFrame(columns=GEMINI_DISPLAY_COLUMNS)" in source
     assert "gr.Info(visible_message)" in source
-    assert "return keep_components(11)" in source
+    assert "return keep_components(16)" in source
     assert "gemini_consent" not in source
     assert "gemini_upload.upload(" in source
     assert "gemini_upload.change(" not in source
