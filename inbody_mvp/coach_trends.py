@@ -177,25 +177,75 @@ def _score_points(rows: list[dict]) -> list[dict]:
     return [by_date[d] for d in sorted(by_date)]
 
 
-def _compact_figure(label: str, unit: str, points: list[dict]) -> go.Figure:
+def _compact_figure(
+    label: str, unit: str, points: list[dict],
+    selected_dates: list[date] | None = None,
+) -> go.Figure:
+    """Expose the exact chosen examination dates, especially the first.
+
+    The x-axis is an ordinal exam axis, like the printed InBody history:
+    points have equal spacing even when the first test is years older.
+    All chosen exam positions stay visible, including missing values.
+    Never interpolate a missing measurement or silently drop its date.
+    """
+    selected_dates = sorted(set(selected_dates or []))
     fig = go.Figure()
-    if points:
-        last = points[-1]
+    measured = {row["date"]: row for row in points}
+    available = [measured[d] for d in selected_dates if d in measured]
+    if selected_dates:
+        positions = list(range(len(selected_dates)))
+        values = [
+            float(measured[d]["numeric"]) if d in measured else None
+            for d in selected_dates
+        ]
+        originals = [
+            measured[d]["original"] if d in measured else "Sin medición"
+            for d in selected_dates
+        ]
         fig.add_trace(go.Scatter(
-            x=[r["date"] for r in points],
-            y=[float(r["numeric"]) for r in points],
+            x=positions,
+            y=values,
             mode="lines+markers",
+            connectgaps=False,
             line={"width": 2, "color": "#37766b"},
-            marker={"size": 5, "color": "#294c44"},
-            hovertext=[r["original"] for r in points],
+            marker={
+                "size": [9] + [5] * (len(positions) - 1),
+                "color": ["#b67b25"] + ["#294c44"] * (len(positions) - 1),
+                "symbol": ["diamond"] + ["circle"] * (len(positions) - 1),
+            },
+            text=originals,
+            customdata=[d.strftime("%d/%m/%Y") for d in selected_dates],
             hovertemplate=(
-                "%{x|%d/%m/%Y}<br>%{hovertext} " + unit
-                + "<extra></extra>"
+                "%{customdata}<br>%{text} " + unit + "<extra></extra>"
             ),
             showlegend=False,
         ))
-        value = last["original"]
-        title = f"<b>{label}</b> · {value} {unit}"
+        # Gradio/Plotly's automatic date ticks previously hid the first
+        # date label. Place the first and last exams explicitly on the axis.
+        first = selected_dates[0]
+        last = selected_dates[-1]
+        tickvals = [0] if len(positions) == 1 else [0, positions[-1]]
+        ticktext = (
+            [f"1.ª {first:%d/%m/%y}"] if len(positions) == 1
+            else [f"1.ª {first:%d/%m/%y}", f"Últ. {last:%d/%m/%y}"]
+        )
+        fig.update_xaxes(
+            type="linear", tickmode="array", tickvals=tickvals,
+            ticktext=ticktext, tickfont={"size": 9},
+            tickangle=0, range=[-0.4, positions[-1] + 0.4],
+            showgrid=False, showline=False,
+            automargin=True, fixedrange=True, title=None,
+        )
+        if first not in measured:
+            fig.add_annotation(
+                text="1.ª prueba: sin esta medida",
+                x=0.01, y=0.95, xref="paper", yref="paper",
+                xanchor="left", showarrow=False,
+                font={"size": 9, "color": "#8c6432"},
+            )
+    if available:
+        latest = available[-1]
+        title = f"<b>{label}</b> · {latest['original']} {unit}"
     else:
         title = f"<b>{label}</b> · sin datos"
         fig.add_annotation(
@@ -205,16 +255,14 @@ def _compact_figure(label: str, unit: str, points: list[dict]) -> go.Figure:
         )
     fig.update_layout(
         title={"text": title, "font": {"size": 12}, "x": 0.02, "y": 0.97},
-        height=140,
-        margin={"l": 34, "r": 12, "t": 31, "b": 30},
+        height=150,
+        margin={"l": 34, "r": 14, "t": 33, "b": 41},
         showlegend=False, hovermode="closest",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
     )
-    fig.update_xaxes(
-        tickformat="%d/%m/%y", tickfont={"size": 9},
-        showgrid=False, showline=False, title=None,
-    )
+    if not selected_dates:
+        fig.update_xaxes(showgrid=False, showline=False, title=None)
     fig.update_yaxes(
         tickfont={"size": 9}, showgrid=True,
         gridcolor="rgba(110,130,120,.11)", zeroline=False, title=None,
@@ -224,7 +272,8 @@ def _compact_figure(label: str, unit: str, points: list[dict]) -> go.Figure:
 
 def render_coach_trend_figures(records: list[dict]):
     """Four compact figures, ordered first-date + ten latest-date points."""
-    allowed_dates = set(first_and_last_ten_exam_dates(records))
+    selected_dates = first_and_last_ten_exam_dates(records)
+    allowed_dates = set(selected_dates)
     normalized = [
         r for r in _normalize_records(records)
         if r["date"] in allowed_dates
@@ -235,8 +284,8 @@ def render_coach_trend_figures(records: list[dict]):
             points = _score_points(normalized)
         else:
             points = _metric_points(normalized, code, unit)
-        figures.append(_compact_figure(label, unit, points))
-    return figures, len(allowed_dates)
+        figures.append(_compact_figure(label, unit, points, selected_dates))
+    return figures, len(selected_dates)
 
 
 def empty_coach_trend_figures():
