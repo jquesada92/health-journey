@@ -26,6 +26,7 @@ from inbody_mvp.public_dashboard import (
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
+from inbody_mvp.inbody_flow import INBODY_FLOW_CSS, render_inbody_flow
 from inbody_mvp.prelogin_consent import (
     PrivacyFirstMiddleware, privacy_page, submit_consent,
     current_choices, has_consent, set_consent,
@@ -117,7 +118,10 @@ def diagnose_zerogpu() -> str:
 
 OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
-with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60, 60)) as demo:
+with gr.Blocks(
+    title="Health Journey", analytics_enabled=False,
+    delete_cache=(60, 60), css=INBODY_FLOW_CSS,
+) as demo:
     gr.Markdown("# Health Journey · Asistente virtual de fitness y bienestar")
     # Infrastructure-only: this invisible registered handler is required by
     # existing ZeroGPU hardware. It never runs during Gemini extraction.
@@ -198,22 +202,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             "Puedes consultar el documento original en cualquier momento. "
             "Las mediciones se guardan únicamente después de tu revisión."
         )
-        gr.HTML(
-            '<nav aria-label="Pasos para registrar un examen InBody" '
-            'style="width:100%;box-sizing:border-box;margin:8px 0 18px;">'
-            '<ol style="padding:0;margin:0;list-style:none;display:flex;'
-            'flex-wrap:wrap;gap:8px;">'
-            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
-            'border-radius:10px;font-size:13px;">1. Cargar</li>'
-            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
-            'border-radius:10px;font-size:13px;">2. Extraer</li>'
-            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
-            'border-radius:10px;font-size:13px;">3. Revisar</li>'
-            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
-            'border-radius:10px;font-size:13px;">4. Validar</li>'
-            '<li style="flex:1 1 135px;padding:10px;border:1px solid #d2e7e0;'
-            'border-radius:10px;font-size:13px;">5. Guardar</li>'
-            '</ol></nav>'
+        # The Gradio HTML component root is sticky; its content is updated by
+        # completed backend actions, not by user-controlled scroll position.
+        inbody_flow = gr.HTML(
+            value=render_inbody_flow(1),
+            elem_id="hj-inbody-flow",
         )
         gr.Markdown(
             "### 1. Carga tu examen\n"
@@ -345,11 +338,21 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 popup_error(exc, "No se pudo extraer el reporte.")
                 return keep_components(3)
 
+        def progress_after_extract(snapshot, upload):
+            if snapshot is not None:
+                return render_inbody_flow(3)
+            return render_inbody_flow(2 if upload else 1)
+
         gemini_extract.click(
             fn=extract_with_popup,
             inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
             outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
+        ).then(
+            fn=progress_after_extract,
+            inputs=[gemini_snapshot, gemini_upload_state],
+            outputs=[inbody_flow],
+            show_progress="hidden",
         )
         gr.Markdown(
             "### 4. Valida todas las mediciones\n"
@@ -371,10 +374,35 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 popup_error(exc, "No se pudo validar la revisión.")
                 return gr.update()
 
+        def progress_after_validation(message, snapshot):
+            if snapshot is None:
+                return gr.update()
+            if isinstance(message, str) and message.startswith("Revisión completa:"):
+                return render_inbody_flow(5)
+            return render_inbody_flow(4)
+
         gemini_check.click(
             fn=review_with_popup,
             inputs=[gemini_table, gemini_snapshot],
             outputs=[gemini_review_status],
+        ).then(
+            fn=progress_after_validation,
+            inputs=[gemini_review_status, gemini_snapshot],
+            outputs=[inbody_flow],
+            show_progress="hidden",
+        )
+
+        def progress_after_table_edit():
+            # A user correction invalidates the previous review result.
+            return (
+                render_inbody_flow(3),
+                "Revisión pendiente: valida las filas antes de guardar.",
+            )
+
+        gemini_table.edit(
+            fn=progress_after_table_edit,
+            outputs=[inbody_flow, gemini_review_status],
+            show_progress="hidden", queue=False,
         )
         gr.Markdown(
             "### 5. Guarda el examen en la base de datos\n"
@@ -438,6 +466,12 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             gr.Warning(message.replace("Neon", "la base de datos"))
             return keep_components(11)
 
+        def progress_after_save(message):
+            if (isinstance(message, str)
+                    and message.startswith("Guardado en la base de datos:")):
+                return render_inbody_flow(5, saved=True)
+            return gr.update()
+
         gemini_save.click(
             fn=save_review_and_clear,
             inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite],
@@ -448,6 +482,11 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 gemini_review_status,
             ],
             concurrency_limit=1,
+        ).then(
+            fn=progress_after_save,
+            inputs=[gemini_save_status],
+            outputs=[inbody_flow],
+            show_progress="hidden",
         )
         # Reset all previous-review state when a different file is selected.
         # Preview runs on the application server and requires no Gemini consent.
@@ -509,13 +548,23 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             fn=show_processed_filename,
             inputs=[gemini_upload_state],
             outputs=[gemini_file_status],
+        ).then(
+            fn=lambda state: render_inbody_flow(2 if state else 1),
+            inputs=[gemini_upload_state],
+            outputs=[inbody_flow],
+            show_progress="hidden",
         )
-        gr.ClearButton(
+        inbody_clear = gr.ClearButton(
             [gemini_upload, gemini_upload_state, gemini_snapshot,
              gemini_preview, gemini_preview_status, gemini_table, gemini_status,
              gemini_save_status, gemini_review_status,
              gemini_overwrite, gemini_file_status],
             value="Limpiar examen (conservar permisos)",
+        )
+        inbody_clear.click(
+            fn=lambda: render_inbody_flow(1),
+            outputs=[inbody_flow],
+            show_progress="hidden", queue=False,
         )
     with gr.Tab("Training Hub"):
         from inbody_mvp.training_hub import (
