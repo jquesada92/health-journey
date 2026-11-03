@@ -88,3 +88,19 @@ def test_new_file_resets_review_only_and_not_session_permissions():
     # after save may not reactivate step 3 or undo the reset to step 1.
     assert "field.input(" in INBODY
     assert "field.change(" not in INBODY
+
+
+def test_duplicate_preflight_is_checked_at_upload_and_again_before_gemini():
+    assert "gemini_upload_preflight = gr.State(value=None)" in SOURCE
+    assert "preflight_processed_upload(" in INBODY
+    assert "status == \"duplicate\"" in INBODY
+    assert 'interactive=status in {"new", "unverified"}' in INBODY
+    assert "and preflight.get(\"status\") == \"duplicate\"" in INBODY
+    extract = ast.unparse(_function("extract_with_popup"))
+    assert extract.index("preflight_processed_upload(") < extract.index("extract_gemini(")
+    assert extract.index('fresh["status"] == "duplicate"') < extract.index("extract_gemini(")
+    upload = INBODY.split("gemini_upload.upload(", 1)[1].split(
+        'with gr.Accordion("Progreso histórico de InBody"', 1
+    )[0]
+    assert upload.index("fn=show_processed_filename") < upload.index("fn=preview_with_popup")
+    assert "inputs=[gemini_upload_state, gemini_upload_preflight]" in upload
