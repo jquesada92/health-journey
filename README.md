@@ -8,6 +8,11 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Entregable académico del Módulo 1 (Fundamentos de la Programación)
+
+El panel **Proyecto** incluye un editor desplegable para documentar la actividad principal de la Sesión 4 de OBS: **ocho apartados en el orden exigido**, con contenidos iniciales basados en el proyecto, un pitch de cinco frases, campos para autor y cuatro capturas reales, vista previa y botón **Generar Word (.docx)**. El Word se crea en la aplicación para descargar, sin llamar a Gemini ni guardar texto de la entrega en la base de datos. El borrador editado vive solo durante la sesión; antes de recargar conviene generar el Word. El HTML aportado contiene requisitos y rúbrica, no la plantilla Word visual de Blackboard. Véanse `docs/entregable-modulo1-obs.md`, `inbody_mvp/module1_deliverable.py` y `tests/test_module1_deliverable.py`.
+
+
 ## Estado vigente de GitHub main (auditoría 2026-11-03)
 
 El árbol `main` `4944fbe5355d66da94290c510e5e0393487f2918` contiene cuatro módulos,

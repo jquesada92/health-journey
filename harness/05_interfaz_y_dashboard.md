@@ -1,5 +1,12 @@
 # 05 — Interfaz actual, navegación y dashboard
 
+## Proyecto: entregables académicos del primer módulo (propuesta 2026-11-03)
+
+Dentro del módulo Proyecto se incorpora el acordeón `Entregables académicos · Módulo 1`, no una ruta adicional. Tiene ocho campos editables ordenados según la actividad de Fundamentos de la Programación, nombre del autor, cuatro capturas PNG/JPG con pies explicativos, botón `Actualizar vista previa` y botón `Generar Word (.docx)` que proporciona el fichero descargable. Se precargan enlaces y contenido contrastado con el código del producto. Faltantes quedan visibles como pendientes y no se inventan evidencias de compañeros. No se guarda la edición en Neon; solo se exporta el Word de manera temporal.
+
+Especificación: `docs/entregable-modulo1-obs.md`; código: `inbody_mvp/module1_deliverable.py`; prueba: `tests/test_module1_deliverable.py`.
+
+
 ## UI actual de cuatro módulos · 2026-11-03
 
 **Menú vertical inicial:** Proyecto; Extractor de InBody; Captador de

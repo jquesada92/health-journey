@@ -22,3 +22,5 @@ python-dateutil>=2.9,<3.0
 
 # Gemini Flash structured image extraction
 google-genai>=1.0,<2.0
+# Academic module-one Word deliverable
+python-docx>=1.1,<2.0

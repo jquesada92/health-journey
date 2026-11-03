@@ -1,5 +1,12 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+## Nueva sección académica del Módulo 1 (cambio propuesto, todavía no en main)
+
+El inventario anterior corresponde al corte histórico de main del 03/11/2026. El PR de entregables añade los siguientes archivos al producto: `inbody_mvp/module1_deliverable.py` (contenido guiado, vista previa y DOCX), `tests/test_module1_deliverable.py` (validación sintética de ocho apartados y cuatro capturas), `docs/entregable-modulo1-obs.md` (especificación académica y criterios tomados del HTML proporcionado). Se conecta en `app.py`, añade `python-docx` a `requirements.txt` y amplía las allowlists de CI y despliegue de `.github/workflows/test-inbody.yml` y `.github/workflows/deploy-huggingface.yml`.
+
+Este editor se presenta dentro de Proyecto, sin crear un quinto módulo; no consulta Neon ni envía borradores a Gemini. La fuente recibida es la instrucción HTML y no el DOCX de plantilla Blackboard: reproduce los ocho apartados y los requisitos, pero no afirma ser la plantilla visual original. Los campos del autor y cuatro imágenes son evidencias pendientes del alumno. No guardar ediciones tras refrescar es una limitación explícita de la versión propuesta.
+
+
 **Corte del árbol:** `main` `4944fbe5355d66da94290c510e5e0393487f2918`, 2026-11-03.  
 **Origen:** árbol GitHub recursivo + código real + migraciones + CI; no el Space ni expedientes reales.  
 **Regla:** `MAIN` significa rastreado en Git, **no** desplegado ni verificado E2E. El único comportamiento vigente se determina con el código, no con requerimientos históricos. La validación estática del harness falla al incorporarse nuevos módulos, pruebas, documentos, migraciones o workflows sin incluirlos aquí.
