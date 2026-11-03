@@ -79,6 +79,7 @@ jobs:
               'inbody_mvp/prompts/inbody_extraction.md',
               'inbody_mvp/prompts/fitness_coach.md',
               'inbody_mvp/project_overview.py',
+              'inbody_mvp/module1_deliverable.py',
               'inbody_mvp/coach_chat_ui.py',
           ]
           # Avoid pushing a Space that imports a runtime module omitted
