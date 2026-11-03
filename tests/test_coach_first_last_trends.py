@@ -111,7 +111,9 @@ def test_missing_score_uses_empty_state_not_inferred_from_another_metric():
     filtered = [r for r in records if r["measurement"] != "InBody Score"]
     figs, count = coach_trends.render_coach_trend_figures(filtered)
     assert count == 4
-    assert len(figs[3].data) == 0
+    assert len(figs[3].data) == 1
+    assert all(value is None for value in figs[3].data[0].y)
+    assert figs[3].layout.xaxis.ticktext[0] == f"1.ª {dates[0]:%d/%m/%y}"
     assert "sin datos" in figs[3].layout.title.text.lower()
     assert len(figs[0].data[0].x) == 4
 
