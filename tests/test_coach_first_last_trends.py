@@ -1,4 +1,5 @@
 """First + ten latest private InBody coach mini-trends (no external services)."""
+import ast
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -52,12 +53,48 @@ def test_each_of_four_plots_uses_same_first_and_ten_last_dates_not_last_ten_only
     for fig in figs:
         assert len(fig.data) == 1
         assert len(fig.data[0].x) == 11
-        assert list(fig.data[0].x) == chosen
-        assert fig.layout.height == 140
+        # Compact plots show ordinal exam slots, not compressed calendar
+        # dates. First and final date labels are always explicit.
+        assert list(fig.data[0].x) == list(range(11))
+        assert list(fig.data[0].customdata) == [
+            d.strftime("%d/%m/%Y") for d in chosen
+        ]
+        assert fig.layout.height == 150
         assert len(fig.data[0].y) == 11
-        assert all(x not in fig.data[0].x for x in dates[1:6])
+        assert list(fig.layout.xaxis.tickvals) == [0, 10]
+        assert fig.layout.xaxis.ticktext[0] == f"1.ª {chosen[0]:%d/%m/%y}"
+        assert fig.layout.xaxis.ticktext[-1] == f"Últ. {chosen[-1]:%d/%m/%y}"
+        assert fig.data[0].marker.color[0] != fig.data[0].marker.color[1]
+        assert all(
+            d.strftime("%d/%m/%Y") not in fig.data[0].customdata
+            for d in dates[1:6]
+        )
     assert figs[0].data[0].y[0] == 65.2
     assert figs[3].data[0].y[-1] == 85.0
+
+
+def test_first_date_remains_visible_when_a_metric_is_missing_on_baseline():
+    dates, records = rows_for_n_exams(16)
+    # First exam exists, but a specific metric is missing in that report.
+    records = [
+        r for r in records
+        if not (
+            r["exam_date"] == dates[0].isoformat()
+            and r["measurement"] == "Skeletal Muscle Mass"
+        )
+    ]
+    figures, count = coach_trends.render_coach_trend_figures(records)
+    assert count == 11
+    muscle = figures[1]
+    assert len(muscle.data[0].x) == 11
+    assert muscle.data[0].y[0] is None
+    assert muscle.layout.xaxis.ticktext[0] == f"1.ª {dates[0]:%d/%m/%y}"
+    assert any(
+        "sin esta medida" in ann.text for ann in muscle.layout.annotations
+    )
+    # Values from other examinations remain untouched; no invented baseline.
+    assert muscle.data[0].y[1] is not None
+    assert figures[0].data[0].y[0] == 65.2
 
 
 def test_same_date_rows_do_not_duplicate_points_or_inflate_count():
@@ -205,6 +242,52 @@ def test_responsive_left_panel_and_auto_refresh_in_gradio_app():
     assert "elem_id=\"hj-coach-chatbot\"" in app
     assert "#hj-coach-trends" in css
     assert "#hj-coach-layout" in css
+    assert "display: grid !important;" in css
+    assert "grid-template-columns: minmax(260px, 320px) minmax(0, 1fr)" in css
+    assert "grid-template-columns: minmax(0, 1fr)" in css
     assert "max-height: 295px" in css
+    assert 'scale=3, min_width=0, elem_id="hj-coach-conversation"' in app
+    assert 'scale=1, min_width=0, elem_id="hj-coach-trends"' in app
+    assert "selected_dates = first_and_last_ten_exam_dates(trend_rows)" in app
     workflow = (ROOT / ".github/workflows/deploy-huggingface.yml").read_text()
     assert "'inbody_mvp/coach_trends.py'" in workflow
+
+def test_trends_and_entire_chat_are_direct_siblings_inside_same_gradio_row():
+    """AST contract prevents the chat from escaping the side-by-side Row."""
+    app = (ROOT / "app.py").read_text()
+    tree = ast.parse(app)
+    layout_rows = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.With)
+        and any(
+            isinstance(item.context_expr, ast.Call)
+            and any(
+                kw.arg == "elem_id"
+                and isinstance(kw.value, ast.Constant)
+                and kw.value.value == "hj-coach-layout"
+                for kw in item.context_expr.keywords
+            )
+            for item in node.items
+        )
+    ]
+    assert len(layout_rows) == 1
+    direct_columns = [
+        node for node in layout_rows[0].body
+        if isinstance(node, ast.With)
+    ]
+    assert len(direct_columns) == 2
+    left, right = direct_columns
+    def symbols(node):
+        return {
+            name.func.attr
+            for name in ast.walk(node)
+            if isinstance(name, ast.Call)
+            and isinstance(name.func, ast.Attribute)
+            and isinstance(name.func.value, ast.Name)
+            and name.func.value.id == "gr"
+        }
+    assert "Plot" in symbols(left)
+    assert "Chatbot" in symbols(right)
+    assert "Textbox" in symbols(right)
+    assert "Accordion" in symbols(right)
+    assert "HTML" in symbols(right)
