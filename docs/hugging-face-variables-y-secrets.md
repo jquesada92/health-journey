@@ -1,5 +1,8 @@
 # Hugging Face Spaces — Variables y Secrets de Health Journey
 
+> **Guía de configuración (2026-11-03):** contrastar cada variable con `app.py`, `prelogin_consent.py`, `gemini_review.py`, `storage.py`, `training_hub.py` y los workflows antes de usar instrucciones históricas. Google Gemini requiere una clave de servidor, Neon necesita URL y roles restringidos para el caso habilitado, Gradio puede exigir la cuenta de demostración configurada y Hugging Face usa `HF_TOKEN` + `HF_SPACE_ID` para el workflow. El sistema solicita tres permisos antes del login; ninguna variable de configuración debe equivaler a consentimiento de usuario. No copiar valores secretos a GitHub ni a un log o documentación. Configurar un Space privado antes de recibir reportes con identidad. [Checklist actual](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 
 ## Inicio de sesión propio `obs-master-demo`
 
