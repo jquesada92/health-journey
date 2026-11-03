@@ -1,5 +1,38 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## Contratos actuales y cobertura de CI · 2026-11-03
+
+Se distinguen tres niveles: **(1) inventario/código estático**
+(`harness/validar_reconstruccion.py`), **(2) pruebas sintéticas**
+(`.github/workflows/test-inbody.yml`) y **(3) E2E HF/Gemini/Neon
+real**, que continúa sin certificarse. La matriz F-01…F-15 y
+AC-V-01…AC-V-12 se encuentra en
+[00](00_estado_vigente_y_trazabilidad.md), con todos los módulos y
+test files enumerados en [11](11_cobertura_codigo_main.md).
+
+Contratos que CI debe proteger: cuatro módulos en el sidebar;
+tres consentimientos `/privacy`; InBody
+`Cargar → Extraer → Revisar → Guardar`, **solo Guardar mediciones**;
+revisión `reviewed` obligatoria y originales inmutables;
+comprobación de duplicado previa al uso de tokens;
+historial FitNotes aislado por `owner_key`;
+chat multiturno con prompts independientes y contexto InBody
+automático sin ID visible; preservación de decimales y negativos.
+En PR #84 se añade `tests/test_semantic_metadata.py` para el
+catálogo ya existente en Neon y su lectura contextual con
+límite de filas, alias y avisos de incertidumbre.
+
+**Cobertura por archivo ≠ cobertura de ejecución al 100 %.** El
+verificador ahora detecta rutas de funcionalidades agregadas sin
+inventario; las pruebas unitarias que el workflow ejecute deben
+listarse expresamente. Los 36 CA y diez CS que siguen son
+**históricos**; no afirmar que están aprobados por su mera
+presencia, y no exigir EasyOCR/CSV como UI principal.
+
+
+---
+
+
 > **Aceptación vigente (2026-11-03):** ver [AC-V-01…AC-V-12](00_estado_vigente_y_trazabilidad.md#3-matriz-de-aceptación-operativa), con pruebas, estado, pendientes y requisitos tecnológicos. Los **36 CA y 10 CS** conservados más abajo se preservan como visión/histórico porque el verificador de harness comprueba sus IDs: no se declaran aprobados automáticamente. Los criterios sobre EasyOCR, exportación CSV de siete columnas y selector CSV+Neon no son la UI principal de `main`. Las suites de CI son sintéticas (no Space real, Gemini o Neon); PR #72 para multiturno/prompts sigue sin fusionar y tiene 317 tests en su rama. Exigir evidencia visual móvil, E2E y aislamiento multitenant antes de dar por aceptado un lanzamiento.
 
 
