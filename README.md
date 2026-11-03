@@ -71,10 +71,20 @@ transferencias internacionales y seguridad conforme a la normativa aplicable.
 
 ## Flujo de captura InBody — cinco pasos
 
-La pestaña **InBody Upload** sigue una guía secuencial visible también en
-pantallas estrechas: **1. Cargar → 2. Extraer → 3. Revisar → 4. Validar →
-5. Guardar**. La navegación de pasos es informativa; no reemplaza controles
-de acceso ni bloquea artificialmente el flujo.
+La pestaña **InBody Upload** presenta una guía de progreso
+**fija mientras se desplaza la página**: **1. Cargar → 2. Extraer →
+3. Revisar → 4. Validar → 5. Guardar**. El encabezado es compacto
+y utiliza cinco columnas incluso en dispositivos móviles. Muestra el
+paso activo y los completados, sin depender de la posición del scroll.
+
+El indicador avanza con eventos reales: después de cargar el archivo
+señala la extracción; tras obtener mediciones señala la revisión; al
+intentar validar indica ese paso y, si la validación es correcta, marca
+Guardar como siguiente acción. Si la revisión cambia, vuelve a señalar
+Revisar y pide nueva validación. Al guardar con éxito, todas las etapas
+aparecen completadas. Limpiar o iniciar un nuevo archivo restablece el
+progreso sin alterar los consentimientos. No sustituye controles de
+acceso ni concede permiso de IA o almacenamiento.
 
 - **Cargar** PDF/imagen: mostrar estado de nombre procesado y vista previa
   del documento, sin enviarlo a Gemini.
