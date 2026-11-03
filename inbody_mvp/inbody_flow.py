@@ -148,6 +148,53 @@ INBODY_FLOW_CSS = """
     display: block;
     white-space: nowrap;
 }
+/* Side-by-side validation: keep the editable grid and its original document
+   on screen together instead of hiding the source behind an accordion. */
+#hj-inbody-review-layout {
+    align-items: flex-start;
+    gap: 16px;
+}
+#hj-inbody-review-table,
+#hj-inbody-review-document {
+    min-width: 0;
+}
+#hj-inbody-review-table {
+    overflow-x: auto;
+}
+#hj-inbody-review-document {
+    position: sticky;
+    top: 175px; /* Leave room for the fixed five-step navigation. */
+    align-self: flex-start;
+}
+#hj-inbody-document-gallery {
+    width: 100%;
+    max-width: 100%;
+    /* One PDF page per gallery row: vertical document, not thumbnail strip. */
+    max-height: min(78vh, 820px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+/* Gradio's single-column gallery maintains one source page per row. */
+#hj-inbody-document-gallery .grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+/* At narrower desktop/tablet widths, stack the source below the grid
+   rather than squeeze the eight editable measurement columns. */
+@media (max-width: 1100px) {
+    #hj-inbody-review-layout {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    #hj-inbody-review-table,
+    #hj-inbody-review-document {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-basis: auto !important;
+    }
+    #hj-inbody-review-document {
+        position: static;
+    }
+}
 @media (max-width: 700px) {
     #hj-inbody-step-1,
     #hj-inbody-step-2,

@@ -72,6 +72,7 @@ def test_existing_shared_consent_and_inbody_sticky_progress_remain():
     assert 'fn=progress_after_validation' in SOURCE
     assert 'fn=progress_after_save' in SOURCE
     assert 'elem_id="hj-inbody-flow"' in SOURCE
-    assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in SOURCE
+    assert "gemini_upload_state, session_ai_consent," in SOURCE
+    assert "gemini_model_selector, gemini_upload_preflight," in SOURCE
     assert "gemini_table, gemini_snapshot, session_db_consent," in SOURCE
     assert "header_exam_datetime, header_filename" in SOURCE

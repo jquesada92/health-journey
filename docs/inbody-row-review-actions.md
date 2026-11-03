@@ -1,3 +1,59 @@
+## Vista vertical y consentimiento — ajuste de revisión (2026-11-03)
+
+El visor del documento original aparece **a la derecha de la tabla**
+únicamente después de una extracción Gemini exitosa. La galería muestra
+las páginas verticalmente (una página por fila y scroll) sin abrir
+automáticamente una vista previa modal; cualquier página se puede ampliar.
+Antes de extraer permanece oculta aunque las páginas puedan renderizarse
+localmente para preparar el visor. Al subir otro archivo o guardar un
+examen con éxito, la revisión se oculta y se limpian los datos anteriores.
+
+En pantallas estrechas, la tabla editable aparece sobre el documento.
+El documento original no se vuelve a enviar a la IA durante la revisión.
+
+Se añadió la verificación `GET /privacy/verify` tras enviar
+`POST /privacy/consent`: antes de redirigir a la aplicación confirma
+que la cookie HttpOnly firmada está disponible. Si el navegador la bloquea
+(p. ej., una aplicación incrustada en otro sitio) o el servidor reinicia
+la sesión, se muestra un aviso útil para abrir la aplicación en una
+pestaña directa y permitir las cookies. No concede permisos
+automáticamente ni cambia su alcance, firma o expiración.
+La causa exacta de un error de consentimiento no se puede atribuir
+sin su mensaje HTTP/trace; esta mejora distingue la pérdida de cookie
+de una extracción fallida.
+
+Pruebas sintéticas: visualización tras extracción, reinicio por archivo
+nuevo y guardado, composición vertical de Gradio, consentimiento
+aprobado, cookie ausente y rechazos de origen cruzado. Requiere
+verificación manual del Space y de los flujos de autenticación.
+
+## Visor original junto a la tabla (3 de noviembre de 2026)
+
+Tras seleccionar el PDF o la imagen, el visor integrado se prepara sin
+invocar a Gemini. Una vez extraídas las mediciones, la pantalla de
+revisión coloca **la tabla editable a la izquierda y el documento
+original a la derecha** en escritorio. Ya no es necesario expandir
+«Ver examen original» ni navegar a otro panel. El visor único muestra
+todas las páginas del PDF, permite abrirlas en pantalla completa y
+sigue siendo de solo lectura.
+
+En escritorio el visor permanece próximo durante el desplazamiento de
+la tabla. En tabletas y celulares (ancho inferior a 1100 px), el diseño
+se apila: tabla primero y documento después, con desplazamiento
+horizontal de las columnas sin comprimir las mediciones.
+
+Se preservan: corrección directa en `value`, indicador
+`was_corrected`, comentarios, exclusión nativa de filas, `reviewed`,
+validación de `original_value`, consentimiento, deduplicación antes
+de Gemini y guardado privado en Neon. El visor y su estado se limpian
+después de un guardado exitoso. El cambio no altera el esquema ni
+hace otra llamada al modelo.
+
+**Pruebas:** contratos de Gradio sobre posiciones de columnas, visor
+único no colapsable, páginas/PDF, flujo de reset y enlace del estado
+de deduplicación al callback de extracción; CI y validación visual
+en el Space son comprobaciones independientes.
+
 ## Presentación de errores — ajuste del 3 de noviembre de 2026
 
 El navegador ya no debe mostrar pequeñas marcas o recuadros de error

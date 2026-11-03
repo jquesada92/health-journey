@@ -1,3 +1,28 @@
+> **Visor y consentimiento (2026-11-03, PR #80, verificación pendiente):**
+> la vista paralela se activa solamente después de extracción válida;
+> PDF/imágenes a la derecha en una galería vertical, tabla a la
+> izquierda, y apilados en móvil. `privacy/verify` verifica la sesión
+> firmada después del formulario antes de entrar a Gradio y proporciona
+> una explicación si el navegador no conserva la cookie, sin relajar
+> CSRF ni el consentimiento obligatorio. Se mantiene el bloqueo
+> de duplicados previo a Gemini. Contratos:
+> `tests/test_inbody_guided_layout.py`,
+> `tests/test_inbody_document_preview.py`,
+> `tests/test_prelogin_privacy.py`. CI no demuestra visualización
+> real en Hugging Face.
+
+> **Revisión paralela InBody (2026-11-03, PR propuesto):** tras extraer,
+> la tabla de mediciones aparece a la izquierda del visor original
+> PDF/imagen en escritorio, sin acordeón. El visor muestra páginas,
+> permite pantalla completa y se mantiene en el flujo de validación;
+> en móvil la disposición se apila. Los controles de edición,
+> `was_corrected`, eliminación nativa, revisión humana, consentimiento
+> y persistencia no cambian. Se incluye corrección del input
+> `gemini_upload_preflight` en la llamada a `extract_with_popup`.
+> Pruebas: `test_inbody_guided_layout.py`,
+> `test_inbody_document_preview.py`, `test_gemini_consent.py`.
+> Requiere CI y validación manual en Space.
+
 > **Revisión y filas nativas (PR #79, 2026-11-03):** la tabla InBody
 > permite corregir valores y eliminar filas directamente con las
 > herramientas nativas de Gradio 6. Ya no se selecciona una fila para

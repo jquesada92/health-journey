@@ -108,3 +108,37 @@ def test_review_ui_has_read_only_pdf_viewer_and_reset_on_upload():
     assert 'gemini_table, gemini_status, gemini_save_status,' in source
     assert 'gemini_review_status,' in source
     assert "outputs=[gemini_table, gemini_status, gemini_consent, gemini_save_status]" not in source
+
+
+def test_original_document_is_vertical_and_visible_after_extraction():
+    import ast
+    source = (Path(__file__).resolve().parents[1] / "app.py").read_text()
+    assert 'elem_id="hj-inbody-review-layout"' in source
+    assert 'elem_id="hj-inbody-review-table"' in source
+    assert 'elem_id="hj-inbody-review-document"' in source
+    assert source.index('elem_id="hj-inbody-review-table"') < source.index(
+        'elem_id="hj-inbody-review-document"'
+    )
+    assert "with gr.Accordion(\n                \"Ver examen original" not in source
+    assert source.count("gemini_preview = gr.Gallery(") == 1
+    assert "height=820" in source
+    assert "preview=False" in source
+    assert "visible=False," in source.split(
+        'elem_id="hj-inbody-review-layout"', 1
+    )[1].split('as inbody_review_layout:', 1)[0]
+    assert "visible=True" in source.split("def progress_after_extract(", 1)[1].split(
+        "gemini_extract.click(", 1
+    )[0]
+    # Extraction output and save-clear output continue using the exact
+    # same Gradio gallery, without a second copy or another AI call.
+    assert "outputs=[gemini_preview, gemini_preview_status]" in source
+    assert "gemini_preview, gemini_preview_status," in source
+    assert "render_document_preview(state)" in source
+    layout_css = (
+        Path(__file__).resolve().parents[1] / "inbody_mvp/inbody_flow.py"
+    ).read_text()
+    assert "#hj-inbody-review-layout {" in layout_css
+    assert "#hj-inbody-review-document {" in layout_css
+    assert "position: sticky" in layout_css
+    assert "@media (max-width: 1100px)" in layout_css
+    assert "flex-direction: column !important" in layout_css

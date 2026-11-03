@@ -39,7 +39,7 @@ from inbody_mvp.ai_coach import (
     SUPPORTED_WINDOWS,
 )
 from inbody_mvp.prelogin_consent import (
-    PrivacyFirstMiddleware, privacy_page, submit_consent,
+    PrivacyFirstMiddleware, privacy_page, submit_consent, verify_consent_session,
     current_choices, coach_choice, has_consent,
 )
 from inbody_mvp.oauth_ui import standalone_oauth_urls
@@ -286,35 +286,11 @@ with gr.Blocks(
                 )
             gr.Markdown(
                 "### 3. Revisa y corrige los resultados\n"
-                "Compara los valores extraídos con el examen original. "
-                "**No guardes datos sin comprobarlos.** "
-                "La tabla ocupa todo el ancho de la pantalla para facilitar "
-                "su lectura y edición, también desde el celular.",
+                "Compara las mediciones extraídas con el documento original "
+                "**al lado de la tabla**, sin cambiar de pantalla. "
+                "Puedes ampliar las páginas del examen para verificar los valores.",
                 elem_id="hj-inbody-step-3"
             )
-            with gr.Accordion(
-                "Ver examen original y comparar las mediciones",
-                open=False,
-            ):
-                gr.Markdown(
-                    "Abre este panel cuando necesites ampliar una página del examen "
-                    "y verificar un valor. No se envía nuevamente a la IA."
-                )
-                gemini_preview = gr.Gallery(
-                    label="Visor PDF / imagen",
-                    columns=1,
-                    height=420,
-                    selected_index=0,
-                    preview=True,
-                    allow_preview=True,
-                    object_fit="contain",
-                    buttons=["fullscreen"],
-                    interactive=False,
-                    format="png",
-                )
-                gemini_preview_status = gr.Markdown(
-                    "Carga un PDF o imagen para visualizarlo."
-                )
             gr.Markdown(
                 "#### Datos generales del examen\\n"
                 "Los datos siguientes se aplican a **todas las mediciones**. "
@@ -360,15 +336,51 @@ with gr.Blocks(
                 "botones adicionales. Marca **reviewed** en cada fila "
                 "conservada y pulsa **Guardar cambios**."
             )
-            gemini_table = gr.Dataframe(
-                headers=GEMINI_DISPLAY_COLUMNS,
-                datatype=["str", "str", "str", "str", "str", "bool", "str", "bool"],
-                type="pandas", interactive=True,
-                static_columns=[4],
-                show_row_numbers=True,
-                row_limits=(1, None),
-                label="Mediciones: edita o elimina filas en la propia tabla",
-            )
+            # Review the parsed values and their original source together.
+            # The two panes stack on mobile instead of trapping the gallery
+            # in a collapsed accordion. The PDF is rendered locally once.
+            # Only show the review panels after a successful AI extraction.
+            with gr.Row(
+                elem_id="hj-inbody-review-layout", equal_height=False,
+                visible=False,
+            ) as inbody_review_layout:
+                with gr.Column(
+                    scale=7, min_width=420,
+                    elem_id="hj-inbody-review-table",
+                ):
+                    gemini_table = gr.Dataframe(
+                        headers=GEMINI_DISPLAY_COLUMNS,
+                        datatype=["str", "str", "str", "str", "str", "bool", "str", "bool"],
+                        type="pandas", interactive=True,
+                        static_columns=[4],
+                        show_row_numbers=True,
+                        row_limits=(1, None),
+                        label="Mediciones: edita o elimina filas en la propia tabla",
+                    )
+                with gr.Column(
+                    scale=5, min_width=300,
+                    elem_id="hj-inbody-review-document",
+                ):
+                    gr.Markdown(
+                        "**Documento original** · cambia de página o "
+                        "abre la vista completa para comprobar cada medición."
+                    )
+                    gemini_preview = gr.Gallery(
+                        label="Visor PDF / imagen",
+                        columns=1,
+                        height=820,
+                        selected_index=0,
+                        preview=False,
+                        allow_preview=True,
+                        object_fit="contain",
+                        buttons=["fullscreen"],
+                        interactive=False,
+                        format="png",
+                        elem_id="hj-inbody-document-gallery",
+                    )
+                    gemini_preview_status = gr.Markdown(
+                        "Carga un PDF o imagen para visualizarlo."
+                    )
             def extract_with_popup(
                 state, consent, model, preflight,
                 profile: gr.OAuthProfile | None = None,
@@ -415,12 +427,21 @@ with gr.Blocks(
 
             def progress_after_extract(snapshot, upload):
                 if snapshot is not None:
-                    return render_inbody_flow(3), "hj-inbody-step-3"
-                return render_inbody_flow(2 if upload else 1), ""
+                    return (
+                        render_inbody_flow(3), "hj-inbody-step-3",
+                        gr.update(visible=True),
+                    )
+                return (
+                    render_inbody_flow(2 if upload else 1), "",
+                    gr.update(visible=False),
+                )
 
             gemini_extract.click(
                 fn=extract_with_popup,
-                inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
+                inputs=[
+                    gemini_upload_state, session_ai_consent,
+                    gemini_model_selector, gemini_upload_preflight,
+                ],
                 outputs=[
                     gemini_table, gemini_snapshot, gemini_status,
                     header_exam_datetime, header_filename, header_person_id,
@@ -430,7 +451,9 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_extract,
                 inputs=[gemini_snapshot, gemini_upload_state],
-                outputs=[inbody_flow, inbody_navigation_target],
+                outputs=[
+                    inbody_flow, inbody_navigation_target, inbody_review_layout,
+                ],
                 show_progress="hidden",
             ).then(
                 fn=None, js=INBODY_NEXT_STEP_JS,
@@ -632,11 +655,13 @@ with gr.Blocks(
             def progress_after_save(message):
                 if (isinstance(message, str)
                         and message.startswith("Guardado en la base de datos:")):
-                    # Save succeeded: the 16 exam fields were cleared by
-                    # save_review_and_clear. Reset to a fresh capture and
-                    # return to the upload section. Confirmation was a toast.
-                    return render_inbody_flow(1), "hj-inbody-step-1", ""
-                return gr.update(), "", gr.update()
+                    # Keep the document visible on failed saves; hide and reset
+                    # it only when the reviewed measurements were persisted.
+                    return (
+                        render_inbody_flow(1), "hj-inbody-step-1", "",
+                        gr.update(visible=False),
+                    )
+                return gr.update(), "", gr.update(), gr.update()
 
             gemini_save.click(
                 fn=save_review_and_clear,
@@ -657,7 +682,10 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_save,
                 inputs=[gemini_save_status],
-                outputs=[inbody_flow, inbody_navigation_target, gemini_save_status],
+                outputs=[
+                    inbody_flow, inbody_navigation_target,
+                    gemini_save_status, inbody_review_layout,
+                ],
                 show_progress="hidden",
             ).then(
                 fn=None, js=INBODY_NEXT_STEP_JS,
@@ -692,8 +720,13 @@ with gr.Blocks(
             def advance_after_duplicate_check(state, preflight):
                 if (not state or not isinstance(preflight, dict)
                         or preflight.get("status") in {"duplicate", "empty"}):
-                    return render_inbody_flow(1), ""
-                return render_inbody_flow(2), "hj-inbody-step-2"
+                    return (
+                        render_inbody_flow(1), "", gr.update(visible=False),
+                    )
+                return (
+                    render_inbody_flow(2), "hj-inbody-step-2",
+                    gr.update(visible=False),
+                )
 
             def upload_with_popup(file_path):
                 try:
@@ -741,7 +774,9 @@ with gr.Blocks(
             ).then(
                 fn=advance_after_duplicate_check,
                 inputs=[gemini_upload_state, gemini_upload_preflight],
-                outputs=[inbody_flow, inbody_navigation_target],
+                outputs=[
+                    inbody_flow, inbody_navigation_target, inbody_review_layout,
+                ],
                 show_progress="hidden",
             ).then(
                 fn=None, js=INBODY_NEXT_STEP_JS,
@@ -1364,6 +1399,7 @@ if __name__ == "__main__":
             "routes": [
                 Route("/privacy", privacy_page, methods=["GET"]),
                 Route("/privacy/consent", submit_consent, methods=["POST"]),
+                Route("/privacy/verify", verify_consent_session, methods=["GET"]),
             ],
             "middleware": [Middleware(PrivacyFirstMiddleware)],
         },
