@@ -1,5 +1,28 @@
 # 06 — Seguridad, privacidad y control de acceso
 
+## Protección de reingesta y recuperación privada (propuesta)
+
+La opción explícita de reingesta no reduce los tres consentimientos
+firmados existentes; requiere IA antes de extracción y Neon antes
+de persistencia. Preflight privado confirma propiedad por
+identidad normalizada y nombre, antes de gastar tokens.
+En el guardado, `require_database_access` y la identidad
+resuelta internamente deben coincidir con `person_id` extraído
+y revisado. `hj_replace_reviewed_audit_filename` usa
+`SECURITY DEFINER`, locks y alcance por mismo nombre/usuario,
+archiva los registros originales en tabla inaccesible
+para roles anónimos, los borra de la vista activa y
+valida/recarga una versión nueva de forma atómica.
+`health_journey_demo_writer` y `PUBLIC` no obtienen EXECUTE
+sobre el reemplazo ni SELECT del backup. La conexión privada
+`DATABASE_URL` requiere un rol permitido.
+No permitir al escritor demo actualizar o borrar archivos
+personales por su nombre. El aislamiento de un futuro
+multiusuario exige más controles y sigue pendiente.
+Migración 010 pendiente de aplicación explícita: este PR
+no ejecuta SQL destructivo contra datos de salud.
+
+
 ## Controles operativos reales · 2026-11-03
 
 `/privacy` requiere opt-in individual para **Gemini de extracción**,
