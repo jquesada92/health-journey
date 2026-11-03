@@ -1,5 +1,25 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Estado real de datos InBody en Neon — 2026-11-03
+
+**Ejecutada en Neon:** migración 011 para reparar
+`hj_extraction_audits.exam_datetime` desde el token del primer
+`_` del nombre; fueron corregidos y verificados 17/17 exámenes,
+0 discrepancias, 1.087 líneas relacionadas intactas y 17
+entradas de respaldo en
+`hj_exam_datetime_repair_history`. La fecha de cada línea
+se obtiene por JOIN con la extracción, NO por una columna
+en `hj_measurement_audits`.
+
+**Aún pendiente:** migración 010 para reemplazar
+registros por filename, merge PR y despliegue en HF.
+No re-ejecutar una reparación indiscriminada ni
+presuponer que 010 ya concede permiso de reemplazo.
+El SQL 011 se conserva versionado y es idempotente con
+la fecha ya corregida. No exponer la tabla de respaldo
+a roles de demo, runtime ni al modelo de IA.
+
+
 ## Fechas de exámenes InBody — regla prioritaria (2026-11-03)
 
 No confundir el encabezado del documento, que muestra
