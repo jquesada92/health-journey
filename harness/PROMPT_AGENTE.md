@@ -1,5 +1,8 @@
 # Prompt operativo para reconstruir o continuar Health Journey
 
+> **Regla de precedencia (2026-11-03):** leer [00 — estado y criterios vigentes](00_estado_vigente_y_trazabilidad.md) y [índice documental](../docs/indice_actual.md) ANTES de las instrucciones históricas siguientes. El sistema actual utiliza Gradio 6, cuatro módulos, Gemini Flash remoto (dos dropdown independientes), FitNotes y Neon; tres consentimientos opcionales **antes del login**. No reintroducir EasyOCR/PaddleOCR, CSV v1 ni un selector dashboard CSV/Neon como si fueran funciones principales. Conservar navbar fija y reset después de guardar. Los CA/CS viejos son backlog/legado; usar AC-V actuales. PR #72 (prompts separados/chat multiturno) sigue pendiente de merge. No fusionar ni desplegar sin autorización, no usar datos personales en pruebas y no atribuir «aprobado» a funcionalidades que solo tienen CI sintético.
+
+
 Copia el siguiente texto en una sesión con un agente de programación que tenga acceso autorizado al repositorio y a las herramientas necesarias. No incluyas aquí secretos ni información clínica real.
 
 ---
