@@ -1,3 +1,17 @@
+> **Asistente fitness con datos privados automáticos (2026-11-03, PR #82, verificación pendiente):**
+> El chat elimina el campo de ID de InBody. Cada turno lee el historial
+> autorizado de InBody (auditoría revisada, o confirmado heredado si no
+> hay auditorías) y las series FitNotes de `hj_training_sets`, siempre
+> con filtros de sesión y permisos privados. El backend resuelve una
+> identidad única, priorizando `COACH_PERSON_ID` como Secret; sin
+> configuración solo permite la detección si existe exactamente una.
+> El contexto para Gemini incluye resúmenes y filas recientes limitadas
+> de ambos orígenes, indicadores `truncated` y nunca identificadores,
+> comentarios, PDFs ni OCR. Se conserva consentimiento del chat.
+> `tests/test_coach_auto_data.py` verifica autorización, privacidad,
+> lectura dual, negativos, precisión decimal y la interfaz.
+> No se ha verificado aún ejecución E2E en HF/Neon/Gemini.
+
 > **Confirmación única de correcciones (2026-11-03, PR propuesto):**
 > **Guardar cambios** toma directamente los valores editados en la tabla,
 > reconcilia eliminaciones nativas y valida comentarios, unidades y valores.
