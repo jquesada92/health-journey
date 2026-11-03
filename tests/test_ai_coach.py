@@ -100,7 +100,10 @@ def test_server_rejects_client_checked_without_signed_consent(monkeypatch):
 def test_no_private_raw_documents_ids_sent_in_chat_context():
     module = (Path(__file__).resolve().parents[1] / "inbody_mvp/ai_coach.py").read_text()
     assert "has_consent(request, \"coach\")" in module
-    assert '"question": question' in module
+    assert 'PREGUNTA ACTUAL DEL USUARIO' in module
+    assert 'conversation_contents' in module
+    assert 'system_instruction=SYSTEM_INSTRUCTIONS' in module
+    assert 'types.Content(' in module
     assert "raw_response" not in module
     assert "filename" not in module
     assert "source_sha256" not in module
