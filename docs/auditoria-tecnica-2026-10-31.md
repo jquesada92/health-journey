@@ -1,5 +1,8 @@
 # Auditoría técnica — Health Journey / InBody Hub
 
+> **Corte histórico fechado 2026-10-31:** esta auditoría no puede afirmar el estado actual de los módulos, consentimientos ni despliegue tras los PR #64–#70. Para el estado validado al 2026-11-03 usar [harness/00](../harness/00_estado_vigente_y_trazabilidad.md). Las conclusiones de octubre se conservan para trazabilidad, pero no son prueba de E2E ni autorización de cambios en Neon.
+
+
 **Corte:** 31/10/2026 · **Repositorio:** `jquesada92/health-journey` · **Base de inspección:** `main` en `c9f609164bf23dd6469175adff7d525afbb84227`.
 
 **Alcance:** revisión del código y workflows en GitHub, tests de CI en rama correctiva, y **metadatos de esquema/privilegios** de Neon. No se consultaron mediciones individuales ni archivos personales. **No se pudo verificar el runtime ni el último deploy efectivo de Hugging Face** con las herramientas disponibles.

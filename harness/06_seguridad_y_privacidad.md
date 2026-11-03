@@ -1,5 +1,8 @@
 # 06 — Seguridad, privacidad y control de acceso
 
+> **Política y controles actuales (2026-11-03):** **tres permisos distintos, opcionales y por defecto desactivados** se explican y solicitan en `/privacy` **ANTES de iniciar sesión**: compartir documento con Gemini para extraer, persistir en Neon y compartir resúmenes con Gemini para chat. Después del login se restauran en `gr.State` y **no hay checkboxes duplicados**; los callbacks mantienen verificación del servidor con `has_consent` antes de efectos externos. Para cambiar decisiones corresponde nueva sesión en `/privacy`, no menús intrasesión. La cookie es temporal, firmada y sin datos de salud. OAuth/autenticación y privilegios SQL se validan por operación. El uso de FitNotes aplica `owner_key`, pero la consulta InBody por ID **no garantiza aislamiento por dueño en un sistema multiusuario**: P0 antes de lanzar en producción. El informe original no se envía al chat, pero SÍ se envía al proveedor Gemini cuando el usuario autorizó extracción y pulsa Extraer. No equiparar consentimiento de escritura a consentimiento de publicación. Las secciones antiguas que describen dos casillas dentro de InBody son HISTÓRICAS; ver [00](00_estado_vigente_y_trazabilidad.md).
+
+
 
 ## Inicio de sesión propio `obs-master-demo`
 

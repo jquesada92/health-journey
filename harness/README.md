@@ -1,5 +1,25 @@
 # Harness de reconstrucción — Health Journey
 
+## Estado operativo consolidado · 2026-11-03
+
+**Empieza por [00 — Estado vigente y trazabilidad](00_estado_vigente_y_trazabilidad.md).**
+El corte verificado de `main` es `5f8ea83a5041`. Health Journey ahora
+tiene **cuatro módulos** (Proyecto, InBody, entrenamiento FitNotes, chat
+Gemini), tres consentimientos **antes del login**, revisión y auditoría
+InBody, barra fija de cinco pasos y limpieza después de guardar,
+progreso Plotly y entrenamiento persistido en Neon. No se debe reconstruir
+el producto únicamente como InBody/OCR/CSV.
+
+**Precedencia:** `00` + código + migraciones + workflows gobiernan el
+**estado actual**. Las secciones antiguas de este README y de 01–10
+permanecen por trazabilidad de requisitos históricos/visionarios; frases
+como «vigente» en textos de octubre y las indicaciones de EasyOCR,
+CSV v1 y pestañas horizontales **no describen el UI principal actual**.
+PR #72 añade prompts separados y chat multiturno, pero continúa abierto
+en este corte. Ver [índice de documentos](../docs/indice_actual.md).
+CI es sintético; no se verificó un E2E real de Space/Neon en esta auditoría.
+
+
 ## Estado vigente — 1 de noviembre de 2026 (PR #38, pendiente de validación E2E)
 
 La interfaz activa de **InBody Hub** es Gradio y usa **Gemini Flash** mediante

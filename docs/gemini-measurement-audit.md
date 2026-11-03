@@ -1,5 +1,8 @@
 # Gemini Flash: revisión y auditoría por medición
 
+> **Contrato actual contrastado (2026-11-03):** Gemini Flash devuelve `header` + `measurements` tipados; Python inyecta filename; la UI separa encabezado del cuerpo, conserva valor textual (`8.20`), original, correcciones y revisión, y permite guardar auditoría privada solo después de validación/consentimiento. Frecuencia e impedancia son mediciones independientes, no columna `frecuencia_khz`; no extraer historia impresa en el reporte. DDL versionado: migraciones 004–007 y funciones de idempotencia/confirmación de overwrite; comprobar aplicación real en Neon sin datos personales. El prompt de InBody está incrustado en `gemini_review.py` en `main`; su traslado a archivo propio es PR #72 abierto. [Mapa actual](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 
 ## Progress Dashboard — Gradio + Plotly (noviembre de 2026)
 

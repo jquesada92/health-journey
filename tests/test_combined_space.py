@@ -33,9 +33,17 @@ def test_main_ui_controls_remain_enabled_when_public_dashboard_is_active(widget)
     call = _assigned_widget(tree, widget)
     assert isinstance(call, ast.Call)
     interactive = next((k.value for k in call.keywords if k.arg == "interactive"), None)
-    assert interactive is None or (isinstance(interactive, ast.Constant) and interactive.value is True), (
-        f"{widget} no puede deshabilitarse al activar ENABLE_PUBLIC_DASHBOARD."
-    )
+    if widget == "gemini_extract":
+        # The extractor starts disabled until its private duplicate preflight
+        # completes. That is independent of ENABLE_PUBLIC_DASHBOARD.
+        assert isinstance(interactive, ast.Constant) and interactive.value is False
+        source = (ROOT / "app.py").read_text(encoding="utf-8")
+        assert 'interactive=status in {"new", "unverified"}' in source
+        assert 'status == "duplicate"' in source
+    else:
+        assert interactive is None or (
+            isinstance(interactive, ast.Constant) and interactive.value is True
+        ), f"{widget} no puede deshabilitarse al activar ENABLE_PUBLIC_DASHBOARD."
 
 
 def test_combined_space_keeps_public_and_private_credentials_separate(monkeypatch):

@@ -1,5 +1,8 @@
 # Despliegue de Health Journey en Hugging Face Spaces
 
+> **Operación actual validada en código (2026-11-03):** el deploy usa `.github/workflows/deploy-huggingface.yml`, al actualizar `main` o bajo dispatch manual, con variable `HF_SPACE_ID`, secreto `HF_TOKEN` y allowlist de módulos. El último sync observado de `main` terminó verde, pero eso **no demuestra** que el chat, InBody, permisos, navegador móvil o Neon operen en el Space. Tras merge de PR #72 se deberán incluir `prompt_loader.py`, `chat_session.py` y `prompts/*.md` en el paquete; la rama del PR ya los añade, pero no está desplegada en `main`. Runtime actual: Gradio 6, Gemini por API, `spaces` por compatibilidad ZeroGPU; no instalar EasyOCR/PaddleOCR de oficio. Validar login y tres permisos previos, extracción, correcciones, persistencia, reset, FitNotes, historial y chat, con datos sintéticos. [Lista de requisitos](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 ## Infraestructura actual: Gemini Flash sobre Space ZeroGPU existente (2026-11-01)
 
 El PR #38 ya fue fusionado en `main`. La extracción utiliza Gemini Flash

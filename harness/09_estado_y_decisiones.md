@@ -1,4 +1,7 @@
-## Decisión nueva · 2026-11-02 · Secciones definitivas y entrenador IA (propuesta en rama)
+# 09 — Estado vigente, decisiones y deuda pendiente
+
+> **Corte vigente 2026-11-03 — [auditoría completa](00_estado_vigente_y_trazabilidad.md):** ya están en `main` cuatro módulos, Proyecto inicial, FitNotes Training Hub, chatbot Gemini (con limitaciones), tres opt-in **antes de iniciar sesión**, navbar fija, navegación por pasos y limpieza tras guardar. Las notas del 2026-11-02 que dicen «propuesta» o «sin merge» ya son cronología, no estado. PR #69 y PR #70 se fusionaron; PR #72 (prompts en archivos separados y chat multiturno con turnos de Gemini) sigue abierto, CI pasó en esa rama pero NO disponible en `main`. La presencia del módulo `fitness_evidence.py` no confirma citas integradas en el chat. Migraciones 004–008 versionadas no equivalen a E2E verificado en Neon.
+
 
 - Menú vertical de cuatro entradas **en orden**: Proyecto, Extractor de InBody,
   Captador de logs de entrenamiento y Chat con el asistente fitness.
@@ -37,7 +40,7 @@
 - La importación del CSV personal recibido está **pendiente**.
 - Guía operativa: `docs/training-hub.md`.
 
-# 09 — Estado verificado, decisiones técnicas y deuda pendiente
+## Archivo histórico: decisiones técnicas anteriores
 
 
 ## Contrato vigente de Gemini y auditoría (noviembre de 2026)

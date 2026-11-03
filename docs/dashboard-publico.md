@@ -1,5 +1,8 @@
 # Health Journey — dashboard público y OCR en un mismo Space
 
+> **Alcance histórico/condicional al 2026-11-03:** el dashboard visible en la navegación principal ahora está dentro de **Extractor de InBody** y usa Plotly (`progress_dashboard.py`). El dashboard público y su lectura se conservan como componentes de compatibilidad bajo flags, no como una entrada del menú ni una autorización implícita de publicar auditorías privadas. No equiparar «guardar en Neon» con «autorizar publicación». Validar función SQL, filtros y entorno antes de hacer público cualquier registro. [Estado actual](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 **Estado:** decisión de interfaz consolidada el 31 de octubre de 2026.
 
 ## Diseño vigente

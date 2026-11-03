@@ -1,4 +1,7 @@
-# Neon PostgreSQL + idioma de reportes — InBody Hub
+# Neon PostgreSQL — arquitectura, permisos y procedimientos históricos
+
+> **Aclaración vigente al 2026-11-03:** este manual conserva pasos del MVP histórico de OCR/CSV que NO describen la interfaz actual. Hoy el flujo principal usa Gemini estructurado, revisión de auditoría con confirmación de sobrescritura y FitNotes Training Hub; el acceso a Neon usa SQLAlchemy+psycopg y DDL aditivo 004–008. La app puede ofrecer operaciones privadas desde Space **solo con autenticación, autorización, consentimiento previo al login, secretos y roles adecuados**; la frase histórica «Neon deshabilitado siempre en Hugging Face» no representa el código actual. **No se comprobó el estado SQL del entorno real**; antes de aplicar migraciones comparar objetos ya existentes y ejecutar en QA con permisos mínimos. No ejecutar SQL destructivo ni usar datos personales. Ver [contratos actuales](../harness/00_estado_vigente_y_trazabilidad.md).
+
 
 ## Estado
 

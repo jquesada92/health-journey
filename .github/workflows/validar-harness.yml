@@ -3,6 +3,12 @@ on:
   pull_request:
     paths:
       - 'harness/**'
+      - 'docs/**'
+      - 'AGENTS.md'
+      - 'requirements.txt'
+      - 'migrations/**'
+      - 'tests/**'
+      - '.github/workflows/test-inbody.yml'
       - 'app.py'
       - 'inbody_mvp/**'
       - 'db/schema.sql'
