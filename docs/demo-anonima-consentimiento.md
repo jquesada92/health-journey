@@ -1,5 +1,8 @@
 # Guardado anónimo con consentimiento — demostración académica
 
+> **Modo especial, no flujo principal (2026-11-03):** los permisos de demostración/publicación descritos aquí pertenecen a componentes condicionados por configuración. El usuario normal debe revisar tres consentimientos independientes **antes del login** en `/privacy`: extracción de InBody con Gemini, almacenamiento privado en Neon y uso de resúmenes en el chat. El opt-in de almacenamiento no equivale a publicar auditorías; no habilitar demo con informes reales identificables ni interpretar roles de demo como permiso de lectura privada. [Seguridad actual](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 Este modo permite que un profesor pruebe extracción, revisión, guardado en Neon y dashboard público **sin iniciar sesión en Hugging Face**. No convierte la base de pacientes privada en una base editable por cualquiera. Consulta la [guía completa de Variables y Secrets](hugging-face-variables-y-secrets.md), que cubre también Gemini y las consultas privadas.
 
 ## Activación en el único Space de Gradio
