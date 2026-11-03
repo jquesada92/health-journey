@@ -1,5 +1,9 @@
 # 09 — Estado vigente, decisiones y deuda pendiente
 
+NaN
+---
+
+
 > **Corte vigente 2026-11-03 — [auditoría completa](00_estado_vigente_y_trazabilidad.md):** ya están en `main` cuatro módulos, Proyecto inicial, FitNotes Training Hub, chatbot Gemini (con limitaciones), tres opt-in **antes de iniciar sesión**, navbar fija, navegación por pasos y limpieza tras guardar. Las notas del 2026-11-02 que dicen «propuesta» o «sin merge» ya son cronología, no estado. PR #69 y PR #70 se fusionaron; PR #72 (prompts en archivos separados y chat multiturno con turnos de Gemini) sigue abierto, CI pasó en esa rama pero NO disponible en `main`. La presencia del módulo `fitness_evidence.py` no confirma citas integradas en el chat. Migraciones 004–008 versionadas no equivalen a E2E verificado en Neon.
 
 
