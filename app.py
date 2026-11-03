@@ -383,18 +383,22 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 message = save_audit(table, snapshot, consent, overwrite)
             except Exception as exc:
                 popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
-                return keep_components(10)
+                return keep_components(11)
             if message.startswith("Guardado en Neon:"):
-                # Clear the completed document, but keep both session consents.
-                gr.Info(message.replace("Neon", "la base de datos"))
+                # Show an accessible confirmation, clear the finished exam and
+                # preserve both user consents for the rest of this session.
+                visible_message = message.replace("Neon", "la base de datos")
+                gr.Info(visible_message)
                 return (
-                    "", None, None, None, [], "Carga un PDF o imagen para visualizarlo.",
+                    visible_message, None, None, None, [],
+                    "Carga un PDF o imagen para visualizarlo.",
                     pd.DataFrame(columns=GEMINI_COLUMNS),
-                    "Pendiente de extracción.", False,
-                    "Sin archivo para verificar.",
+                    "Esperando extracción. Carga un archivo y selecciona un modelo.",
+                    False, "Sin archivo seleccionado.",
+                    "Revisión pendiente: valida las filas antes de guardar.",
                 )
             gr.Warning(message.replace("Neon", "la base de datos"))
-            return keep_components(10)
+            return keep_components(11)
 
         gemini_save.click(
             fn=save_review_and_clear,
@@ -403,6 +407,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 gemini_save_status, gemini_upload, gemini_upload_state,
                 gemini_snapshot, gemini_preview, gemini_preview_status,
                 gemini_table, gemini_status, gemini_overwrite, gemini_file_status,
+                gemini_review_status,
             ],
             concurrency_limit=1,
         )
@@ -451,9 +456,13 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         ).then(
             fn=lambda: (
                 pd.DataFrame(columns=GEMINI_COLUMNS),
-                "Pendiente de extracción.", ""
+                "Esperando extracción. Carga un archivo y selecciona un modelo.",
+                "", "Revisión pendiente: valida las filas antes de guardar.",
             ),
-            outputs=[gemini_table, gemini_status, gemini_save_status],
+            outputs=[
+                gemini_table, gemini_status, gemini_save_status,
+                gemini_review_status,
+            ],
         ).then(
             fn=preview_with_popup,
             inputs=[gemini_upload_state],
@@ -466,9 +475,9 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gr.ClearButton(
             [gemini_upload, gemini_upload_state, gemini_snapshot,
              gemini_preview, gemini_preview_status, gemini_table, gemini_status,
-             gemini_save_status,
+             gemini_save_status, gemini_review_status,
              gemini_overwrite, gemini_file_status],
-            value="Limpiar",
+            value="Limpiar examen (conservar permisos)",
         )
     with gr.Tab("Training Hub"):
         from inbody_mvp.training_hub import (
