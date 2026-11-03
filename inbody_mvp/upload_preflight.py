@@ -38,7 +38,8 @@ def preflight_processed_upload(upload_state, *, profile=None, request=None) -> d
             "message": (
                 "Este archivo ya está guardado. Para corregirlo, activa "
                 "'Reprocesar y reemplazar el archivo existente' y vuelve "
-                "a extraerlo. El anterior solo se sustituye al guardar "
+                "a extraerlo (volver a extraer consume tokens). El anterior " 
+                "solo se sustituye al guardar "
                 "las mediciones revisadas."
             ),
         }
