@@ -85,8 +85,9 @@ _PAGE = """<!doctype html>
       <li><strong>Quién los procesa:</strong> la aplicación Health Journey recibe
       los archivos en su servidor. Si autorizas la IA y pulsas Extraer,
       el documento InBody se envía al servicio externo <strong>Google Gemini</strong>,
-      donde se procesa conforme a las condiciones del proveedor. Los CSV de
-      entrenamientos no se envían a Gemini en el flujo actual.</li>
+      donde se procesa conforme a las condiciones del proveedor. Los CSV de entrenamientos no se envían a Gemini al importarlos,
+      pero los resúmenes de entrenamiento e InBody se pueden enviar al chat
+      fitness con un permiso separado y al hacer una pregunta.</li>
       <li><strong>Almacenamiento y duración:</strong> si autorizas y confirmas el
       guardado, los datos revisados, el resultado bruto de extracción y sus
       registros de auditoría se guardan en una <strong>base de datos</strong>.
@@ -103,7 +104,7 @@ _PAGE = """<!doctype html>
   <form method="post" action="/privacy/consent">
     <h2>Elige tus consentimientos</h2>
     <p class="small muted">Son independientes y <strong>opcionales</strong>.
-    Ambos comienzan desactivados. Puedes iniciar sesión sin autorizar ninguno;
+    Los permisos comienzan desactivados. Puedes iniciar sesión sin autorizar ninguno;
     en ese caso no podrás enviar exámenes a la IA ni guardar nuevos datos
     hasta que otorgues el permiso correspondiente.</p>
     <div class="grid">
@@ -118,6 +119,13 @@ _PAGE = """<!doctype html>
         <strong>Autorizo guardar mis datos en una base de datos</strong>
         <small>Solo se guardará al pulsar Guardar. Incluye mediciones revisadas,
         respuesta de IA y/o registros de entrenamiento. Persistirán al cerrar sesión.</small>
+      </label>
+      <label class="choice">
+        <input type="checkbox" name="coach_consent" value="yes">
+        <strong>Autorizo enviar resúmenes privados de InBody y entrenamientos a Gemini para el chat fitness</strong>
+        <small>Solo al enviar cada pregunta. Se comparten tendencias y metas,
+        sin identificadores, archivos ni documentos originales. Es un servicio externo
+        y sus cuotas y políticas de tratamiento de datos son independientes.</small>
       </label>
     </div>
 
@@ -184,9 +192,14 @@ def current_choices(request) -> tuple[bool, bool]:
     return (session[1]["ai"], session[1]["db"]) if session else (False, False)
 
 
+def coach_choice(request) -> bool:
+    session = _consent_session(request)
+    return bool(session and session[1].get("coach") is True)
+
+
 def has_consent(request, scope: str) -> bool:
     """Fail closed when the pre-login choice is absent, revoked or expired."""
-    if scope not in {"ai", "db"}:
+    if scope not in {"ai", "db", "coach"}:
         raise ValueError("Invalid consent scope.")
     session = _consent_session(request)
     return bool(session and session[1][scope] is True)
@@ -194,7 +207,7 @@ def has_consent(request, scope: str) -> bool:
 
 def set_consent(request, scope: str, value: bool) -> None:
     """Update server-authoritative consent on an explicit UI checkbox event."""
-    if scope not in {"ai", "db"} or not isinstance(value, bool):
+    if scope not in {"ai", "db", "coach"} or not isinstance(value, bool):
         raise ValueError("Invalid consent update.")
     session = _consent_session(request)
     if not session:
@@ -232,7 +245,7 @@ async def submit_consent(request):
     form = parse_qs(data.decode("utf-8", errors="replace"), keep_blank_values=True)
     if form.get("notice_read") != ["yes"]:
         return HTMLResponse(render_privacy_page("Confirma que leíste el aviso de datos."), status_code=400)
-    if any(name not in {"notice_read", "ai_consent", "db_consent"} for name in form):
+    if any(name not in {"notice_read", "ai_consent", "db_consent", "coach_consent"} for name in form):
         return HTMLResponse(render_privacy_page("Formulario inválido."), status_code=400)
     if any(value != ["yes"] for value in form.values()):
         return HTMLResponse(render_privacy_page("Valor de autorización inválido."), status_code=400)
@@ -248,6 +261,7 @@ async def submit_consent(request):
             "created": now,
             "ai": form.get("ai_consent") == ["yes"],
             "db": form.get("db_consent") == ["yes"],
+            "coach": form.get("coach_consent") == ["yes"],
         }
     response = RedirectResponse("/", status_code=303)
     response.set_cookie(
