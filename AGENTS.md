@@ -1,3 +1,21 @@
+## Chat fitness automático con InBody y FitNotes (2026-11-03)
+
+El chat ya no pide `coach_report_id`; no reintroducir filtros por
+identificador manual. `inbody_mvp/ai_coach.py` carga, en cada pregunta,
+InBody revisado y FitNotes del usuario autenticado; `coach_data.py`
+resuelve internamente una identidad privada única (Secret
+`COACH_PERSON_ID` opcional), incluye observaciones y series recientes
+sin identificadores, y falla cerrado ante múltiples identidades.
+La consulta FitNotes debe seguir restringida por `owner_key`, y la
+consulta InBody debe seguir comprobando `require_database_access`.
+Nunca enviar número de documento, archivos, notas, raw OCR ni comentarios
+a Gemini. El prompt independiente `prompts/fitness_coach.md` documenta
+el JSON y los indicadores de truncamiento. El deploy a Hugging Face
+debe incluir explícitamente `inbody_mvp/coach_data.py`.
+Pruebas `tests/test_coach_auto_data.py`, `tests/test_ai_coach.py`
+y `tests/test_coach_conversation.py`; comprobar manualmente Space y
+Neon antes de afirmar funcionamiento E2E.
+
 ## Ajuste vigente: confirmar tabla InBody sin repetición (2026-11-03)
 
 El consentimiento prelogin firmado continúa siendo obligatorio para
