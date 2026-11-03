@@ -60,15 +60,29 @@ def test_invalid_stage_fails_closed(invalid):
         render_inbody_flow(invalid)
 
 
-def test_sticky_style_targets_gradio_root_and_has_mobile_grid():
-    assert "#hj-inbody-flow {" in INBODY_FLOW_CSS
+def test_sticky_container_follows_inbody_title_and_has_mobile_grid():
+    assert "#hj-inbody-sticky {" in INBODY_FLOW_CSS
+    assert "#hj-panel-inbody {" in INBODY_FLOW_CSS
+    assert "overflow: visible !important;" in INBODY_FLOW_CSS
     assert "position: sticky !important;" in INBODY_FLOW_CSS
-    assert "z-index: 35;" in INBODY_FLOW_CSS
+    assert "z-index: 50;" in INBODY_FLOW_CSS
+    assert "top: 0;" in INBODY_FLOW_CSS
     assert "grid-template-columns: repeat(5, minmax(0, 1fr))" in INBODY_FLOW_CSS
     assert "@media (max-width: 600px)" in INBODY_FLOW_CSS
     assert '<nav aria-label="Progreso del registro InBody"' in render_inbody_flow()
     assert 'elem_id="hj-inbody-flow"' in INBODY
+    assert 'elem_id="hj-inbody-sticky"' in INBODY
     assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS" in APP
+
+    title = INBODY.index('gr.Markdown("## InBody · Registrar un examen"')
+    sticky = INBODY.index('with gr.Column(elem_id="hj-inbody-sticky"):')
+    stepper = INBODY.index('inbody_flow = gr.HTML(', sticky)
+    description = INBODY.index('"Sigue los pasos en orden:', stepper)
+    upload = INBODY.index('"### 1. Carga tu examen', description)
+    assert title < sticky < stepper < description < upload
+    # The progress is sticky within InBody, not a fixed overlay on other modules.
+    assert "position: fixed" not in INBODY_FLOW_CSS
+    assert "position: relative;" in INBODY_FLOW_CSS
 
 
 def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
