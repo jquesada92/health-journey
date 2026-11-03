@@ -152,7 +152,8 @@ def test_duplicate_preflight_is_checked_at_upload_and_before_gemini():
         'with gr.Accordion("Progreso histórico de InBody"', 1
     )[0]
     assert upload.index("fn=show_processed_filename") < upload.index("fn=preview_with_popup")
-    assert "inputs=[gemini_upload_state, gemini_upload_preflight]" in upload
+    assert "gemini_upload_state, gemini_upload_preflight," in upload
+    assert "gemini_replace_existing," in upload
 
 
 def test_reviewer_appears_only_after_successful_ai_extraction_and_resets():
