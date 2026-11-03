@@ -82,12 +82,15 @@ _PAGE = """<!doctype html>
       <li><strong>Para qué:</strong> extraer y revisar mediciones, registrar
       entrenamientos y consultar tu historial y evolución. No se publica tu
       información por aceptar el almacenamiento.</li>
-      <li><strong>Quién los procesa:</strong> la aplicación Health Journey recibe
-      los archivos en su servidor. Si autorizas la IA y pulsas Extraer,
-      el documento InBody se envía al servicio externo <strong>Google Gemini</strong>,
-      donde se procesa conforme a las condiciones del proveedor. Los CSV de entrenamientos no se envían a Gemini al importarlos,
-      pero los resúmenes de entrenamiento e InBody se pueden enviar al chat
-      fitness con un permiso separado y al hacer una pregunta.</li>
+      <li><strong>Quién los procesa:</strong> Health Journey recibe archivos
+      en su servidor. Si autorizas la extracción y pulsas Extraer, el
+      <strong>documento original InBody</strong> (incluidos sus posibles datos
+      identificativos) se envía a <strong>Google Gemini</strong>, servicio
+      externo sujeto a las condiciones y políticas de Google. Los CSV de
+      entrenamiento no se envían a Gemini durante su importación. Solo si
+      autorizas el chat y haces una pregunta se envían a Gemini resúmenes
+      de tus mediciones y sesiones, junto con los objetivos/restricciones
+      que escribas; no se envían el ID del reporte, documentos ni CSV brutos.</li>
       <li><strong>Almacenamiento y duración:</strong> si autorizas y confirmas el
       guardado, los datos revisados, el resultado bruto de extracción y sus
       registros de auditoría se guardan en una <strong>base de datos</strong>.
@@ -102,11 +105,13 @@ _PAGE = """<!doctype html>
   </section>
 
   <form method="post" action="/privacy/consent">
-    <h2>Elige tus consentimientos</h2>
+    <h2>Elige tus tres consentimientos antes de iniciar sesión</h2>
     <p class="small muted">Son independientes y <strong>opcionales</strong>.
-    Los permisos comienzan desactivados. Puedes iniciar sesión sin autorizar ninguno;
-    en ese caso no podrás enviar exámenes a la IA ni guardar nuevos datos
-    hasta que otorgues el permiso correspondiente.</p>
+    Los tres permisos comienzan desactivados y puedes continuar sin marcar
+    ninguno. Tus decisiones se registran en esta pantalla <strong>antes de
+    iniciar sesión</strong>. Sin el permiso pertinente, la función respectiva
+    permanecerá bloqueada; para cambiar la elección, deberás volver a esta
+    pantalla de privacidad antes de una nueva sesión.</p>
     <div class="grid">
       <label class="choice">
         <input type="checkbox" name="ai_consent" value="yes">
@@ -133,12 +138,13 @@ _PAGE = """<!doctype html>
       <label class="ack">
         <input type="checkbox" name="notice_read" value="yes" required>
         <span class="small">Confirmo que he leído esta explicación sobre el
-        tratamiento de datos. <strong>Esta confirmación no activa los dos
-        consentimientos opcionales.</strong></span>
+        tratamiento de datos. <strong>Esta confirmación no activa ninguno
+        de los tres consentimientos opcionales.</strong></span>
       </label>
       <p class="small muted">Tus elecciones se conservan solo durante la sesión,
-      se pueden cambiar después de iniciar sesión y no se usarán para publicar
-      información. Al cerrar sesión se borran estas elecciones de sesión.</p>
+      no se volverán a preguntar dentro de la aplicación ni se usarán para
+      publicar información. Para cambiarlas, cierra sesión y vuelve a
+      completar este formulario antes de iniciar otra sesión.</p>
     </div>
     {{error}}
     <button type="submit">Continuar al inicio de sesión</button>

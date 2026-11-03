@@ -99,8 +99,11 @@ como auditoría. El campo `was_corrected` sigue referido únicamente a
 cambios de mediciones, para cumplir las validaciones existentes en SQL;
 los cambios de encabezado se conservan como comentarios de auditoría.
 
-Los botones de cargar otro archivo, limpiar y guardar reinician la
-visualización del encabezado sin borrar los consentimientos de sesión.
+La carga de otro archivo reinicia la revisión previa. Tras **guardar
+correctamente**, la vista previa, el encabezado, la tabla, los mensajes
+temporales y el archivo cargado se limpian automáticamente; el progreso
+vuelve al paso **Cargar** y se conserva el consentimiento de sesión.
+No existe un botón adicional para limpiar todo el examen.
 Las pruebas de regresión en `tests/test_inbody_header.py` verifican
 campos únicos, IDs con ceros iniciales, negativos, decimales, validación y
 preservación de la evidencia.
@@ -135,14 +138,21 @@ El encabezado global duplicado permanece eliminado y los permisos
 continúan en el menú lateral. La selección de modelo Gemini y el estado
 de avance por acciones reales se mantienen sin cambios.
 
-El indicador avanza con eventos reales: después de cargar el archivo
-señala la extracción; tras obtener mediciones señala la revisión; al
-intentar validar indica ese paso y, si la validación es correcta, marca
-Guardar como siguiente acción. Si la revisión cambia, vuelve a señalar
-Revisar y pide nueva validación. Al guardar con éxito, todas las etapas
-aparecen completadas. Limpiar o iniciar un nuevo archivo restablece el
-progreso sin alterar los consentimientos. No sustituye controles de
-acceso ni concede permiso de IA o almacenamiento.
+El indicador avanza con eventos reales: **cargar** el archivo desplaza la
+pantalla al selector Gemini; **extraer correctamente** lleva a la tabla;
+**Continuar a validación** verifica que haya mediciones y que todas tengan
+`reviewed` marcado y lleva a Validar; **validar correctamente** lleva
+a Guardar; **guardar correctamente** muestra una notificación, limpia
+el formulario y vuelve automáticamente al inicio de Cargar con el paso 1
+activo. Los cinco desplazamientos respetan la barra fija y las preferencias
+de movimiento reducido del navegador.
+
+**No se navega automáticamente ante error**, valores no revisados,
+extractor sin resultado o guardado rechazado. Las ediciones de la tabla
+no desplazan al usuario: pueden ser numerosas y deben terminarse antes
+de pulsar Continuar a validación. Las correcciones después de validar
+invalidan la validación anterior. Ni el progreso ni el reinicio otorgan
+permisos nuevos de Gemini o Neon ni alteran los consentimientos.
 
 - **Cargar** PDF/imagen: mostrar estado de nombre procesado y vista previa
   del documento, sin enviarlo a Gemini.
@@ -156,8 +166,9 @@ acceso ni concede permiso de IA o almacenamiento.
   al lado de su botón, separado del resultado de extracción.
 - **Guardar**: conservar consentimiento de base de datos compartido, ocultar
   la confirmación de sobrescritura tras una sección avanzada, verificar datos
-  y mostrar confirmación persistente. Tras un guardado exitoso, limpiar el
-  documento y la revisión, pero mantener los permisos de sesión.
+  y mostrar una confirmación emergente. Tras un guardado exitoso, limpiar
+  automáticamente el documento, la revisión, los estados y la confirmación
+  en línea; retornar al paso 1 sin modificar los permisos de sesión.
 
 Se conserva la verificación de consentimiento en servidor y la validación
 previa a cualquier escritura. Los mensajes de pantalla dicen

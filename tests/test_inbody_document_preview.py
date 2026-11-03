@@ -95,7 +95,15 @@ def test_review_ui_has_read_only_pdf_viewer_and_reset_on_upload():
     assert "show_share_button=False" not in source
     assert "fn=preview_with_popup" in source
     assert "outputs=[gemini_preview, gemini_preview_status]" in source
-    assert "gemini_preview, gemini_preview_status, gemini_table" in source
+    # The old ClearButton is gone: a confirmed save resets the viewer
+    # through save_review_and_clear, while a failed save preserves it.
+    assert "gr.ClearButton(" not in source
+    save_outputs = source.split("gemini_save.click(", 1)[1].split(
+        "concurrency_limit=1,", 1
+    )[0]
+    assert "gemini_preview, gemini_preview_status," in save_outputs
+    assert "gemini_table, gemini_status" in save_outputs
+    assert "fn=save_review_and_clear" in source
     assert "outputs=[gemini_snapshot]" in source
     assert 'gemini_table, gemini_status, gemini_save_status,' in source
     assert 'gemini_review_status,' in source

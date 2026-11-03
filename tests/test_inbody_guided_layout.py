@@ -78,7 +78,13 @@ def test_success_clears_document_but_keeps_visible_receipt_and_session_optins():
 def test_new_file_resets_review_only_and_not_session_permissions():
     assert "outputs=[gemini_snapshot]" in INBODY
     assert "gemini_review_status" in INBODY.split("gemini_upload.upload(", 1)[1]
-    clear = INBODY.split("gr.ClearButton(", 1)[1]
-    assert "gemini_review_status" in clear
-    assert "session_ai_consent" not in clear
-    assert "session_db_consent" not in clear
+    assert "gr.ClearButton(" not in INBODY
+    assert "Limpiar examen (conservar permisos)" not in INBODY
+    assert "session_ai_consent" not in INBODY.split("def upload_with_popup(", 1)[1]
+    assert "session_db_consent" not in INBODY.split("def upload_with_popup(", 1)[1]
+    assert "outputs=[inbody_flow, inbody_navigation_target]" in INBODY
+    assert "js=INBODY_NEXT_STEP_JS" in INBODY
+    # User header edits must remain interactive; programmatic form clearing
+    # after save may not reactivate step 3 or undo the reset to step 1.
+    assert "field.input(" in INBODY
+    assert "field.change(" not in INBODY

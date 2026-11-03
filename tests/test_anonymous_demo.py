@@ -148,7 +148,13 @@ def test_public_demo_view_and_database_role_are_restricted():
 def test_gemini_audit_uses_restricted_demo_writer_without_legacy_demo_callback():
     app = (ROOT / "app.py").read_text()
     gemini = (ROOT / "inbody_mvp/gemini_review.py").read_text()
-    assert "session_db_consent = gr.Checkbox(" in app
+    # The decision is made in /privacy BEFORE login, then restored into
+    # a non-interactive Gradio State from the signed server-side session.
+    from inbody_mvp.prelogin_consent import render_privacy_page
+    assert 'name="db_consent"' in render_privacy_page()
+    assert "session_db_consent = gr.State(value=False)" in app
+    assert "session_db_consent = gr.Checkbox(" not in app
+    assert "has_consent(request, \"db\")" in app
     assert 'gemini_table, gemini_snapshot, session_db_consent,' in app
     assert 'gemini_overwrite, header_exam_datetime, header_filename,' in app
     assert "save_audit" in app

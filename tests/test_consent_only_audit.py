@@ -219,9 +219,19 @@ def test_both_consents_at_start_and_login_only_for_history():
     start = app.index('with gr.Column(visible=False, elem_id="hj-panel-inbody")')
     end = app.index('with gr.Column(visible=False, elem_id="hj-panel-training")', start)
     upload = app[start:end]
-    # Session-wide opt-ins appear before any upload; no file can reset them.
-    assert app.index("session_ai_consent = gr.Checkbox") < start
-    assert app.index("session_db_consent = gr.Checkbox") < start
+    # All three opt-ins are requested BEFORE login on /privacy; their
+    # signed-session decisions are mirrored as States before file upload.
+    from inbody_mvp.prelogin_consent import render_privacy_page
+    privacy_page = render_privacy_page()
+    for option in ("ai_consent", "db_consent", "coach_consent"):
+        assert f'name="{option}"' in privacy_page
+    assert app.index("session_ai_consent = gr.State(value=False)") < start
+    assert app.index("session_db_consent = gr.State(value=False)") < start
+    assert app.index("session_coach_consent = gr.State(value=False)") < start
+    assert 'with gr.Accordion("Permisos de esta sesión"' not in app
+    assert "return ai, db, coach_choice(request)" in app
+    assert "fn=restore_session_consents" in app
+    assert "outputs=[session_ai_consent, session_db_consent, session_coach_consent]" in app
     assert "interactive=audit_write_enabled()" in upload
     assert '"gemini_table, gemini_snapshot, session_db_consent,"'.strip('"') in upload
     assert "header_exam_datetime, header_filename" in upload

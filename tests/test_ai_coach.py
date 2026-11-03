@@ -114,9 +114,10 @@ def test_project_is_initial_and_coach_has_controls():
     app = (Path(__file__).resolve().parents[1] / "app.py").read_text()
     assert 'visible=True, elem_id="hj-panel-project"' in app
     assert "gr.Markdown(PROJECT_OVERVIEW)" in app
-    assert 'session_coach_consent = gr.Checkbox(' in app
+    assert 'session_coach_consent = gr.State(value=False)' in app
     assert "fn=ask_coach" in app
-    assert "fn=coach_choice" in app
+    assert "return ai, db, coach_choice(request)" in app
+    assert "fn=restore_session_consents" in app
     assert "coach_goals = gr.Textbox(" in app
     assert "coach_restrictions = gr.Textbox(" in app
     # Gradio 6 uses the messages format by default; the old type keyword crashes startup.

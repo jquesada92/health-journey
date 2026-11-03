@@ -26,7 +26,10 @@ from inbody_mvp.public_dashboard import (
 from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
-from inbody_mvp.inbody_flow import INBODY_FLOW_CSS, render_inbody_flow
+from inbody_mvp.inbody_flow import (
+    INBODY_FLOW_CSS, INBODY_NEXT_STEP_JS, render_inbody_flow,
+    review_step_ready,
+)
 from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
 from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
 from inbody_mvp.project_overview import PROJECT_OVERVIEW
@@ -36,7 +39,7 @@ from inbody_mvp.ai_coach import (
 )
 from inbody_mvp.prelogin_consent import (
     PrivacyFirstMiddleware, privacy_page, submit_consent,
-    current_choices, coach_choice, has_consent, set_consent,
+    current_choices, coach_choice, has_consent,
 )
 from inbody_mvp.oauth_ui import standalone_oauth_urls
 from inbody_mvp.demo_storage import anonymous_demo_requested
@@ -163,78 +166,17 @@ with gr.Blocks(
         nav_coach = gr.Button("Chat con el asistente fitness", variant="secondary",
                               elem_classes="hj-nav-button")
 
-        # Gradio checkbox values are scoped to the current session and shared by tabs.
-        # Neither permission is stored in a database or persisted across logins.
-        with gr.Accordion("Permisos de esta sesión", open=False):
-            gr.Markdown(
-                "Tus permisos se eligen **antes de iniciar sesión** al revisar "
-                "el aviso de tratamiento de datos. La extracción InBody, el "
-                "almacenamiento en la base de datos y el envío de resúmenes al chat "
-                "fitness son tres permisos **independientes y opcionales**. "
-                "Puedes retirarlos durante esta sesión."
-            )
-            with gr.Column():
-                session_ai_consent = gr.Checkbox(
-                    label="Autorizo enviar mis documentos InBody a Google Gemini "
-                          "para extraer datos con inteligencia artificial",
-                    value=False,
-                    info="Solo al pulsar Extraer. El documento se envía al servicio "
-                         "externo de Google. El chat fitness tiene una autorización diferente.",
-                )
-                session_db_consent = gr.Checkbox(
-                    label="Autorizo guardar mis datos de InBody y entrenamiento "
-                          "en una base de datos",
-                    value=False,
-                    info="InBody: ID, edad, fecha, nombre del archivo, mediciones "
-                         "revisadas y respuesta de la IA. Entrenamientos: fechas, "
-                         "ejercicios, series, peso, repeticiones y comentarios.",
-                )
-                session_coach_consent = gr.Checkbox(
-                    label="Autorizo enviar resúmenes privados de mis mediciones "
-                          "InBody y entrenamientos a Gemini para el chat fitness",
-                    value=False,
-                    info="Solo cuando haces una pregunta. No se envían documentos, "
-                         "IDs de InBody ni comentarios del entrenamiento.",
-                )
-            gr.Markdown(
-                "**Tratamiento de datos:** el archivo subido llega al servidor "
-                "para su vista previa. Solo se envía a Google Gemini con "
-                "autorización de IA y al pulsar Extraer; solo se almacena en "
-                "la base de datos con permiso de guardado y al pulsar Guardar. "
-                "El chat fitness solo envía agregados y tus metas cuando lo autorizas "
-                "y haces una pregunta. El chat no se guarda automáticamente. "
-                "Lo almacenado en la base de datos permanece tras cerrar sesión; "
-                "retirar permisos detiene nuevos envíos, no borra datos previos. "
-                "Guardar no implica publicar."
-            )
+    # All three optional consents are explained and explicitly selected
+    # BEFORE Gradio login at /privacy. There are no duplicate checkboxes
+    # after login. Gradio States simply mirror that signed server-side choice;
+    # callbacks still verify has_consent(request, scope) on every operation.
+    session_ai_consent = gr.State(value=False)
+    session_db_consent = gr.State(value=False)
+    session_coach_consent = gr.State(value=False)
 
-        def restore_session_consents(request: gr.Request):
-            return current_choices(request)
-
-        def update_ai_session(value: bool, request: gr.Request):
-            set_consent(request, "ai", value)
-
-        def update_db_session(value: bool, request: gr.Request):
-            set_consent(request, "db", value)
-
-        def update_coach_session(value: bool, request: gr.Request):
-            set_consent(request, "coach", value)
-
-        # These changes are tied to a signed server-side session, not browser JS
-        # or a potentially forged input field.
-        session_ai_consent.change(
-            fn=update_ai_session, inputs=[session_ai_consent], outputs=[],
-            api_name=False, queue=False,
-        )
-        session_db_consent.change(
-            fn=update_db_session, inputs=[session_db_consent], outputs=[],
-            api_name=False, queue=False,
-        )
-
-        session_coach_consent.change(
-            fn=update_coach_session, inputs=[session_coach_consent], outputs=[],
-            api_name=False, queue=False,
-        )
+    def restore_session_consents(request: gr.Request):
+        ai, db = current_choices(request)
+        return ai, db, coach_choice(request)
 
 
     with gr.Column(elem_id="hj-module-content"):
@@ -251,6 +193,7 @@ with gr.Blocks(
             )
             # Top-level viewport navbar is displayed only for InBody.
             # #hj-panel-inbody reserves vertical space for its fixed height.
+            inbody_navigation_target = gr.State("")
             gr.Markdown("## InBody · Registrar un examen", elem_id="hj-inbody-title")
             gr.Markdown(
                 "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
@@ -262,7 +205,8 @@ with gr.Blocks(
                 "Selecciona un archivo **PDF, JPG o PNG** de InBody. "
                 "La aplicación mostrará una vista previa y, si tienes una sesión "
                 "autorizada, comprobará si el nombre del archivo ya se procesó. "
-                "**Todavía no se enviará a la IA ni se guardará en la base de datos.**"
+                "**Todavía no se enviará a la IA ni se guardará en la base de datos.**",
+                elem_id="hj-inbody-step-1"
             )
             gemini_upload = gr.File(
                 label="Seleccionar examen InBody (PDF o imagen)",
@@ -278,7 +222,8 @@ with gr.Blocks(
                     "Comprueba que activaste el **permiso para enviar datos a la IA** "
                     "en el apartado de privacidad, antes de continuar. "
                     "Elige un modelo y pulsa **Extraer mediciones**. "
-                    "Google Gemini recibirá el documento solo cuando solicites la extracción."
+                    "Google Gemini recibirá el documento solo cuando solicites la extracción.",
+                    elem_id="hj-inbody-step-2"
                 )
                 with gr.Row():
                     gemini_model_selector = gr.Dropdown(
@@ -330,7 +275,8 @@ with gr.Blocks(
                 "Compara los valores extraídos con el examen original. "
                 "**No guardes datos sin comprobarlos.** "
                 "La tabla ocupa todo el ancho de la pantalla para facilitar "
-                "su lectura y edición, también desde el celular."
+                "su lectura y edición, también desde el celular.",
+                elem_id="hj-inbody-step-3"
             )
             with gr.Accordion(
                 "Ver examen original y comparar las mediciones",
@@ -403,6 +349,11 @@ with gr.Blocks(
                 static_columns=[4, 5],
                 label="Mediciones: revisa y edita cada fila",
             )
+            # Manual reviews can take several edits; advance only when
+            # the user explicitly finishes reviewing all the rows.
+            gemini_review_continue = gr.Button(
+                "Continuar a validación", variant="secondary",
+            )
             def extract_with_popup(
                 state, consent, model, request: gr.Request | None = None,
             ):
@@ -428,8 +379,8 @@ with gr.Blocks(
 
             def progress_after_extract(snapshot, upload):
                 if snapshot is not None:
-                    return render_inbody_flow(3)
-                return render_inbody_flow(2 if upload else 1)
+                    return render_inbody_flow(3), "hj-inbody-step-3"
+                return render_inbody_flow(2 if upload else 1), ""
 
             gemini_extract.click(
                 fn=extract_with_popup,
@@ -443,15 +394,38 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_extract,
                 inputs=[gemini_snapshot, gemini_upload_state],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target],
                 show_progress="hidden",
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
+            )
+
+            def finish_review_step(table, snapshot):
+                ready, message = review_step_ready(table, snapshot)
+                if not ready:
+                    gr.Warning(message)
+                    return gr.update(), ""
+                return render_inbody_flow(4), "hj-inbody-step-4"
+
+            gemini_review_continue.click(
+                fn=finish_review_step,
+                inputs=[gemini_table, gemini_snapshot],
+                outputs=[inbody_flow, inbody_navigation_target],
+                concurrency_limit=1,
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
             gr.Markdown(
                 "### 4. Valida todas las mediciones\n"
                 "Cuando termines de corregir la tabla y marcar **reviewed** en "
                 "todas las filas, pulsa **Validar revisión**. "
                 "Si falta algo, aparecerá un único aviso con lo que debes corregir. "
-                "**Este paso no guarda ni envía datos a la base de datos.**"
+                "**Este paso no guarda ni envía datos a la base de datos.**",
+                elem_id="hj-inbody-step-4"
             )
             gemini_check = gr.Button("Validar revisión", variant="secondary")
             gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
@@ -480,10 +454,10 @@ with gr.Blocks(
 
             def progress_after_validation(message, snapshot):
                 if snapshot is None:
-                    return gr.update()
+                    return gr.update(), ""
                 if isinstance(message, str) and message.startswith("Revisión completa:"):
-                    return render_inbody_flow(5)
-                return render_inbody_flow(4)
+                    return render_inbody_flow(5), "hj-inbody-step-5"
+                return render_inbody_flow(4), ""
 
             gemini_check.click(
                 fn=review_with_popup,
@@ -496,8 +470,12 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_validation,
                 inputs=[gemini_review_status, gemini_snapshot],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target],
                 show_progress="hidden",
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
 
             def progress_after_table_edit():
@@ -516,7 +494,9 @@ with gr.Blocks(
                 header_exam_datetime, header_person_id, header_age,
                 header_correction_reason,
             ):
-                field.change(
+                # .input is user-only; .change also fires when save clears
+                # header fields programmatically and would undo the reset.
+                field.input(
                     fn=progress_after_table_edit,
                     outputs=[inbody_flow, gemini_review_status],
                     show_progress="hidden", queue=False, api_name=False,
@@ -528,7 +508,8 @@ with gr.Blocks(
                 "Se almacenarán las mediciones revisadas y el registro de auditoría. "
                 "Antes de guardarlas, se verifican duplicados por archivo, "
                 "identificador, fecha y medición. "
-                "El permiso no publica tu examen ni envía nuevos datos a la IA."
+                "El permiso no publica tu examen ni envía nuevos datos a la IA.",
+                elem_id="hj-inbody-step-5"
             )
             if not audit_write_enabled():
                 gr.Markdown(
@@ -593,8 +574,11 @@ with gr.Blocks(
             def progress_after_save(message):
                 if (isinstance(message, str)
                         and message.startswith("Guardado en la base de datos:")):
-                    return render_inbody_flow(5, saved=True)
-                return gr.update()
+                    # Save succeeded: the 16 exam fields were cleared by
+                    # save_review_and_clear. Reset to a fresh capture and
+                    # return to the upload section. Confirmation was a toast.
+                    return render_inbody_flow(1), "hj-inbody-step-1", ""
+                return gr.update(), "", gr.update()
 
             gemini_save.click(
                 fn=save_review_and_clear,
@@ -615,8 +599,12 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_save,
                 inputs=[gemini_save_status],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target, gemini_save_status],
                 show_progress="hidden",
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
             # Reset all previous-review state when a different file is selected.
             # Preview runs on the application server and requires no Gemini consent.
@@ -681,24 +669,17 @@ with gr.Blocks(
                 inputs=[gemini_upload_state],
                 outputs=[gemini_file_status],
             ).then(
-                fn=lambda state: render_inbody_flow(2 if state else 1),
+                fn=lambda state: (
+                    render_inbody_flow(2 if state else 1),
+                    "hj-inbody-step-2" if state else "",
+                ),
                 inputs=[gemini_upload_state],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target],
                 show_progress="hidden",
-            )
-            inbody_clear = gr.ClearButton(
-                [gemini_upload, gemini_upload_state, gemini_snapshot,
-                 gemini_preview, gemini_preview_status, gemini_table, gemini_status,
-                 gemini_save_status, gemini_review_status,
-                 gemini_overwrite, gemini_file_status,
-                 header_exam_datetime, header_filename, header_person_id,
-                 header_age, header_correction_reason],
-                value="Limpiar examen (conservar permisos)",
-            )
-            inbody_clear.click(
-                fn=lambda: render_inbody_flow(1),
-                outputs=[inbody_flow],
-                show_progress="hidden", queue=False,
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
             with gr.Accordion("Progreso histórico de InBody", open=False):
                 gr.Markdown(
@@ -1219,13 +1200,9 @@ with gr.Blocks(
     # tabs and keep subsequent changes server-side until logout.
     demo.load(
         fn=restore_session_consents,
-        outputs=[session_ai_consent, session_db_consent],
+        outputs=[session_ai_consent, session_db_consent, session_coach_consent],
         show_progress="hidden",
         api_name=False,
-    )
-    demo.load(
-        fn=coach_choice, outputs=[session_coach_consent],
-        show_progress="hidden", api_name=False,
     )
 
 

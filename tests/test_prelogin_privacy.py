@@ -55,6 +55,12 @@ def test_no_login_or_api_access_until_privacy_page_submitted():
         assert "base de datos" in page.text
         assert "name=\"ai_consent\"" in page.text
         assert "name=\"db_consent\"" in page.text
+        assert "name=\"coach_consent\"" in page.text
+        assert "tres consentimientos antes de iniciar sesi" in page.text
+        assert page.text.count('name="ai_consent"') == 1
+        assert page.text.count('name="db_consent"') == 1
+        assert page.text.count('name="coach_consent"') == 1
+        assert "no se volverán a preguntar dentro de la aplicación" in page.text
         assert "checked" not in page.text.lower()
         assert "required" in page.text
         assert "identificador" in page.text
@@ -161,8 +167,11 @@ def test_source_requires_signed_session_at_actual_ai_and_db_callbacks():
     assert 'not has_consent(request, "ai")' in source
     assert source.count('not has_consent(request, "db")') == 2
     assert "fn=restore_session_consents" in source
-    assert "set_consent(request, \"ai\", value)" in source
-    assert "set_consent(request, \"db\", value)" in source
+    assert "session_ai_consent = gr.State(value=False)" in source
+    assert "session_db_consent = gr.State(value=False)" in source
+    assert "session_coach_consent = gr.State(value=False)" in source
+    assert "set_consent(request," not in source
+    assert 'with gr.Accordion("Permisos de esta sesión"' not in source
     assert "auth=authenticate_master_demo if password_login_enabled() else None" in source
 
 
