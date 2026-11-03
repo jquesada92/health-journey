@@ -1,3 +1,21 @@
+## Contexto semántico privado para Gemini (2026-11-03)
+
+Neon cuenta con la migración 009 aplicada en main. Utilizar
+`hj_measurement_catalog` para significado, unidad de referencia,
+comparabilidad y precauciones, `hj_measurement_aliases` para nombres
+equivalentes del mismo concepto, y `hj_ai_field_dictionary` como glosario
+de columnas no sensibles. **Ninguna de estas tablas concede acceso a
+mediciones personales**. La lectura ocurre en
+`inbody_mvp/semantic_metadata.py`, después de verificar el propietario
+privado, antes de la llamada consentida a Gemini. El contexto es solo
+metadata de conceptos encontrados, jamás un dump del esquema, la
+cédula, owner_key, comentario o OCR. Respetar `available` y
+`truncated`, máxima cantidad de conceptos y privacidad del modelo.
+Al introducir nuevas variables InBody, agregar catálogo y alias en
+una migración aditiva idempotente. Tests:
+`tests/test_semantic_metadata.py`, `tests/test_coach_auto_data.py`.
+La versión en Hugging Face no cambiará hasta integrar y desplegar PR.
+
 ## InBody: un único botón Guardar mediciones (2026-11-03)
 
 El flujo actualizado tiene cuatro pasos: **Cargar → Extraer → Revisar →
