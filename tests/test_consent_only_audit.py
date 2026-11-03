@@ -216,8 +216,8 @@ def test_migration_reuses_existing_demo_role_without_private_table_grants():
 
 def test_both_consents_at_start_and_login_only_for_history():
     app = (ROOT / "app.py").read_text()
-    start = app.index('with gr.Tab("InBody Upload")')
-    end = app.index('with gr.Tab("Dashboard")', start)
+    start = app.index('with gr.Tab("InBody Upload", id="inbody")')
+    end = app.index('with gr.Tab("Dashboard", id="dashboard")', start)
     upload = app[start:end]
     # Session-wide opt-ins appear before any upload; no file can reset them.
     assert app.index("session_ai_consent = gr.Checkbox") < start
@@ -226,7 +226,7 @@ def test_both_consents_at_start_and_login_only_for_history():
     assert "inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite]" in upload
     assert "inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector]" in upload
     assert "inicia sesión en pestaña nueva" not in upload
-    assert 'with gr.Tab("Historial en base de datos")' in app
+    assert 'with gr.Tab("Historial en base de datos", id="history")' in app
 
 
 def test_migration_007_requires_confirmation_and_keeps_history():
