@@ -1,5 +1,8 @@
 # Compatibilidad de plantillas InBody — etapa de extracción
 
+> **Inventario 2026-11-03:** los detectores de plantilla y reglas espaciales siguen siendo relevantes para tests y documentación de calidad, pero el extractor ofrecido en Gradio usa **Gemini multimodal mediante API**, Pydantic y revisión humana, no la cadena OCR espacial local como motor principal. No reintroducir EasyOCR/PaddleOCR por interpretar este documento como manual de producción. Las reglas semánticas de segmento, frecuencia, fase angular, valores originales y ceros decimales siguen siendo obligatorias para la calidad. [Flujo real](../harness/00_estado_vigente_y_trazabilidad.md).
+
+
 Este módulo procesa reportes de composición corporal con OCR espacial (EasyOCR `detail=1`), conservando coordenadas normalizadas para evitar mezclar valores, ejes de gráficos y referencias.
 
 ## Plantillas reconocidas
