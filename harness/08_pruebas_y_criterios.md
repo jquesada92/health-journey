@@ -1,5 +1,8 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+> **Aceptación vigente (2026-11-03):** ver [AC-V-01…AC-V-12](00_estado_vigente_y_trazabilidad.md#3-matriz-de-aceptación-operativa), con pruebas, estado, pendientes y requisitos tecnológicos. Los **36 CA y 10 CS** conservados más abajo se preservan como visión/histórico porque el verificador de harness comprueba sus IDs: no se declaran aprobados automáticamente. Los criterios sobre EasyOCR, exportación CSV de siete columnas y selector CSV+Neon no son la UI principal de `main`. Las suites de CI son sintéticas (no Space real, Gemini o Neon); PR #72 para multiturno/prompts sigue sin fusionar y tiene 317 tests en su rama. Exigir evidencia visual móvil, E2E y aislamiento multitenant antes de dar por aceptado un lanzamiento.
+
+
 **Normativa:** cada criterio debe tener resultado **APROBADO / FALLIDO / PENDIENTE / NO APLICA**, evidencia verificable (test, log saneado o captura anonimizada), commit y entorno. «El código parece soportarlo» no equivale a aprobado.
 
 ## 1. Estrategia de pruebas
