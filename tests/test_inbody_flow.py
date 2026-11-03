@@ -15,8 +15,8 @@ from inbody_mvp.inbody_flow import (
 )
 
 APP = (Path(__file__).resolve().parents[1] / "app.py").read_text()
-INBODY = APP.split('with gr.Tab("InBody Upload", id="inbody"):', 1)[1].split(
-    'with gr.Tab("Training Hub", id="training"):', 1
+INBODY = APP.split('with gr.Column(visible=False, elem_id="hj-panel-inbody") as inbody_panel:', 1)[1].split(
+    'with gr.Column(visible=False, elem_id="hj-panel-training") as training_panel:', 1
 )[0]
 
 
@@ -104,8 +104,8 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
 def test_flow_updates_do_not_reset_privacy_permissions_or_upload_snapshot():
     flow = INBODY.split("inbody_flow = gr.HTML(", 1)[1]
     clear = flow.split("inbody_clear.click(", 1)[1].split(
-        'with gr.Tab("Training Hub", id="training"):', 1
-    )[0] if 'with gr.Tab("Training Hub", id="training"):' in flow else flow.split("inbody_clear.click(", 1)[1]
+        'with gr.Column(visible=False, elem_id="hj-panel-training") as training_panel:', 1
+    )[0] if 'with gr.Column(visible=False, elem_id="hj-panel-training") as training_panel:' in flow else flow.split("inbody_clear.click(", 1)[1]
     assert "session_ai_consent" not in clear
     assert "session_db_consent" not in clear
     assert "outputs=[inbody_flow]" in clear
