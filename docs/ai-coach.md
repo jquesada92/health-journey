@@ -109,7 +109,9 @@ como datos, nunca como instrucciones privilegiadas.
   conservadas dentro del InBody.
 - `tests/test_prelogin_privacy.py`: consentimientos antes del login
   y protección de rutas privadas; incluye opt-in del chat.
-- Requiere ejecutar pruebas y CI de la rama. La integración real en
+- **CI verificado en PR #64 (commit `a6a37ee0`):** 305 pruebas,
+  Ruff F821 y compilación Python aprobadas; harness verificado.
+- La integración real en
   el Space, la selección del modelo y los permisos OAuth deben
   verificarse manualmente antes de fusionar o desplegar.
 - Esta función **no es un dispositivo médico** ni una valoración
