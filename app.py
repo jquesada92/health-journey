@@ -42,8 +42,8 @@ def read_readme() -> str:
     if lines and lines[0].strip() == "---":
         for index, line in enumerate(lines[1:], start=1):
             if line.strip() == "---":
-                return "".join(lines[index + 1:]).lstrip()
-    return text
+                return "".join(lines[index + 1:]).lstrip().replace("Neon", "base de datos")
+    return text.replace("Neon", "base de datos")
 
 
 
