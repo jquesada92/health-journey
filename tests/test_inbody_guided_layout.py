@@ -49,7 +49,7 @@ def test_validation_has_own_feedback_without_reusing_extraction_status():
     validate = INBODY.split('gemini_check.click(', 1)[1].split(
         'gr.Markdown(', 1
     )[0]
-    assert "outputs=[gemini_table, gemini_review_status]" in validate
+    assert "outputs=[gemini_table, gemini_snapshot, gemini_review_status]" in validate
     assert "gemini_status" not in validate
     assert "gemini_review_status = gr.Markdown(" in INBODY
 

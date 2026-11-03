@@ -39,7 +39,10 @@ def test_main_ui_controls_remain_enabled_when_public_dashboard_is_active(widget)
         assert isinstance(interactive, ast.Constant) and interactive.value is False
         source = (ROOT / "app.py").read_text(encoding="utf-8")
         assert 'interactive=status in {"new", "unverified"}' in source
-        assert 'status == "duplicate"' in source
+        # Duplicate reports cannot enable extraction, even if the button
+        # is forged: upload preflight and server extraction both check status.
+        assert 'preflight.get("status") in {"duplicate", "empty"}' in source
+        assert 'fresh["status"] == "duplicate"' in source
     else:
         assert interactive is None or (
             isinstance(interactive, ast.Constant) and interactive.value is True

@@ -62,3 +62,37 @@ def test_plotly_report_row_and_score_display_within_same_dashboard():
     assert '"Phase Angle"' in (ROOT / "inbody_mvp/progress_dashboard.py").read_text()
     assert "progress_score, progress_section_history" in SOURCE
     assert "gr.Tab(\"Dashboard público\")" not in SOURCE
+
+
+def test_component_validation_badges_are_hidden_but_single_toast_is_preserved():
+    # Gradio 6 paints div.validation-error badges in each component.
+    # Suppress only those banners; never hide inputs or the global toast.
+    assert "SINGLE_ERROR_MESSAGE_CSS = " in SOURCE
+    assert ".gradio-container div.validation-error {" in SOURCE
+    assert "display: none !important;" in SOURCE.split(
+        "SINGLE_ERROR_MESSAGE_CSS =", 1
+    )[1].split('"""', 2)[1]
+    assert " + SINGLE_ERROR_MESSAGE_CSS," in SOURCE
+    assert "show_error=False," in SOURCE
+    assert "gr.Warning(str(message).replace(" in SOURCE
+    review_status = SOURCE.split("gemini_review_status = gr.Markdown(", 1)[1].split(
+        ")", 1
+    )[0]
+    assert "visible=False" in review_status
+
+
+def test_review_error_is_one_toast_and_discards_previous_success():
+    body = ast.unparse(_function("review_with_popup"))
+    assert body.count("gr.Warning(") == 1
+    assert "return (updated, new_snapshot, '')" in body
+    assert "return (gr.update(), gr.update(), '')" in body
+    assert "popup_error(" in body
+
+
+def test_file_preflight_error_is_not_both_status_and_toast():
+    body = ast.unparse(_function("show_processed_filename"))
+    # The visible file-status message handles duplicate/unverified responses.
+    assert "gr.Warning(" not in body
+    assert "result['message']" in body
+    assert "popup_error(" in body
+    assert "return ('', None, gr.update(interactive=False))" in body

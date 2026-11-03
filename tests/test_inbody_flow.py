@@ -98,18 +98,18 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
     assert "fn=progress_after_extract" in INBODY
     assert "fn=progress_after_validation" in INBODY
     assert "fn=progress_after_save" in INBODY
-    assert "gemini_table.edit(" in INBODY
+    assert "gemini_table.input(" in INBODY
     assert "fn=progress_after_table_edit" in INBODY
     assert "inbody_clear.click(" not in INBODY
     assert "gemini_review_continue.click(" not in INBODY
     assert "finish_review_step" not in INBODY
-    assert "gemini_table.select(" in INBODY
-    assert "delete_review_row.click(" in INBODY
+    assert "gemini_table.select(" not in INBODY
+    assert "delete_review_row.click(" not in INBODY
     assert "apply_row_correction.click(" not in INBODY
     assert INBODY.count('"Guardar cambios"') == 1
     assert INBODY.count('"Validar revisión"') == 0
     assert "fn=sync_inline_table_edit" in INBODY
-    assert "outputs=[gemini_table, gemini_review_status]" in INBODY
+    assert "outputs=[gemini_table, gemini_snapshot, gemini_review_status]" in INBODY
     assert "INBODY_NEXT_STEP_JS" in APP
 
     tree = ast.parse(APP)

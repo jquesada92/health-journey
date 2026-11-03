@@ -78,6 +78,16 @@ def popup_error(exc: Exception, fallback: str = "No se pudo completar la operaci
     gr.Warning(str(message).replace("Neon", "la base de datos"))
 
 
+# Gradio 6 draws small per-component validation banners in addition to the
+# application-level alert. Keep a single toast/status and suppress only these
+# redundant validation badges. Never hide inputs, labels, or toast modals.
+SINGLE_ERROR_MESSAGE_CSS = """
+.gradio-container div.validation-error {
+    display: none !important;
+}
+"""
+
+
 def keep_components(count: int):
     """Preserve existing file, review, plots and status on a failed event."""
     return tuple(gr.update() for _ in range(count))
@@ -188,7 +198,7 @@ with gr.Blocks(
                 COLUMNS as GEMINI_COLUMNS, DISPLAY_COLUMNS as GEMINI_DISPLAY_COLUMNS,
                 compact_review_table, header_for_review,
                 extract_gemini, review_status,
-                remove_review_row, sync_review_corrections,
+                reconcile_native_review_rows, sync_review_corrections,
                 save_audit, get_free_inbody_models, render_document_preview,
                 check_processed_filename,
                 audit_write_enabled,
@@ -345,26 +355,20 @@ with gr.Blocks(
                 "**unit**, **measurement** y **section**. Si corriges una "
                 "medición, explica el cambio en **correction_comment**. "
                 "**was_corrected** se marca automáticamente cuando una medición "
-                "es distinta de la lectura original. Marca **reviewed** en "
-                "cada fila que hayas comprobado y pulsa **Guardar cambios**."
+                "es distinta de la lectura original. Usa el menú de la fila "
+                "en la tabla para **eliminar** mediciones incorrectas, sin "
+                "botones adicionales. Marca **reviewed** en cada fila "
+                "conservada y pulsa **Guardar cambios**."
             )
             gemini_table = gr.Dataframe(
                 headers=GEMINI_DISPLAY_COLUMNS,
                 datatype=["str", "str", "str", "str", "str", "bool", "str", "bool"],
                 type="pandas", interactive=True,
                 static_columns=[4],
-                label="Mediciones: revisa y edita cada fila",
+                show_row_numbers=True,
+                row_limits=(1, None),
+                label="Mediciones: edita o elimina filas en la propia tabla",
             )
-            # A selected row is only needed for deletion; all edits belong in
-            # the table, never in a duplicate correction form.
-            selected_review_row = gr.State(value=None)
-            with gr.Row():
-                selected_review_label = gr.Markdown(
-                    "Para eliminar una medición, selecciona su fila en la tabla."
-                )
-                delete_review_row = gr.Button(
-                    "Eliminar fila seleccionada", variant="stop", scale=0,
-                )
             def extract_with_popup(
                 state, consent, model, preflight,
                 profile: gr.OAuthProfile | None = None,
@@ -445,66 +449,12 @@ with gr.Blocks(
                 elem_id="hj-inbody-step-4"
             )
             gemini_check = gr.Button("Guardar cambios", variant="secondary")
-            gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
-            def select_review_row(table, snapshot, evt: gr.SelectData):
-                index = evt.index
-                row = index[0] if isinstance(index, (tuple, list)) else index
-                if not isinstance(row, int) or isinstance(row, bool):
-                    return None, "Selecciona una celda de una fila."
-                if not snapshot or table is None or row < 0 or row >= len(table):
-                    return None, "Selecciona una fila válida."
-                frame = table if isinstance(table, pd.DataFrame) else pd.DataFrame(
-                    table, columns=GEMINI_DISPLAY_COLUMNS
-                )
-                return (
-                    {"row": row, "source": snapshot.get("sha256")},
-                    f"Seleccionada: fila {row + 1}, "
-                    f"**{str(frame.iloc[row]['measurement'])[:90]}**",
-                )
-
-            gemini_table.select(
-                fn=select_review_row, inputs=[gemini_table, gemini_snapshot],
-                outputs=[selected_review_row, selected_review_label],
-                show_progress="hidden", queue=False, api_name=False,
+            # Review status still drives the progress workflow internally,
+            # but human-facing errors are delivered once via gr.Warning.
+            gemini_review_status = gr.Markdown(
+                "Revisión pendiente: guarda los cambios antes de continuar.",
+                visible=False,
             )
-
-            def checked_selected_row(selected, snapshot):
-                if not snapshot or not isinstance(selected, dict):
-                    raise ValueError("Primero selecciona una fila de la tabla.")
-                if selected.get("source") != snapshot.get("sha256"):
-                    raise ValueError(
-                        "La selección pertenece a otro examen. Selecciona de nuevo la fila."
-                    )
-                return selected.get("row")
-
-            def delete_row_with_popup(table, snapshot, selected):
-                try:
-                    row_number = checked_selected_row(selected, snapshot)
-                    frame, new_snapshot = remove_review_row(
-                        table, snapshot, row_number
-                    )
-                except Exception as exc:
-                    popup_error(exc, "No se pudo eliminar la fila.")
-                    return keep_components(6)
-                # Preserve already-edited values and rederive correction flags.
-                frame = sync_review_corrections(frame, new_snapshot)
-                return (
-                    frame, new_snapshot, None,
-                    f"Fila {row_number + 1} eliminada solo de esta revisión.",
-                    render_inbody_flow(3),
-                    "Revisión pendiente: guarda los cambios antes de continuar.",
-                )
-
-            delete_review_row.click(
-                fn=delete_row_with_popup,
-                inputs=[gemini_table, gemini_snapshot, selected_review_row],
-                outputs=[
-                    gemini_table, gemini_snapshot, selected_review_row,
-                    selected_review_label, inbody_flow, gemini_review_status,
-                ],
-                concurrency_limit=1, api_name=False,
-            )
-
             def exam_header_edits(exam_datetime, filename, person_id, age, reason):
                 return {
                     "exam_datetime": exam_datetime, "filename": filename,
@@ -515,22 +465,26 @@ with gr.Blocks(
             def review_with_popup(table, snapshot, exam_datetime, filename,
                                   person_id, age, reason):
                 try:
-                    # Recompute flags server-side even if the user submits before
-                    # the Dataframe.edit UI event finishes.
-                    updated = sync_review_corrections(table, snapshot)
+                    # Reconcile native row deletion even if the user confirms
+                    # before the grid's input callback finishes.
+                    updated, new_snapshot = reconcile_native_review_rows(
+                        table, snapshot
+                    )
                     result = review_status(
-                        updated, snapshot, header_edits=exam_header_edits(
+                        updated, new_snapshot, header_edits=exam_header_edits(
                             exam_datetime, filename, person_id, age, reason
                         ),
                     )
                     if result.startswith("Revisión pendiente:"):
                         gr.Warning(result.removeprefix("Revisión pendiente:").strip())
-                        return updated, gr.update()
+                        # Clear any prior success to prevent advancing on stale
+                        # validation while showing only one warning popup.
+                        return updated, new_snapshot, ""
                     gr.Info("Cambios de revisión confirmados. Continúa a guardar el examen.")
-                    return updated, result
+                    return updated, new_snapshot, result
                 except Exception as exc:
                     popup_error(exc, "No se pudieron confirmar los cambios.")
-                    return gr.update(), gr.update()
+                    return gr.update(), gr.update(), ""
 
             def progress_after_validation(message, snapshot):
                 if snapshot is None:
@@ -546,7 +500,7 @@ with gr.Blocks(
                     header_filename, header_person_id, header_age,
                     header_correction_reason,
                 ],
-                outputs=[gemini_table, gemini_review_status],
+                outputs=[gemini_table, gemini_snapshot, gemini_review_status],
             ).then(
                 fn=progress_after_validation,
                 inputs=[gemini_review_status, gemini_snapshot],
@@ -567,23 +521,30 @@ with gr.Blocks(
 
             def sync_inline_table_edit(table, snapshot):
                 try:
-                    updated = sync_review_corrections(table, snapshot)
+                    updated, new_snapshot = reconcile_native_review_rows(
+                        table, snapshot
+                    )
                 except Exception as exc:
                     popup_error(exc, "No se pudo actualizar la tabla.")
                     return (
-                        gr.update(),
+                        gr.update(), gr.update(),
                         render_inbody_flow(3),
                         "Revisión pendiente: guarda los cambios antes de continuar.",
                     )
                 return (
-                    updated, render_inbody_flow(3),
+                    updated, new_snapshot, render_inbody_flow(3),
                     "Revisión pendiente: guarda los cambios antes de continuar.",
                 )
 
-            gemini_table.edit(
+            # input() fires for user changes, including native row deletion,
+            # without reacting to programmatic Dataframe refreshes.
+            gemini_table.input(
                 fn=sync_inline_table_edit,
                 inputs=[gemini_table, gemini_snapshot],
-                outputs=[gemini_table, inbody_flow, gemini_review_status],
+                outputs=[
+                    gemini_table, gemini_snapshot,
+                    inbody_flow, gemini_review_status,
+                ],
                 trigger_mode="always_last",
                 show_progress="hidden", queue=False,
             )
@@ -716,16 +677,8 @@ with gr.Blocks(
                         state, profile=profile, request=request
                     )
                     status = result["status"]
-                    if status == "duplicate":
-                        gr.Warning(
-                            "Este archivo ya fue procesado. La extracción con Gemini "
-                            "está bloqueada para evitar consumir tokens."
-                        )
-                    elif status == "unverified":
-                        gr.Warning(
-                            "No se pudo comprobar si el archivo ya existe. "
-                            "La extracción podría consumir tokens de un duplicado."
-                        )
+                    # The file-status area is the only message for duplicate
+                    # or unverified uploads; do not also create warning toasts.
                     return (
                         result["message"], result,
                         gr.update(interactive=status in {"new", "unverified"}),
@@ -733,9 +686,7 @@ with gr.Blocks(
                 except Exception as exc:
                     popup_error(exc, "No se pudo verificar el archivo seleccionado.")
                     return (
-                        "No se verificó el archivo; vuelve a seleccionarlo.",
-                        None,
-                        gr.update(interactive=False),
+                        "", None, gr.update(interactive=False),
                     )
 
             def advance_after_duplicate_check(state, preflight):
@@ -1405,7 +1356,8 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", "7860")),
         share=False,
         ssr_mode=False,
-        css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS,
+        css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS + SINGLE_ERROR_MESSAGE_CSS,
+        show_error=False,
         auth=authenticate_master_demo if password_login_enabled() else None,
         auth_message=LOGIN_AUTH_MESSAGE if password_login_enabled() else None,
         app_kwargs={

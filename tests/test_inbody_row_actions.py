@@ -7,7 +7,7 @@ import pytest
 
 from inbody_mvp.gemini_review import (
     COLUMNS, DISPLAY_COLUMNS, compact_review_table, correct_review_value,
-    remove_review_row, sync_review_corrections,
+    remove_review_row, reconcile_native_review_rows, sync_review_corrections,
     validate_review, review_status,
 )
 
@@ -134,15 +134,20 @@ def test_invalid_number_shows_row_and_measurement_in_review_error(sample):
 
 
 def test_row_editing_and_deletion_are_explicit_and_one_validation_button():
-    assert "selected_review_row = gr.State(value=None)" in APP
-    assert "gemini_table.select(" in APP
+    assert "selected_review_row = gr.State(value=None)" not in APP
+    assert "gemini_table.select(" not in APP
     assert "sync_review_corrections(" in APP
-    assert "remove_review_row(" in APP
-    assert "delete_review_row.click(" in APP
+    assert "reconcile_native_review_rows(" in APP
+    assert "delete_review_row.click(" not in APP
+    assert "gemini_table.input(" in APP
+    assert "gemini_table.edit(" not in APP
+    assert "row_limits=(1, None)" in APP
+    assert "show_row_numbers=True" in APP
     assert "apply_row_correction.click(" not in APP
     assert 'static_columns=[4]' in APP
     assert 'gemini_check = gr.Button("Guardar cambios"' in APP
     assert 'fn=sync_inline_table_edit' in APP
+    assert 'outputs=[gemini_table, gemini_snapshot, gemini_review_status]' in APP
     assert "row_corrected_value" not in APP
     assert "row_correction_reason" not in APP
     assert "gemini_review_continue" not in APP
@@ -228,3 +233,117 @@ def test_delete_after_inline_edit_keeps_correction_and_alignment(sample):
     assert result.at[1, "value"] == "-0.375"
     assert result.at[1, "was_corrected"] == True
     assert result.at[1, "original_value"] == "-0.370"
+
+
+def test_native_delete_first_row_preserves_original_audit(sample):
+    snapshot, frame = sample
+    before = deepcopy(snapshot)
+    remaining, updated = reconcile_native_review_rows(
+        frame.iloc[1:].reset_index(drop=True), snapshot
+    )
+    assert len(remaining) == len(updated["rows"]) == 2
+    assert [r["measurement"] for r in updated["rows"]] == ["Peso", "Agua"]
+    assert updated["excluded_review_rows"] == [{
+        "measurement": "Ángulo", "original_value": "sin lectura"
+    }]
+    assert updated["raw_response"] == before["raw_response"]
+    assert snapshot == before
+    assert len(validate_review(remaining, updated)) == 2
+
+
+def test_native_middle_delete_retains_edits_and_negative_decimals(sample):
+    snapshot, frame = sample
+    frame.at[0, "value"] = "8.20"
+    frame.at[0, "correction_comment"] = "Confirmado en PDF"
+    frame.at[2, "value"] = "-0.3700"
+    frame.at[2, "correction_comment"] = "Cuatro decimales en reporte"
+    remaining, updated = reconcile_native_review_rows(
+        frame.iloc[[0, 2]].reset_index(drop=True), snapshot
+    )
+    assert [r["measurement"] for r in updated["rows"]] == ["Ángulo", "Agua"]
+    assert remaining.loc[0, "value"] == "8.20"
+    assert remaining.loc[1, "value"] == "-0.3700"
+    assert remaining["was_corrected"].tolist() == [True, True]
+    verified = validate_review(remaining, updated)
+    assert [r["original_value"] for r in verified] == ["sin lectura", "-0.370"]
+
+
+def test_native_delete_multiple_rows_once_and_again(sample):
+    snapshot, frame = sample
+    kept, first = reconcile_native_review_rows(
+        frame.iloc[[0, 2]].reset_index(drop=True), snapshot
+    )
+    kept, second = reconcile_native_review_rows(
+        kept.iloc[[1]].reset_index(drop=True), first
+    )
+    assert len(second["rows"]) == 1
+    assert second["rows"][0]["measurement"] == "Agua"
+    assert len(second["excluded_review_rows"]) == 2
+    assert second["raw_response"] == snapshot["raw_response"]
+
+
+def test_native_delete_distinguishes_same_original_value_by_labels(sample):
+    snapshot, frame = sample
+    extra = deepcopy(snapshot["rows"][2])
+    extra["measurement"] = "Agua izquierda"
+    snapshot["rows"].append(extra)
+    frame = compact_review_table(pd.DataFrame(snapshot["rows"], columns=COLUMNS))
+    reduced = frame.iloc[[0, 2, 3]].reset_index(drop=True)
+    table, result = reconcile_native_review_rows(reduced, snapshot)
+    assert [r["measurement"] for r in result["rows"]] == [
+        "Ángulo", "Agua", "Agua izquierda"
+    ]
+    assert result["excluded_review_rows"][-1]["measurement"] == "Peso"
+    assert len(table) == 3
+
+
+def test_native_delete_same_original_value_removes_correct_distinct_row(sample):
+    snapshot, _ = sample
+    left = deepcopy(snapshot["rows"][2])
+    right = deepcopy(left)
+    left["measurement"] = "Brazo derecho ECW"
+    right["measurement"] = "Brazo izquierdo ECW"
+    snapshot["rows"] = [left, right]
+    grid = compact_review_table(pd.DataFrame(snapshot["rows"], columns=COLUMNS))
+    one, updated = reconcile_native_review_rows(grid.iloc[1:].reset_index(drop=True), snapshot)
+    assert updated["rows"][0]["measurement"] == "Brazo izquierdo ECW"
+    assert updated["excluded_review_rows"][0]["measurement"] == "Brazo derecho ECW"
+    assert one.loc[0, "original_value"] == "-0.370"
+
+
+def test_native_delete_rejects_indistinguishable_source_rows(sample):
+    snapshot, _ = sample
+    original = deepcopy(snapshot["rows"][2])
+    snapshot["rows"] = [deepcopy(original), deepcopy(original)]
+    grid = compact_review_table(pd.DataFrame(snapshot["rows"], columns=COLUMNS))
+    with pytest.raises(ValueError, match="indistinguibles"):
+        reconcile_native_review_rows(grid.iloc[:1].reset_index(drop=True), snapshot)
+
+
+def test_native_delete_rejects_added_or_all_removed_rows(sample):
+    snapshot, frame = sample
+    larger = pd.concat([frame, frame.iloc[:1]], ignore_index=True)
+    with pytest.raises(ValueError, match="agregar filas"):
+        reconcile_native_review_rows(larger, snapshot)
+    with pytest.raises(ValueError, match="al menos una medición"):
+        reconcile_native_review_rows(frame.iloc[:0], snapshot)
+
+
+def test_native_delete_rejects_forged_original_and_reorder(sample):
+    snapshot, frame = sample
+    forged = frame.iloc[1:].reset_index(drop=True).copy()
+    forged.at[0, "original_value"] = "999.0"
+    with pytest.raises(ValueError, match="valores originales"):
+        reconcile_native_review_rows(forged, snapshot)
+    reordered = frame.iloc[[2, 0]].reset_index(drop=True)
+    with pytest.raises(ValueError, match="valores originales"):
+        reconcile_native_review_rows(reordered, snapshot)
+
+
+def test_native_edit_without_deletion_keeps_snapshot_identity(sample):
+    snapshot, frame = sample
+    frame.at[1, "value"] = "77.20"
+    updated, retained = reconcile_native_review_rows(frame, snapshot)
+    assert retained is snapshot
+    assert updated.at[1, "was_corrected"] == True
+    assert snapshot["rows"][1]["value"] == "75.20"

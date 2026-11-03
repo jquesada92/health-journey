@@ -1,3 +1,23 @@
+> **Revisión y filas nativas (PR #79, 2026-11-03):** la tabla InBody
+> permite corregir valores y eliminar filas directamente con las
+> herramientas nativas de Gradio 6. Ya no se selecciona una fila para
+> pulsar un botón externo. Cada edición actualiza `was_corrected`
+> automáticamente y cada borrado reconcilia la tabla con sus orígenes
+> auditables; se rechazan fuentes indistinguibles o manipuladas. El
+> botón **Guardar cambios** verifica revisión y comentarios, pero no
+> persiste en Neon. Se conservan los avisos de error unificados del
+> mismo PR. Contratos: `tests/test_inbody_row_actions.py`,
+> `tests/test_dashboard_popup_contract.py`,
+> `tests/test_inbody_flow.py`. Falta validación visual en el Space.
+
+> **Ajuste de UX propuesto (2026-11-03, aún no desplegado):** retirar las
+> marcas/recuadros de validación por componente de Gradio 6, conservar
+> un único popup de error (`gr.Warning`) o el mensaje contextual del
+> archivo, y mantener oculto el estado interno de validación. La
+> comprobación de mediciones, `original_value`, consentimiento y
+> deduplicación continúa en backend. Contratos en
+> `tests/test_dashboard_popup_contract.py`. Requiere CI y prueba en Space.
+
 > **Actualización de consolidación (2026-11-03):** este documento conserva la fotografía de la auditoría original realizada sobre `main` (commit 5f8ea83). Los PR #71, #72, #74 y #75 ya se fusionaron posteriormente. El PR consolidado actual integra la auditoría de #73, las correcciones en línea de #76 y la verificación de duplicados antes de Gemini. Las descripciones de PR pendientes de fusión incluidas en secciones históricas deben interpretarse respecto a la fecha de aquella auditoría. El código de la rama consolidada y sus pruebas constituyen la referencia funcional del cambio; el Space aún requiere validación E2E.\n\n# 00 — Estado vigente, capacidades, requisitos y trazabilidad de Health Journey
 
 **Auditoría documental:** 2026-11-03 (UTC). **Base contrastada:** `main`
