@@ -32,7 +32,7 @@ COMMENT ON TABLE public.hj_ai_field_dictionary IS 'Diccionario técnico y semán
 
 COMMENT ON TABLE public.hj_measurement_audits IS 'Auditoría inmutable de la extracción InBody: lecturas originales y valores finales revisados. Datos privados.';
 
-COMMENT ON TABLE public.hj_audit_reviewed_private IS 'Vista privada de resultados InBody revisados. No publicarla ni conceder lectura a invitados o writer demo.';
+COMMENT ON VIEW public.hj_audit_reviewed_private IS 'Vista privada de resultados InBody revisados. No publicarla ni conceder lectura a invitados o writer demo.';
 
 COMMENT ON TABLE public.hj_measurements IS 'Mediciones de exámenes InBody confirmados, una fila por variable y segmento. Mantener unidad y precisión.';
 
