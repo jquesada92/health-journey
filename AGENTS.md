@@ -1,5 +1,32 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Fechas de exámenes InBody — regla prioritaria (2026-11-03)
+
+No confundir el encabezado del documento, que muestra
+`DD.MM.AAAA HH:MM` / `DD.MM.AAAA. HH:MM`, con el nombre
+del archivo, cuyo token después del **primer** `_` es
+`AAAAMMDDHHMMSS` de 14 dígitos. El primero se parsea como
+día.mes.año y el segundo como año-mes-día con segundos. El
+token válido del nombre es la fuente preferida para guardar
+`exam_datetime`; si falta, usar encabezado del reporte con
+segundos `:00` cuando el reporte no los publica. Preservar
+la salida Gemini original en `raw_response` y la trazabilidad
+`datetime_source`/`ai_header` en snapshot de la UI. No
+inferir fecha a partir del momento de upload, historial gráfico,
+fecha de nacimiento o fecha de modificación del archivo.
+
+Normalizador: `inbody_mvp/filename_timestamp.py`; los
+consumidores son `inbody_mvp/gemini_review.py` y
+`inbody_mvp/upload_preflight.py`. Incluirlo en allowlist
+HF. Tests `tests/test_inbody_filename_timestamp.py` y
+`tests/test_exam_timestamp.py`. La migración 011 reparará
+las 17 extracciones con diferencias de fecha/hora, con
+backup privado e invariantes de no colisión. **No ejecutar
+010/011 contra registros personales sin autorización
+explícita del usuario**. No tocar medidas originales, no
+borrar historias ni reconstruir timestamps manualmente.
+
+
 ## Reingesta segura InBody por nombre de archivo (propuesta 2026-11-03)
 
 Sin opt-in, el preflight de duplicados **bloquea** volver a gastar tokens.
