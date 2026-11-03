@@ -56,6 +56,15 @@ INBODY_FLOW_CSS = """
     background: var(--body-background-fill, #fff);
     box-shadow: 0 3px 12px rgba(19, 42, 49, 0.09);
 }
+/* Scroll-to-step calls reserve the fixed navbar height above each heading,
+   including inside scrollable Gradio containers. */
+#hj-inbody-step-1,
+#hj-inbody-step-2,
+#hj-inbody-step-3,
+#hj-inbody-step-4,
+#hj-inbody-step-5 {
+    scroll-margin-top: 175px;
+}
 #hj-inbody-flow .hj-flow-head {
     display: flex;
     align-items: baseline;
@@ -140,6 +149,13 @@ INBODY_FLOW_CSS = """
     white-space: nowrap;
 }
 @media (max-width: 700px) {
+    #hj-inbody-step-1,
+    #hj-inbody-step-2,
+    #hj-inbody-step-3,
+    #hj-inbody-step-4,
+    #hj-inbody-step-5 {
+        scroll-margin-top: 145px;
+    }
     #hj-panel-inbody {
         padding-top: 146px !important;
     }
@@ -214,3 +230,46 @@ def render_inbody_flow(active_step: int = 1, *, saved: bool = False) -> str:
         + "".join(nodes)
         + "</ol></nav>"
     )
+
+
+# This runs only after the server has committed a successful stage transition.
+# Targets are hardcoded navigation IDs, never uploaded document content.
+INBODY_NEXT_STEP_JS = """(target) => {
+    const allowed = new Set([
+        "hj-inbody-step-1", "hj-inbody-step-2", "hj-inbody-step-3",
+        "hj-inbody-step-4", "hj-inbody-step-5",
+    ]);
+    if (typeof target !== "string" || !allowed.has(target)) return [];
+    const panel = document.getElementById("hj-panel-inbody");
+    if (!panel || panel.getClientRects().length === 0) return [];
+    const section = document.getElementById(target);
+    if (!section || section.getClientRects().length === 0) return [];
+    const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+    ).matches;
+    section.scrollIntoView({
+        behavior: reducedMotion ? "instant" : "smooth",
+        block: "start",
+        inline: "nearest",
+    });
+    return [];
+}"""
+
+
+def review_step_ready(table, snapshot) -> tuple[bool, str]:
+    """Only mark step 3 complete when there are rows and all are reviewed.
+
+    This is a lightweight navigation gate, NOT the full measurement/header
+    validation. The next step retains the existing review_status checks.
+    """
+    if snapshot is None:
+        return False, "Primero carga y extrae un examen InBody."
+    if table is None or getattr(table, "empty", True):
+        return False, "No hay mediciones para revisar."
+    if "reviewed" not in getattr(table, "columns", ()):
+        return False, "Falta la columna reviewed en la tabla."
+    reviewed = [str(value).strip().lower() == "true" for value in table["reviewed"]]
+    outstanding = sum(not value for value in reviewed)
+    if outstanding:
+        return False, f"Marca reviewed en las {outstanding} mediciones pendientes."
+    return True, ""
