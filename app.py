@@ -28,6 +28,7 @@ from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
 from inbody_mvp.inbody_flow import (
     INBODY_FLOW_CSS, INBODY_NEXT_STEP_JS, render_inbody_flow,
+    review_step_ready,
 )
 from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
 from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
@@ -197,7 +198,7 @@ with gr.Blocks(
             from inbody_mvp.gemini_review import (
                 COLUMNS as GEMINI_COLUMNS, DISPLAY_COLUMNS as GEMINI_DISPLAY_COLUMNS,
                 compact_review_table, header_for_review,
-                extract_gemini, review_status,
+                extract_gemini,
                 reconcile_native_review_rows, sync_review_corrections,
                 save_audit, get_free_inbody_models, render_document_preview,
                 check_processed_filename,
@@ -208,7 +209,7 @@ with gr.Blocks(
             inbody_navigation_target = gr.State("")
             gr.Markdown("## InBody · Registrar un examen", elem_id="hj-inbody-title")
             gr.Markdown(
-                "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
+                "Sigue los pasos: **cargar → extraer → revisar → guardar**. "
                 "Puedes consultar el documento original en cualquier momento. "
                 "Las mediciones se guardan únicamente después de tu revisión."
             )
@@ -333,9 +334,10 @@ with gr.Blocks(
                 "**was_corrected** se marca automáticamente cuando una medición "
                 "es distinta de la lectura original. Usa el menú de la fila "
                 "en la tabla para **eliminar** mediciones incorrectas, sin "
-                "botones adicionales. Pulsa **Guardar cambios** para confirmar "
-                "todas las filas conservadas de una sola vez; no necesitas "
-                "marcar **reviewed** fila por fila."
+                "botones adicionales. Marca **reviewed** en cada fila que "
+                "hayas comprobado. Cuando todas estén revisadas, pulsa "
+                "**Guardar mediciones** una sola vez: se validan las correcciones "
+                "y se guardan directamente en la base de datos."
             )
             # Review the parsed values and their original source together.
             # The two panes stack on mobile instead of trapping the gallery
@@ -467,24 +469,12 @@ with gr.Blocks(
                 show_progress="hidden", queue=False, api_name=False,
             )
 
-            gr.Markdown(
-                "### 4. Valida todas las mediciones\n"
-                "Edita **value** y **correction_comment** directamente en la tabla. "
-                "La casilla **was_corrected** se actualiza automáticamente al "
-                "comparar cada medición con su valor original. Cuando todas las "
-                "filas estén correctas, pulsa **Guardar cambios**. Esta "
-                "única acción acepta las correcciones y marca todas las filas "
-                "conservadas como **reviewed**. No necesitas confirmarlas "
-                "individualmente ni se escribe todavía en la base de datos.",
-                elem_id="hj-inbody-step-4"
-            )
-            gemini_check = gr.Button("Guardar cambios", variant="secondary")
-            # Review status still drives the progress workflow internally,
-            # but human-facing errors are delivered once via gr.Warning.
+            # No intermediate validation button: a single action saves.
             gemini_review_status = gr.Markdown(
-                "Revisión pendiente: guarda los cambios antes de continuar.",
+                "Revisión pendiente: marca reviewed en todas las filas.",
                 visible=False,
             )
+
             def exam_header_edits(exam_datetime, filename, person_id, age, reason):
                 return {
                     "exam_datetime": exam_datetime, "filename": filename,
@@ -492,66 +482,11 @@ with gr.Blocks(
                     "correction_comment": reason,
                 }
 
-            def review_with_popup(table, snapshot, exam_datetime, filename,
-                                  person_id, age, reason):
-                try:
-                    # Reconcile native row deletion even if the user confirms
-                    # before the grid's input callback finishes.
-                    updated, new_snapshot = reconcile_native_review_rows(
-                        table, snapshot
-                    )
-                    # Guardar cambios is the explicit approval for every
-                    # retained row. Validate the approved copy first so an
-                    # incomplete review never commits a partial approval.
-                    confirmed = updated.copy()
-                    confirmed.loc[:, "reviewed"] = True
-                    result = review_status(
-                        confirmed, new_snapshot, header_edits=exam_header_edits(
-                            exam_datetime, filename, person_id, age, reason
-                        ),
-                    )
-                    if result.startswith("Revisión pendiente:"):
-                        gr.Warning(result.removeprefix("Revisión pendiente:").strip())
-                        # Clear any prior success to prevent advancing on stale
-                        # validation while showing only one warning popup.
-                        return updated, new_snapshot, ""
-                    gr.Info("Cambios de revisión confirmados. Continúa a guardar el examen.")
-                    return confirmed, new_snapshot, result
-                except Exception as exc:
-                    popup_error(exc, "No se pudieron confirmar los cambios.")
-                    return gr.update(), gr.update(), ""
-
-            def progress_after_validation(message, snapshot):
-                if snapshot is None:
-                    return gr.update(), ""
-                if isinstance(message, str) and message.startswith("Revisión completa:"):
-                    return render_inbody_flow(5), "hj-inbody-step-5"
-                return render_inbody_flow(4), ""
-
-            gemini_check.click(
-                fn=review_with_popup,
-                inputs=[
-                    gemini_table, gemini_snapshot, header_exam_datetime,
-                    header_filename, header_person_id, header_age,
-                    header_correction_reason,
-                ],
-                outputs=[gemini_table, gemini_snapshot, gemini_review_status],
-            ).then(
-                fn=progress_after_validation,
-                inputs=[gemini_review_status, gemini_snapshot],
-                outputs=[inbody_flow, inbody_navigation_target],
-                show_progress="hidden",
-            ).then(
-                fn=None, js=INBODY_NEXT_STEP_JS,
-                inputs=[inbody_navigation_target], outputs=[],
-                show_progress="hidden", queue=False, api_name=False,
-            )
-
             def progress_after_table_edit():
                 # A user correction invalidates the previous review result.
                 return (
                     render_inbody_flow(3),
-                    "Revisión pendiente: guarda los cambios antes de continuar.",
+                    "Revisión pendiente: marca reviewed en todas las filas.",
                 )
 
             def sync_inline_table_edit(table, snapshot):
@@ -564,11 +499,13 @@ with gr.Blocks(
                     return (
                         gr.update(), gr.update(),
                         render_inbody_flow(3),
-                        "Revisión pendiente: guarda los cambios antes de continuar.",
+                        "Revisión pendiente: marca reviewed en todas las filas.",
                     )
+                ready, _ = review_step_ready(updated, new_snapshot)
                 return (
-                    updated, new_snapshot, render_inbody_flow(3),
-                    "Revisión pendiente: guarda los cambios antes de continuar.",
+                    updated, new_snapshot,
+                    render_inbody_flow(4 if ready else 3),
+                    "" if ready else "Revisión pendiente: marca reviewed en todas las filas.",
                 )
 
             # input() fires for user changes, including native row deletion,
@@ -595,14 +532,17 @@ with gr.Blocks(
                     show_progress="hidden", queue=False, api_name=False,
                 )
             gr.Markdown(
-                "### 5. Guarda el examen en la base de datos\n"
-                "Activa el **permiso para guardar datos** en la sección de "
-                "privacidad y pulsa **Guardar mediciones**. "
-                "Se almacenarán las mediciones revisadas y el registro de auditoría. "
+                "### 4. Guarda el examen en la base de datos\n"
+                "Cuando termines de revisar y marcar **reviewed** en cada fila "
+                "conservada, pulsa **Guardar mediciones**. Este único botón "
+                "valida las correcciones, acepta los valores de la tabla y "
+                "guarda las mediciones y su auditoría en la base de datos. "
+                "El permiso independiente de almacenamiento debe estar activo "
+                "en Privacidad. "
                 "Antes de guardarlas, se verifican duplicados por archivo, "
                 "identificador, fecha y medición. "
                 "El permiso no publica tu examen ni envía nuevos datos a la IA.",
-                elem_id="hj-inbody-step-5"
+                elem_id="hj-inbody-step-4"
             )
             if not audit_write_enabled():
                 gr.Markdown(
@@ -621,7 +561,7 @@ with gr.Blocks(
                     value=False,
                 )
             gemini_save = gr.Button(
-                "Guardar mediciones revisadas",
+                "Guardar mediciones",
                 interactive=audit_write_enabled(), variant="primary",
             )
             gemini_save_status = gr.Markdown(
@@ -638,6 +578,11 @@ with gr.Blocks(
                         raise PermissionError(
                             "Autoriza guardar datos en la base de datos antes de continuar."
                         )
+                    # Reconcile Gradio native row deletions and normalize
+                    # was_corrected with the actual table just before saving.
+                    table, snapshot = reconcile_native_review_rows(table, snapshot)
+                    # save_audit validates all reviewed flags, correction
+                    # comments, numeric precision and exam header before SQL.
                     message = save_audit(
                         table, snapshot, consent, overwrite,
                         header_edits=exam_header_edits(
@@ -658,7 +603,7 @@ with gr.Blocks(
                         pd.DataFrame(columns=GEMINI_DISPLAY_COLUMNS),
                         "Esperando extracción. Carga un archivo y selecciona un modelo.",
                         False, "Sin archivo seleccionado.",
-                        "Revisión pendiente: valida las filas antes de guardar.",
+                        "Revisión pendiente: marca reviewed en todas las filas.",
                         "", "", "", "", "",
                     )
                 gr.Warning(message.replace("Neon", "la base de datos"))
@@ -765,7 +710,7 @@ with gr.Blocks(
                 fn=lambda: (
                     pd.DataFrame(columns=GEMINI_DISPLAY_COLUMNS),
                     "Esperando extracción. Carga un archivo y selecciona un modelo.",
-                    "", "Revisión pendiente: guarda los cambios antes de continuar.",
+                    "", "Revisión pendiente: marca reviewed en todas las filas.",
                     *header_for_review(None),
                 ),
                 outputs=[
