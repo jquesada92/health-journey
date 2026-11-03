@@ -1,5 +1,8 @@
 # 01 — Especificación del producto y alcance
 
+> **Alcance vigente auditado (2026-11-03):** [inventario funcional F-01…F-15](00_estado_vigente_y_trazabilidad.md). El MVP ya no se limita a InBody: existen cuatro módulos (Proyecto, InBody, Captador FitNotes, Chat). Training Hub y el asistente son código en `main`; Nutrition Hub y Medical Hub son **visión futura**, no funciones implementadas. En InBody el flujo principal es **Gemini → revisar → validar → guardar**, con barra de cinco pasos, historial Plotly dentro de InBody y reinicio tras guardado exitoso. Los RF-01…RF-10 siguientes son **requisitos históricos o de visión** y no se consideran entregados solo por aparecer aquí. En particular, RF-05 exportación CSV, RF-07 dashboard CSV+Neon, OCR determinista y 8 páginas no describen necesariamente la ruta Gemini activa: la vista previa Gemini admite hasta 10 páginas. Las aceptaciones operativas son AC-V en el documento 00.
+
+
 ## 1. Problema
 
 Un usuario realiza mediciones periódicas de composición corporal en clínicas, gimnasios o tiendas diferentes. Sus documentos se encuentran fragmentados, a veces solo como PDF escaneado o JPG, con dispositivos e idiomas diferentes. Necesita consolidarlos sin transcribir manualmente cada valor, comprobar errores de OCR, revisar su evolución y conservar la procedencia.
