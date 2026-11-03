@@ -260,6 +260,39 @@ de IA, `save_audit` exige permiso de almacenamiento antes de escribir y
 reciben mediante valores de componentes Gradio de la sesión y nunca se
 sustituyen por autorizaciones automáticas o marcadas de fábrica.
 
+## Asistente fitness: contexto automático InBody + FitNotes (2026-11-03)
+
+El chat fitness ya no muestra ni exige un campo para introducir el ID
+del reporte InBody. Con sesión privada autorizada y consentimiento
+específico del chat, **cada pregunta** consulta Neon de forma automática:
+primero `hj_audit_reviewed_private` (mediciones revisadas), o el historial
+confirmado heredado cuando no existe auditoría; en paralelo consulta
+`hj_training_sets` mediante la clave del usuario autenticado.
+
+Se envía a Gemini un **JSON sin identificadores personales** que incluye:
+tendencias de InBody por variable y unidades, observaciones recientes
+con sus fechas, resúmenes de ejercicios FitNotes y series reales con
+peso, repeticiones, fecha y duración. Las observaciones se limitan a la
+ventana elegida (30/90/180/365 días), con límites explícitos de tamaño
+y `truncated` para no presentar una muestra como historial completo.
+Nunca se envían nombres de archivos, texto OCR, IDs, notas de series
+ni comentarios de auditoría. El prompt vive en su propio archivo:
+`inbody_mvp/prompts/fitness_coach.md`.
+
+La identidad InBody se determina **solo desde servidor**: Secret privado
+`COACH_PERSON_ID` (o alias privado ya configurado de Dashboard) si
+existe, y si no, detección de un único identificador en la base privada.
+Con más de una identidad se bloquea la consulta hasta configurar ese
+Secret; no se devuelven registros de otras personas por defecto. El
+identificador real nunca se guarda en Git. El rol privado sigue siendo
+obligatorio y el consentimiento del chat sigue siendo independiente
+del de extracción InBody. La tabla FitNotes conserva el filtro
+`owner_key` de la sesión. **No se han verificado consultas reales contra
+Neon ni respuestas reales de Gemini como parte de esta implementación.**
+
+Regresiones sintéticas: `tests/test_coach_auto_data.py`,
+`tests/test_ai_coach.py` y `tests/test_coach_conversation.py`.
+
 ## Inicio de sesión propio `obs-master-demo`
 
 La aplicación puede exigir un login general de Gradio, sin crear una
