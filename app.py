@@ -455,8 +455,30 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_extract,
                 inputs=[gemini_snapshot, gemini_upload_state],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target],
                 show_progress="hidden",
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
+            )
+
+            def finish_review_step(table, snapshot):
+                ready, message = review_step_ready(table, snapshot)
+                if not ready:
+                    gr.Warning(message)
+                    return gr.update(), ""
+                return render_inbody_flow(4), "hj-inbody-step-4"
+
+            gemini_review_continue.click(
+                fn=finish_review_step,
+                inputs=[gemini_table, gemini_snapshot],
+                outputs=[inbody_flow, inbody_navigation_target],
+                concurrency_limit=1,
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
             gr.Markdown(
                 "### 4. Valida todas las mediciones\n"
@@ -493,10 +515,10 @@ with gr.Blocks(
 
             def progress_after_validation(message, snapshot):
                 if snapshot is None:
-                    return gr.update()
+                    return gr.update(), ""
                 if isinstance(message, str) and message.startswith("Revisión completa:"):
-                    return render_inbody_flow(5)
-                return render_inbody_flow(4)
+                    return render_inbody_flow(5), "hj-inbody-step-5"
+                return render_inbody_flow(4), ""
 
             gemini_check.click(
                 fn=review_with_popup,
@@ -509,8 +531,12 @@ with gr.Blocks(
             ).then(
                 fn=progress_after_validation,
                 inputs=[gemini_review_status, gemini_snapshot],
-                outputs=[inbody_flow],
+                outputs=[inbody_flow, inbody_navigation_target],
                 show_progress="hidden",
+            ).then(
+                fn=None, js=INBODY_NEXT_STEP_JS,
+                inputs=[inbody_navigation_target], outputs=[],
+                show_progress="hidden", queue=False, api_name=False,
             )
 
             def progress_after_table_edit():
