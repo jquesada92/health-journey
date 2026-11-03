@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 from .extractor import MAX_UPLOAD_BYTES
 from .prompt_loader import load_prompt
+from .filename_timestamp import exam_datetime_from_filename
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
@@ -290,13 +291,23 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
             )
             failover_used = True
         result = Extraction.model_validate_json(response.text)
-        if not result.header.exam_datetime or not result.header.person_id:
+        # The measurement datetime is embedded in the uploaded source name,
+        # immediately following the first underscore: YYYYMMDDHHMMSS.
+        # It takes precedence over any OCR/Gemini date if available.
+        filename_datetime = exam_datetime_from_filename(name)
+        if not result.header.person_id or (
+            not result.header.exam_datetime and filename_datetime is None
+        ):
             raise ValueError("No se identificó el ID o la fecha/hora del encabezado.")
-        datetime.fromisoformat(result.header.exam_datetime)
+        if result.header.exam_datetime:
+            datetime.fromisoformat(result.header.exam_datetime)
+        correct_datetime = filename_datetime or result.header.exam_datetime
+        raw_header = result.header.model_dump()
+        canonical_header = dict(raw_header, exam_datetime=correct_datetime)
         rows = []
         for m in result.measurements:
             rows.append({
-                "exam_datetime": result.header.exam_datetime, "filename": name,
+                "exam_datetime": correct_datetime, "filename": name,
                 "person_id": result.header.person_id, "age": result.header.age,
                 "section": m.section, "measurement": m.measurement,
                 "value": m.value, "unit": m.unit or "",
@@ -304,7 +315,9 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
                 "correction_comment": "", "reviewed": False,
             })
         snapshot = {"sha256": hashlib.sha256(data).hexdigest(),
-                    "header": result.header.model_dump(),
+                    "header": canonical_header,
+                    "ai_header": raw_header,
+                    "datetime_source": "filename" if filename_datetime else "report",
                     "raw_response": response.text,
                     "rows": rows, "filename": name,
                     "model": active_model,
@@ -312,6 +325,13 @@ def extract_gemini(upload_state, consent=False, selected_model=None):
                     "fallback_used": failover_used}
         frame = pd.DataFrame(rows, columns=COLUMNS)
         message = f"{len(rows)} mediciones extraídas; pendientes de revisión."
+        if filename_datetime:
+            message += (
+                " Fecha y hora tomadas del nombre del archivo: "
+                f"{filename_datetime}."
+            )
+            if result.header.exam_datetime != filename_datetime:
+                message += " Se corrigió la fecha propuesta por la IA."
         if failover_used:
             message += f" Modelo principal sin capacidad (503); extracción con {active_model}."
         if result.missing_or_unreadable:
@@ -624,6 +644,13 @@ def _effective_header(snapshot, header_edits):
     if _string(header_edits.get("filename")) != old["filename"]:
         raise ValueError("El nombre original del archivo no puede modificarse.")
     timestamp = _string(header_edits.get("exam_datetime"))
+    filename_datetime = exam_datetime_from_filename(old["filename"])
+    if filename_datetime is not None and timestamp != filename_datetime:
+        raise ValueError(
+            "La fecha/hora del examen debe coincidir con la marca "
+            "YYYYMMDDHHMMSS del nombre original del archivo: "
+            f"{filename_datetime}."
+        )
     try:
         datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
     except ValueError as exc:
