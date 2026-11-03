@@ -167,7 +167,16 @@ INBODY_FLOW_CSS = """
     align-self: flex-start;
 }
 #hj-inbody-document-gallery {
+    width: 100%;
     max-width: 100%;
+    /* One PDF page per gallery row: vertical document, not thumbnail strip. */
+    max-height: min(78vh, 820px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+/* Gradio's single-column gallery maintains one source page per row. */
+#hj-inbody-document-gallery .grid {
+    grid-template-columns: minmax(0, 1fr) !important;
 }
 /* At narrower desktop/tablet widths, stack the source below the grid
    rather than squeeze the eight editable measurement columns. */
