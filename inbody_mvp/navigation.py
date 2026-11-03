@@ -54,3 +54,4 @@ SIDEBAR_CSS = """
     #hj-module-sidebar { width: min(260px, 90vw); }
     #hj-ai-extraction { padding: 10px; }
 }
+"""
