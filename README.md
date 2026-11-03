@@ -1,3 +1,13 @@
+---
+title: Health Journey
+emoji: 💪
+colorFrom: blue
+colorTo: green
+sdk: gradio
+app_file: app.py
+hf_oauth: true
+---
+
 ## Flujo InBody simplificado: una sola confirmación y guardado (2026-11-03)
 
 **Vigente en esta propuesta:** Cargar → Extraer → Revisar → Guardar.
@@ -22,15 +32,6 @@ Pruebas: `tests/test_inbody_one_click_review.py`,
 `tests/test_inbody_row_actions.py`. El comportamiento en Hugging Face
 requiere validación manual después del despliegue.
 
----
-title: Health Journey
-emoji: 💪
-colorFrom: blue
-colorTo: green
-sdk: gradio
-app_file: app.py
-hf_oauth: true
----
 
 ## Estado consolidado y trazabilidad · 2026-11-03
 
