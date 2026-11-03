@@ -69,6 +69,35 @@ cumplimiento legal completo**. Antes de producción con múltiples usuarios,
 revisar los avisos y procedimientos de derechos, conservación,
 transferencias internacionales y seguridad conforme a la normativa aplicable.
 
+## Encabezado único y editable para exámenes InBody
+
+Después de extraer un reporte, InBody muestra **fecha/hora del examen,
+ID de persona, edad y nombre del archivo** en un bloque compacto encima
+de la tabla. Los tres primeros campos se pueden corregir **una sola vez**
+en lugar de repetir los cambios sobre todas las filas. El nombre del
+archivo original permanece de solo lectura como evidencia de origen.
+
+Se requiere **una sola explicación** cuando se modifica un valor del
+encabezado. El servidor valida el formato de fecha/hora, edad e ID y aplica
+el encabezado revisado a todas las mediciones antes de guardar. Los cambios
+en las mediciones siguen requiriendo comentarios de corrección por fila,
+y todas las filas deben marcarse como revisadas.
+
+La tabla de revisión muestra únicamente los campos correspondientes a
+cada medición: sección, nombre, valor, unidad, valor original, indicador
+de corrección, comentario y revisión. Se conserva internamente el formato
+completo para compatibilidad con otras llamadas y no se modifica la
+estructura de la base de datos. La respuesta original de la IA se preserva
+como auditoría. El campo `was_corrected` sigue referido únicamente a
+cambios de mediciones, para cumplir las validaciones existentes en SQL;
+los cambios de encabezado se conservan como comentarios de auditoría.
+
+Los botones de cargar otro archivo, limpiar y guardar reinician la
+visualización del encabezado sin borrar los consentimientos de sesión.
+Las pruebas de regresión en `tests/test_inbody_header.py` verifican
+campos únicos, IDs con ceros iniciales, negativos, decimales, validación y
+preservación de la evidencia.
+
 ## Navegación vertical y extracción IA integrada
 
 Health Journey utiliza ahora un **menú lateral** nativo de Gradio
