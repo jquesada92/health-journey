@@ -73,6 +73,7 @@ jobs:
               'inbody_mvp/training_hub.py',
               'inbody_mvp/ai_coach.py',
               'inbody_mvp/coach_data.py',
+              'inbody_mvp/semantic_metadata.py',
               'inbody_mvp/chat_session.py',
               'inbody_mvp/prompt_loader.py',
               'inbody_mvp/prompts/inbody_extraction.md',
