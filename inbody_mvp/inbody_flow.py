@@ -2,20 +2,35 @@
 
 Rendered only from trusted, fixed labels. Progress is controlled by the actual
 upload, extraction, review, validation and save events (not scroll position).
-The Gradio HTML component uses `elem_id="hj-inbody-flow"`; the CSS applies
-sticky positioning to the *component root*, not a nested short-lived element.
+The Gradio HTML component uses `elem_id="hj-inbody-flow"` and lives
+inside `hj-inbody-sticky`. Sticky positioning belongs to that persistent
+Gradio Column (not a nested HTML node), immediately after the InBody title.
 """
 from __future__ import annotations
 
 STEPS = ("Cargar", "Extraer", "Revisar", "Validar", "Guardar")
 
 INBODY_FLOW_CSS = """
-/* Keep the entire Gradio HTML component pinned within the InBody tab. */
-#hj-inbody-flow {
+/* A sticky *Gradio column* remains mounted throughout the InBody flow.
+   Parent Gradio containers must not clip the sticky positioning context.
+   The sticky area is scoped to InBody: it disappears with the module. */
+#hj-module-content,
+#hj-panel-inbody {
+    overflow: visible !important;
+}
+#hj-inbody-sticky {
     position: sticky !important;
     top: 0;
-    z-index: 35;
+    z-index: 50;
     align-self: stretch;
+    width: 100%;
+    gap: 0 !important;
+    margin: 0 0 8px;
+    overflow: visible !important;
+    background: var(--body-background-fill, #fff);
+}
+#hj-inbody-flow {
+    position: relative;
     width: 100%;
     padding: 7px 10px 9px;
     border: 1px solid var(--border-color-primary, #d9e3e9);
@@ -107,8 +122,11 @@ INBODY_FLOW_CSS = """
     white-space: nowrap;
 }
 @media (max-width: 600px) {
-    #hj-inbody-flow {
+    #hj-inbody-sticky {
         top: 0;
+        margin-bottom: 6px;
+    }
+    #hj-inbody-flow {
         padding: 6px 4px 8px;
         border-radius: 0 0 10px 10px;
     }
