@@ -640,6 +640,13 @@ def _effective_header(snapshot, header_edits):
         "filename": _string(snapshot.get("filename") or snapshot["rows"][0]["filename"]),
     }
     if header_edits is None:
+        filename_datetime = exam_datetime_from_filename(old["filename"])
+        if (filename_datetime is not None
+                and old["exam_datetime"] != filename_datetime):
+            raise ValueError(
+                "La fecha del examen debe coincidir con la marca "
+                "YYYYMMDDHHMMSS del nombre original del archivo."
+            )
         return old, False, ""
     if not isinstance(header_edits, dict):
         raise ValueError("Encabezado inválido.")
