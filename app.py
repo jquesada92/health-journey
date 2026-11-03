@@ -150,8 +150,10 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                      "(fecha, ejercicio, repeticiones, peso y otros detalles).",
             )
         gr.Markdown(
-            "**Importante:** la carga y vista previa locales no envían el "
-            "documento a la IA. Guardar requiere pulsar el botón correspondiente. "
+            "**Importante:** al cargar un archivo, este llega al servidor de "
+            "la aplicación para su lectura y vista previa, pero no se envía "
+            "a Google Gemini hasta que lo autorices y pulses Extraer. "
+            "Guardar requiere pulsar el botón correspondiente. "
             "Los datos almacenados permanecen en la base de datos después de "
             "cerrar sesión; desmarcar un permiso detiene nuevos envíos, "
             "pero no elimina datos ya enviados o guardados. "
