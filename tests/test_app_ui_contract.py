@@ -12,7 +12,7 @@ def _widget(name):
 
 def test_private_consent_is_explicit_and_off_by_default():
     widget = _widget("session_db_consent")
-    assert widget.func.attr == "Checkbox"
+    assert widget.func.attr == "State"
     assert next(k.value.value for k in widget.keywords if k.arg == "value") is False
 
 def test_gemini_save_requires_consent_and_snapshot():
@@ -28,17 +28,19 @@ def test_gemini_save_requires_consent_and_snapshot():
         "header_age", "header_correction_reason"
     ]
 
-def test_clear_resets_extraction_but_keeps_session_consents():
-    clears = [n for n in ast.walk(TREE) if isinstance(n, ast.Call)
-              and isinstance(n.func, ast.Attribute) and n.func.attr == "ClearButton"]
-    assert any(
-        {"gemini_snapshot", "gemini_table"} <=
-        {x.id for x in n.args[0].elts if isinstance(x, ast.Name)}
-        and {"session_db_consent", "session_ai_consent"}.isdisjoint(
-            {x.id for x in n.args[0].elts if isinstance(x, ast.Name)}
-        )
-        for n in clears
-    )
+def test_successful_save_clears_exam_but_not_prelogin_consents():
+    source = (Path(__file__).resolve().parents[1] / "app.py").read_text()
+    assert "gr.ClearButton(" not in source
+    assert "fn=save_review_and_clear" in source
+    assert "fn=progress_after_save" in source
+    assert "gr.Info(visible_message)" in source
+    assert "outputs=[session_ai_consent, session_db_consent, session_coach_consent]" in source
+    save = source.split("gemini_save.click(", 1)[1].split("concurrency_limit=1,", 1)[0]
+    assert all(name not in save for name in (
+        "session_ai_consent", "session_coach_consent"
+    ))
+    assert "session_db_consent" in save  # only a read-only input
+
 
 
 def test_zerogpu_runtime_has_registered_optional_gpu_diagnostic():
