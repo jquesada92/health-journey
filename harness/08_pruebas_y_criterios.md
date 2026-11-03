@@ -1,5 +1,22 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## Aceptación: primera + diez últimas pruebas en coach
+
+Con N fechas distintas en Neon, las cuatro gráficas usan
+`{primera} ∪ {últimas 10}`, por fecha ascendente: N=1 implica 1
+punto, N=10 implica 10, N=11 implica 11 y N=16 implica 11.
+No se repite la primera, ni se muestran exámenes intermedios.
+Los cuatro tipos de medida son independientes, no se inventan
+ausencias y se conserva unidad: kg, kg, %, puntos. La consulta usa
+permiso privado de servidor, identidad no visible y SQL
+parametrizado antes de generar gráficas. Se valida el responsive
+desktop/móvil, autocarga al abrir chat, botón manual de actualizar
+y que no se alteran los turnos del chat. Fuente: vista auditada
+revisada, con fallback confirmado heredado; límite seguro frente a
+truncamiento. Regresión `tests/test_coach_first_last_trends.py`.
+Verificación HF/Neon real después de desplegar: pendiente.
+
+
 ## Aceptación de entregables del Módulo 1 (propuesta)
 
 1. La vista del proyecto ofrece ocho apartados en el orden del HTML docente, con textos editables y vista previa.

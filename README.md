@@ -8,6 +8,28 @@ app_file: app.py
 hf_oauth: true
 ---
 
+## Asistente fitness: minigráficas de la primera y las diez últimas pruebas InBody
+
+El módulo Chat presenta un panel compacto **a la izquierda** del diálogo con
+cuatro líneas: peso, masa musculoesquelética, porcentaje de grasa corporal y
+puntaje InBody. **Solo se muestran la fecha del primer examen registrado y
+las diez fechas de examen más recientes**, en orden cronológico. Si hay diez
+fechas o menos no se repite el primer punto. Las fechas intermedias se omiten
+intencionalmente y **el filtro de 30/90/180/365 días del chat no afecta
+estas gráficas**. La vista auditada de Neon expone solo fecha, por lo que dos
+exámenes el mismo día no se pueden distinguir; se representan como un punto
+por métrica y fecha. Nunca se inventan medidas ausentes.
+
+La consulta es privada y parametrizada, se comprueba el permiso del
+usuario antes de leer Neon y se priorizan auditorías revisadas. Solo si no
+hay auditorías se consultan las mediciones confirmadas heredadas. Los
+resultados no se envían a Gemini por el hecho de abrir el panel, ni
+contienen IDs personales. Los gráficos cargan al abrir Chat y tienen un
+botón **Actualizar tendencias**. En móvil aparecen arriba del chat dentro
+de un área desplazable de altura limitada. Evidencia sintética:
+`tests/test_coach_first_last_trends.py`.
+
+
 ## Entregable académico del Módulo 1 (Fundamentos de la Programación)
 
 El panel **Proyecto** incluye un editor desplegable para documentar la actividad principal de la Sesión 4 de OBS: **ocho apartados en el orden exigido**, con contenidos iniciales basados en el proyecto, un pitch de cinco frases, campos para autor y cuatro capturas reales, vista previa y botón **Generar Word (.docx)**. El Word se crea en la aplicación para descargar, sin llamar a Gemini ni guardar texto de la entrega en la base de datos. El borrador editado vive solo durante la sesión; antes de recargar conviene generar el Word. El HTML aportado contiene requisitos y rúbrica, no la plantilla Word visual de Blackboard. Véanse `docs/entregable-modulo1-obs.md`, `inbody_mvp/module1_deliverable.py` y `tests/test_module1_deliverable.py`.

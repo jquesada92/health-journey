@@ -120,7 +120,9 @@ def test_model_is_frozen_per_turn_and_reenabled_after_answer():
     assert 'coach_pending_model = gr.State(value="")' in APP
     assert "def enqueue_coach_message(question, messages, model):" in APP
     assert "updated, typing, pending, model," in APP
-    assert "coach_history, coach_chat, coach_pending_question,\n                    coach_pending_model" in APP
+    assert "coach_history, coach_chat, coach_pending_question," in APP
+    assert "coach_pending_model" in APP
+    # Column nesting changes indentation; verify the callback contract, not whitespace.
     assert "coach_pending_model, session_coach_consent" in APP
     assert "coach_model, coach_refresh_models," in APP
     assert "def coach_refresh_model_options(selected_model):" in APP
