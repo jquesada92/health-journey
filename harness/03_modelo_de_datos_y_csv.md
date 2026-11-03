@@ -1,5 +1,32 @@
 # 03 — Modelo de datos, nomenclatura y contratos de intercambio
 
+## Contrato vigente de persistencia, 2026-11-03
+
+- **InBody**: encabezado único de examen e identidad; mediciones en
+  filas largas con `measurement`, `section`, `value`, `unit`,
+  `original_value`, `was_corrected`, `correction_comment` y
+  `reviewed` para UI. No truncar `8.20` ni signos negativos. Solo
+  se guarda al marcar reviewed y pulsar **Guardar mediciones**.
+- **Neon InBody**: esquemas de base en `db/schema.sql`, auditoría
+  `migrations/004–007`, vista privada revisada y controles de permiso.
+  No equivale a un modelo de 7 columnas en pantalla.
+- **FitNotes**: `migrations/008_fitnotes_training_hub.sql`;
+  una fila por serie `owner_key/workout_date/exercise_key/set_number`,
+  peso, unidad, reps, distancia y duración, con idempotencia.
+- **IA semántica**: `hj_measurement_catalog` ya ampliado en Neon por
+  migración 009, con 35 conceptos, 47 alias, 24 campos y comentarios.
+  Lector en PR #84, no desplegado aún desde main.
+
+El contrato CSV InBody de siete columnas descrito más abajo **es
+LEGACY/portabilidad**, no un botón actual de exportación. Mantener
+inmutabilidad de originales, normalización de unidades y separación
+de datos personales frente a prompts. [11](11_cobertura_codigo_main.md)
+lista cada DDL, script SQL y prueba.
+
+
+---
+
+
 > **Contratos reales (2026-11-03):** [inventario y criterios](00_estado_vigente_y_trazabilidad.md). El flujo Gemini devuelve `header(person_id,exam_datetime,age)` y `measurements(section,measurement,value,unit)`; `filename` viene del archivo. En la UI el encabezado aparece **una sola vez** y la tabla editable muestra mediciones con `original_value`, `was_corrected`, `correction_comment`, `reviewed`, sin `frecuencia_khz`. Los decimales se preservan como texto. La auditoría privada se modela con `migrations/004–007`; FitNotes usa `migrations/008_fitnotes_training_hub.sql` y 1 fila por serie. El contrato CSV de **7 columnas** y `db/schema.sql` siguen en el repositorio para compatibilidad, pero **no representan el formulario activo** ni una exportación CSV actual en la interfaz. Nuevos campos medidos deben agregarse como filas, nunca columnas especiales. La existencia de DDL no confirma su despliegue en Neon; no exponer auditorías por defecto. La normalización de persona no equivale a aislamiento multiusuario: permanece P0.
 
 
