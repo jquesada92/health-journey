@@ -758,7 +758,7 @@ def _audit_write_engine():
 
 
 def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
-               header_edits=None):
+               header_edits=None, *, replace_filename=False, request=None):
     """Consent-based write-only submission; never grants private read access.
 
     The anonymous database role has EXECUTE only on a validated stored
@@ -768,6 +768,61 @@ def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
         raise _ui_error("Debes autorizar el envío de las mediciones a Neon.")
     try:
         rows = validate_review(table, snapshot, header_edits=header_edits)
+        if replace_filename is True:
+            # This is deliberately NOT available through the anonymous
+            # consent-only writer. A private, authenticated application
+            # connection and server-resolved identity are required.
+            from .coach_data import resolve_private_person_id
+            from .storage import (
+                _database_engine, canonical_person_id, require_database_access,
+            )
+
+            require_database_access(oauth_profile=profile, request=request)
+            authorized_person = canonical_person_id(
+                resolve_private_person_id(profile=profile, request=request)
+            )
+            if canonical_person_id(rows[0]["person_id"]) != authorized_person:
+                raise PermissionError(
+                    "El identificador del examen no coincide con el "
+                    "historial privado autorizado."
+                )
+            replacement_body = {
+                "source_sha256": snapshot["sha256"],
+                "filename": snapshot["filename"],
+                "person_id": rows[0]["person_id"],
+                "exam_datetime": rows[0]["exam_datetime"],
+                "age": rows[0]["age"],
+                "model_name": snapshot["model"],
+                "raw_response": json.loads(snapshot["raw_response"]),
+                "measurements": rows,
+            }
+            engine = _database_engine()
+            try:
+                with engine.begin() as con:
+                    receipt = con.execute(
+                        text(
+                            "SELECT public.hj_replace_reviewed_audit_filename("
+                            "CAST(:payload AS jsonb), :confirmed)"
+                        ),
+                        {
+                            "payload": json.dumps(
+                                replacement_body, ensure_ascii=False
+                            ),
+                            "confirmed": True,
+                        },
+                    ).scalar_one()
+                if isinstance(receipt, str):
+                    receipt = json.loads(receipt)
+                if receipt.get("status") != "replaced_filename":
+                    raise RuntimeError("Invalid filename-replacement receipt")
+                return (
+                    f"Guardado en Neon: {len(rows)} mediciones corregidas. "
+                    f"Se reemplazaron {receipt.get('removed_measurements', 0)} "
+                    "registros del archivo anterior, conservando una copia "
+                    "privada de recuperación."
+                )
+            finally:
+                engine.dispose()
         if not audit_write_enabled():
             raise PermissionError(
                 "La escritura por consentimiento no está configurada. "
@@ -844,14 +899,15 @@ def save_audit(table, snapshot, consent, confirm_overwrite=False, profile=None,
             sqlstate or "unknown", type(exc).__name__,
         )
         messages = {
-            "42883": "No se encontró la función de guardado: aplica la migración 007.",
-            "42501": "La conexión DEMO_DATABASE_URL carece del permiso EXECUTE.",
+            "42883": "Falta la función SQL de guardado o reemplazo: aplica las migraciones 007 y 010.",
+            "42501": "La conexión no tiene permiso para este guardado. El reemplazo exige DATABASE_URL privado y migración 010.",
             "23505": "El archivo o la medición ya existe. Verifica el estado del reporte.",
             "23514": "Una medición incumple una validación de la base de datos.",
             "22007": "La fecha del examen tiene un formato inválido.",
             "22P02": "El reporte contiene un identificador o valor inválido.",
-            "P0001": "Neon rechazó un dato del examen. Revisa el identificador, "
-                     "la fecha, los valores y los comentarios de corrección.",
+            "P0001": "Neon rechazó el reemplazo o un dato del examen. Comprueba "
+                     "que el archivo sea de tu historial y que no existan "
+                     "otras capturas con el mismo examen.",
         }
         raise _ui_error(messages.get(
             sqlstate,
