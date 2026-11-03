@@ -1,5 +1,29 @@
 # 01 — Especificación del producto y alcance
 
+## Alcance implementado en main, revisado 2026-11-03
+
+El MVP vigente es **Proyecto, InBody, Captador FitNotes y chat fitness**.
+InBody realiza `cargar → extraer → revisar → guardar` en **cuatro pasos**;
+la tabla y el visor son paralelos, `reviewed` requiere revisión humana,
+y el único botón **Guardar mediciones** valida y persiste bajo permiso.
+El chatbot lee automáticamente InBody y series FitNotes autorizadas,
+con prompts independientes, sin entrada manual de ID. Se diferencian
+tres permisos previos al login: IA de extracción, DB y coach. Los
+catálogos semánticos añadidos en Neon por migración 009 se conectan al
+chat en el PR #84, aún no en `main`. Nutrición, exámenes médicos y
+aislamiento multiusuario completo siguen fuera de alcance.
+
+Los RF-01…RF-10 que aparecen después de este bloque son un **registro
+histórico de especificación**; los requisitos implementados verificables
+son F-01…F-15 en [00](00_estado_vigente_y_trazabilidad.md)
+con los artefactos mapeados en [11](11_cobertura_codigo_main.md).
+**No restablecer CSV de exportación ni un quinto paso de validación**
+como requisito vigente.
+
+
+---
+
+
 > **Alcance vigente auditado (2026-11-03):** [inventario funcional F-01…F-15](00_estado_vigente_y_trazabilidad.md). El MVP ya no se limita a InBody: existen cuatro módulos (Proyecto, InBody, Captador FitNotes, Chat). Training Hub y el asistente son código en `main`; Nutrition Hub y Medical Hub son **visión futura**, no funciones implementadas. En InBody el flujo principal es **Gemini → revisar → validar → guardar**, con barra de cinco pasos, historial Plotly dentro de InBody y reinicio tras guardado exitoso. Los RF-01…RF-10 siguientes son **requisitos históricos o de visión** y no se consideran entregados solo por aparecer aquí. En particular, RF-05 exportación CSV, RF-07 dashboard CSV+Neon, OCR determinista y 8 páginas no describen necesariamente la ruta Gemini activa: la vista previa Gemini admite hasta 10 páginas. Las aceptaciones operativas son AC-V en el documento 00.
 
 
