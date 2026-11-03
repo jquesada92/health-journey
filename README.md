@@ -122,10 +122,14 @@ validando consentimiento y acceso privado del lado servidor.
 
 ## Flujo de captura InBody — cinco pasos
 
-La pestaña **InBody Upload** presenta una guía de progreso
-**fija mientras se desplaza la página**: **1. Cargar → 2. Extraer →
-3. Revisar → 4. Validar → 5. Guardar**. El encabezado es compacto
-y utiliza cinco columnas incluso en dispositivos móviles. Muestra el
+El módulo **Extractor de InBody** presenta una guía de progreso
+**inmediatamente debajo del título «InBody · Registrar un examen»**:
+**1. Cargar → 2. Extraer → 3. Revisar → 4. Validar → 5. Guardar**.
+La guía está montada en un contenedor Gradio `hj-inbody-sticky` con
+`position: sticky; top: 0`, por lo que continúa a la vista al
+desplazarse por el formulario y desaparece al cambiar de módulo.
+Los contenedores padres permiten el desplazamiento sin recortar la guía.
+En teléfonos conserva cinco columnas en formato compacto. Muestra el
 paso activo y los completados, sin depender de la posición del scroll.
 
 El indicador avanza con eventos reales: después de cargar el archivo

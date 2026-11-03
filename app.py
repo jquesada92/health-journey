@@ -241,17 +241,19 @@ with gr.Blocks(
                 check_processed_filename,
                 audit_write_enabled,
             )
+            # The title stays at the top of the extractor on entry; the
+            # progress card is the immediately following element and sticks
+            # within this module while users review the long InBody form.
+            gr.Markdown("## InBody · Registrar un examen", elem_id="hj-inbody-title")
+            with gr.Column(elem_id="hj-inbody-sticky"):
+                inbody_flow = gr.HTML(
+                    value=render_inbody_flow(1),
+                    elem_id="hj-inbody-flow",
+                )
             gr.Markdown(
-                "## InBody · Registrar un examen\n"
                 "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
                 "Puedes consultar el documento original en cualquier momento. "
                 "Las mediciones se guardan únicamente después de tu revisión."
-            )
-            # The Gradio HTML component root is sticky; its content is updated by
-            # completed backend actions, not by user-controlled scroll position.
-            inbody_flow = gr.HTML(
-                value=render_inbody_flow(1),
-                elem_id="hj-inbody-flow",
             )
             gr.Markdown(
                 "### 1. Carga tu examen\n"

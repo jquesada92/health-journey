@@ -1,3 +1,18 @@
+## InBody: indicador de pasos debajo del título y visible durante scroll (2026-11-02)
+
+Rama: `fix/inbody-sticky-progress-below-title-20261102`.
+El orden del módulo debe ser **título de InBody → indicador de 5 pasos
+→ instrucciones → carga de archivo**. El indicador usa un wrapper
+`gr.Column(elem_id="hj-inbody-sticky")` y un HTML interno con
+`elem_id="hj-inbody-flow"`. CSS sticky en el **wrapper persistente**,
+no en una etiqueta que Gradio vuelva a renderizar. Se conserva
+`top: 0`, `z-index: 50` y `overflow: visible` para no recortarlo.
+No cambiar a `position: fixed`: debe mostrarse solo en el extractor
+y desplazarse hasta salir de su sección. Compactar en móvil para que
+no bloquee las mediciones. Los cinco estados siguen gobernados por
+los callbacks reales y el permiso/guardado original no cambia.
+Prueba: `tests/test_inbody_flow.py`. Sin despliegue validado.
+
 ## UI chat fitness tipo mensajería · 2 de noviembre de 2026 (PR pendiente)
 
 La rama `feature/whatsapp-style-fitness-chat-20261102` introduce una
