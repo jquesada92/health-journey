@@ -400,7 +400,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             inspect_fitnotes_upload, save_training_import, recent_training,
         )
         gr.Markdown(
-            "## Training Hub · importar FitNotes\\n"
+            "## Training Hub · importar FitNotes\n"
             "Carga una exportación CSV de FitNotes con fecha, ejercicio, categoría, "
             "peso, repeticiones, distancia, duración y comentario. "
             "Cada fila es una serie y conserva el orden original. "
@@ -434,7 +434,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
                 )
             with gr.Column(min_width=300):
                 gr.Markdown(
-                    "### Revisar antes de guardar\\n"
+                    "### Revisar antes de guardar\n"
                     "Se muestran las primeras 60 series. El archivo completo "
                     "se procesa únicamente cuando pulsas Guardar. "
                     "Series idénticas del mismo día se conservan si tienen "
@@ -494,7 +494,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             concurrency_limit=1,
         )
         gr.Markdown(
-            "### Últimas series guardadas\\n"
+            "### Últimas series guardadas\n"
             "La consulta solo muestra tus registros autorizados. "
             "La misma exportación no se importa dos veces."
         )
