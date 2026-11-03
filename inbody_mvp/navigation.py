@@ -7,33 +7,29 @@ switching between sections.
 from __future__ import annotations
 
 NAV_SECTIONS = (
-    ("inbody", "InBody · Exámenes"),
-    ("training", "Entrenamientos"),
-    ("dashboard", "Dashboard"),
-    ("history", "Historial"),
     ("project", "Proyecto"),
+    ("inbody", "Extractor de InBody"),
+    ("training", "Captador de logs de entrenamiento"),
+    ("coach", "Chat con el asistente fitness"),
 )
 
 SIDEBAR_CSS = """
-/* Only the module-level tab strip is hidden. The accessible sidebar buttons
-   are the sole visible navigation controls and retain normal keyboard focus. */
-#hj-module-tabs > .tab-nav,
-#hj-module-tabs .tab-nav,
-#hj-module-tabs [role="tablist"] {
-    display: none !important;
-}
-#hj-module-tabs {
+/* Native vertical navigation only. No Gradio Tabs or overflow ellipsis. */
+#hj-module-content {
+    width: 100%;
     min-width: 0;
 }
 #hj-module-sidebar {
-    width: min(260px, 90vw);
+    width: min(284px, 90vw);
 }
 #hj-module-sidebar .hj-nav-button {
     width: 100%;
     margin: 0 0 6px;
     text-align: left;
     justify-content: flex-start;
-    min-height: 42px;
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 #hj-module-sidebar .hj-sidebar-description {
     color: var(--body-text-color-subdued, #617086);
@@ -51,7 +47,9 @@ SIDEBAR_CSS = """
     color: var(--body-text-color-subdued, #617086);
 }
 @media (max-width: 700px) {
-    #hj-module-sidebar { width: min(260px, 90vw); }
+    #hj-module-sidebar { width: min(284px, 90vw); }
+    #hj-module-content { min-width: 0; }
+    #hj-module-content .gr-column { min-width: 0; }
     #hj-ai-extraction { padding: 10px; }
 }
 """
