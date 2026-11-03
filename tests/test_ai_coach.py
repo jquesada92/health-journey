@@ -118,7 +118,8 @@ def test_project_is_initial_and_coach_has_controls():
     assert 'visible=True, elem_id="hj-panel-project"' in app
     assert "gr.Markdown(PROJECT_OVERVIEW)" in app
     assert 'session_coach_consent = gr.State(value=False)' in app
-    assert "fn=ask_coach" in app
+    assert "fn=enqueue_coach_message" in app
+    assert "fn=complete_coach_message" in app
     assert "return ai, db, coach_choice(request)" in app
     assert "fn=restore_session_consents" in app
     assert "coach_goals = gr.Textbox(" in app
