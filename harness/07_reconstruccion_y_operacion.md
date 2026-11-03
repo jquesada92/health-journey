@@ -1,5 +1,42 @@
 # 07 — Manual de reconstrucción desde cero y operación
 
+## Guía actual para reconstrucción desde main · 2026-11-03
+
+1. Clonar `main` y seguir `AGENTS.md`, [00](00_estado_vigente_y_trazabilidad.md)
+   y [11](11_cobertura_codigo_main.md); **NO** copiar `.venv/`
+   rastreado históricamente como entorno reproducible ni subir datos de salud.
+2. Crear Python 3.12 limpio; instalar `requirements.txt`.
+   Validar `ruff check --select F821 app.py inbody_mvp`,
+   `python -m compileall -q inbody_mvp app.py`,
+   `python harness/validar_reconstruccion.py` y pytest sintético.
+3. Disponer de un PostgreSQL/Neon privado propio y revisar
+   `db/schema.sql` y `migrations/004–008` en el orden y
+   contexto de roles requeridos. **No aplicar a ciegas** migraciones
+   legacy `db/migrations/`. SQL 009 ya aplicado al Neon de este
+   proyecto; para otra BD debe aplicarse antes de habilitar la
+   lectura semántica del PR #84.
+4. Configurar secretos en HF/servicio (sin commit), `HF_TOKEN` y
+   `HF_SPACE_ID` para Actions; `DATABASE_URL`, API key Gemini,
+   autorizaciones, contraseña y consentimiento conforme a
+   `.env.example` y guía de despliegue.
+5. El workflow sincroniza `main` a HF mediante allowlist,
+   incluyendo prompts y dependencias transitivas. Verificar que
+   el Space arranca, permite login y opt-in en `/privacy`,
+   extrae un PDF **sintético**, revisa, guarda una vez y
+   consulta FitNotes/coach privado.
+6. Verificar en móvil visor y navbar sin solapamientos; comprobar
+   denegaciones de acceso, overwrite, duplicados, latencia Gemini,
+   errores, rollback y confirmación de permisos.
+
+**Nunca afirmar E2E aprobado porque CI sea verde**. Las instrucciones
+posteriores de OCR local, consentimientos en pantalla y exportación
+CSV como vía principal son **HISTÓRICAS** y no deben usarse para
+reconstruir la app vigente.
+
+
+---
+
+
 > **Operación auditada (2026-11-03):** leer [00 — estado y criterios](00_estado_vigente_y_trazabilidad.md), `requirements.txt`, `app.py`, `inbody_mvp/` y migraciones 004–008. Python 3.12 en CI; Gradio 6, Gemini Flash API, PyMuPDF/Pillow, Pydantic/Pandas/Plotly, SQLAlchemy/psycopg/Neon; `spaces` solo se conserva por compatibilidad ZeroGPU. El deploy `.github/workflows/deploy-huggingface.yml` requiere `HF_TOKEN` (Secret) y `HF_SPACE_ID` (variable), sincroniza `main` a Hugging Face y usa allowlist explícita; confirmar en el Space antes de afirmar que funciona. El antiguo manual de OCR local, exportar CSV v1 y dashboard CSV+Neon **no es el plan de reconstrucción vigente**. Tres permisos opcionales antes del login, menú de cuatro módulos y reset solo tras guardar exitosamente. No cargar informes personales ni asumir migraciones aplicadas por existir su SQL.
 
 
