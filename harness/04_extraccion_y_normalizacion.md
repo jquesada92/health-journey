@@ -1,5 +1,31 @@
 # 04 — Motor de extracción, OCR, plantillas e idioma
 
+## Fuentes de timestamp y discrepancias entre formatos (propuesta)
+
+La fecha/hora impresa en InBody es **DD.MM.AAAA HH:MM**
+(opcional punto tras año). Gemini debe devolver
+`AAAA-MM-DD HH:MM:SS` e interpretar la entrada como
+día.mes.año; `filename_timestamp.normalize_report_exam_datetime`
+también acepta el texto impreso original y conserva
+los datos crudos para auditoría. El archivo tiene
+otro formato **AAAAMMDDHHMMSS** después del primer
+`_`, con segundos: `exam_datetime_from_filename`
+lo valida y le da prioridad a la fecha de examen
+guardada. Si no existe token, se usa el valor del
+reporte impreso normalizado. El usuario no puede
+reemplazar libremente una fecha anclada al nombre.
+Preflight muestra la fecha detectada sin tokens de IA.
+No usar el historial impreso como examen actual.
+
+Los 17 exámenes históricos ya guardados necesitan
+reparación versionada 011 para alinear
+`hj_extraction_audits.exam_datetime` con el nombre.
+No se ejecutó UPDATE sobre Neon; el SQL archiva
+las fechas originales y conserva todas las
+mediciones y sus valores. Tests:
+`tests/test_inbody_filename_timestamp.py`.
+
+
 ## Extracción real y control de resultados en main · 2026-11-03
 
 Ruta actual: `app.py → gemini_review.extract_gemini → Google Gemini Flash →
