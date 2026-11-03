@@ -7,8 +7,8 @@ from pathlib import Path
 
 SOURCE = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
-INBODY = SOURCE.split('with gr.Tab("InBody Upload"):', 1)[1].split(
-    'with gr.Tab("Training Hub"):', 1
+INBODY = SOURCE.split('with gr.Tab("InBody Upload", id="inbody"):', 1)[1].split(
+    'with gr.Tab("Training Hub", id="training"):', 1
 )[0]
 
 
