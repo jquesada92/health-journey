@@ -34,6 +34,9 @@ ARCHIVOS_OBLIGATORIOS = (
     ".github/workflows/deploy-huggingface.yml",
     ".github/workflows/test-inbody.yml",
     "harness/README.md",
+    "harness/00_estado_vigente_y_trazabilidad.md",
+    "harness/10_continuidad_noviembre_2026.md",
+    "harness/11_cobertura_codigo_main.md",
     *(
         f"harness/{name}.md" for name in (
             "01_producto_y_alcance",
@@ -131,7 +134,7 @@ def comprobar_estado_actual() -> list[str]:
     for token in (
         "Gradio", "Gemini", "FitNotes", "Neon", "SQLAlchemy", "psycopg",
         "Pydantic", "PyMuPDF", "Plotly", "Hugging Face", "GitHub",
-        "consentimientos", "E2E", "PR #72", "LEGACY", "PENDIENTE",
+        "consentimientos", "E2E", "multiturno", "LEGACY", "PENDIENTE",
     ):
         if token not in snapshot:
             errores.append(f"Falta tecnología/estado en {canonical}: {token}")
@@ -237,8 +240,8 @@ def comprobar_estado_actual() -> list[str]:
         if item not in index_content:
             errores.append(f"Índice documental incompleto: {item}")
 
-    # PR #72 is still separate at this audit cut. If its code merges,
-    # enforce that deployment includes each non-Python prompt asset too.
+    # Prompts are already merged in main. Keep each non-Python prompt
+    # asset explicit in the deployment allowlist.
     prompt_dir = ROOT / "inbody_mvp" / "prompts"
     if prompt_dir.exists():
         deployment = contenido(".github/workflows/deploy-huggingface.yml")
@@ -247,6 +250,90 @@ def comprobar_estado_actual() -> list[str]:
                 errores.append(f"Falta prompt por módulo: {filename}")
             if f"inbody_mvp/prompts/{filename}" not in deployment:
                 errores.append(f"Deploy no incluye prompt: {filename}")
+    return errores
+
+
+def comprobar_cobertura_documental() -> list[str]:
+    """Require inventory references for every versioned product artifact.
+
+    Does not read personal files or .env, never accesses Neon/Hugging Face.
+    Diff-aware in CI: a newly added module/test/migration/doc must be
+    documented with its complete relative path in the inventory.
+    """
+    errores = []
+    manifest_path = "harness/11_cobertura_codigo_main.md"
+    if not (ROOT / manifest_path).is_file():
+        return [f"Falta inventario de main: {manifest_path}"]
+    manifest = contenido(manifest_path)
+    product_files = [ROOT / "app.py"]
+    for folder, glob in (
+        ("inbody_mvp", "**/*.py"),
+        ("inbody_mvp/prompts", "*.md"),
+        ("migrations", "*.sql"),
+        ("db", "**/*.sql"),
+        ("sql", "**/*.sql"),
+        ("docs", "*.md"),
+        ("tests", "test_*.py"),
+        (".github/workflows", "*.yml"),
+    ):
+        root = ROOT / folder
+        if root.is_dir():
+            product_files.extend(root.glob(glob))
+    for path in (
+        ".env.example", ".gitattributes", ".gitignore", "AGENTS.md",
+        "README.md", "especificacion.md", "requirements.txt",
+        "requirements-ai.txt", "run_local.sh", "run_local_ai.sh",
+    ):
+        if (ROOT / path).is_file():
+            product_files.append(ROOT / path)
+    for file in product_files:
+        if not file.is_file():
+            continue
+        rel = file.relative_to(ROOT).as_posix()
+        if "`" + rel + "`" not in manifest:
+            errores.append(
+                f"Artefacto de main sin documentación literal en {manifest_path}: {rel}"
+            )
+
+    # Enforce the merged user experience, not the obsolete 5-step wording
+    # that is preserved in legacy/historical sections.
+    flow = contenido("inbody_mvp/inbody_flow.py")
+    app = contenido("app.py")
+    if 'STEPS = ("Cargar", "Extraer", "Revisar", "Guardar")' not in flow:
+        errores.append("Barra de progreso divergente: se requieren cuatro pasos.")
+    if "gemini_check.click(" in app or "progress_after_validation" in app:
+        errores.append("No reintroducir la etapa Validar/Guardar cambios.")
+    if app.count("gemini_save.click(") != 1:
+        errores.append("Se requiere un único evento Guardar mediciones.")
+    if '"Guardar mediciones"' not in app or "review_step_ready(" not in app:
+        errores.append("La confirmación reviewed + guardar no está conectada.")
+    if "reconcile_native_review_rows(table, snapshot)" not in app:
+        errores.append("El guardado debe reconciliar la tabla antes de escribir.")
+    if "fn=restore_session_consents" not in app:
+        errores.append("Permisos previos al login no se restauran.")
+    for token in (
+        "load_private_training_sets", "resolve_private_person_id",
+    ):
+        if token not in contenido("inbody_mvp/coach_data.py"):
+            errores.append(f"Falta contexto privado del coach: {token}")
+
+    if (ROOT / "inbody_mvp/semantic_metadata.py").exists():
+        for rel in (
+            "inbody_mvp/semantic_metadata.py",
+            "migrations/009_ai_semantic_metadata.sql",
+            "tests/test_semantic_metadata.py",
+        ):
+            if not (ROOT / rel).is_file():
+                errores.append(f"Falta artefacto semántico del PR: {rel}")
+        loader = contenido("inbody_mvp/semantic_metadata.py")
+        coach = contenido("inbody_mvp/ai_coach.py")
+        deploy = contenido(".github/workflows/deploy-huggingface.yml")
+        if "def load_coach_semantics(" not in loader:
+            errores.append("Falta loader de definiciones semánticas.")
+        if '"semantic_metadata": semantics' not in coach:
+            errores.append("El chat no incluye el catálogo en su contexto.")
+        if "'inbody_mvp/semantic_metadata.py'" not in deploy:
+            errores.append("El deploy HF omite semantic_metadata.py.")
     return errores
 
 
@@ -299,6 +386,7 @@ def main() -> int:
 
     errores.extend(comprobar_documentacion())
     errores.extend(comprobar_estado_actual())
+    errores.extend(comprobar_cobertura_documental())
 
     print("Estado de servicios: no consultados por este verificador.")
     for key in ("DATABASE_URL", "ENABLE_PERSISTENCE", "HF_ALLOWED_USERS"):
@@ -325,7 +413,7 @@ def main() -> int:
         for mensaje in errores:
             print("FALLIDO:", mensaje)
         return 1
-    print("APROBADO: inventario actual, criterios, código, tecnologías, DDL y documentos auditados.")
+    print("APROBADO: inventario completo de archivos main, contratos UI, DDL, test, CI y documentación auditados.")
     print("Nota: comprobación estática, no certifica requisitos pendientes ni E2E.")
     return 0
 
