@@ -82,8 +82,13 @@ def test_fixed_navbar_is_viewport_attached_and_hides_outside_inbody():
     assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS" in APP
     assert 'gr.Markdown("## InBody · Registrar un examen"' in INBODY
     assert '# Health Journey · Asistente virtual de fitness y bienestar' not in APP
-    assert APP.index('with gr.Accordion("Permisos de esta sesión"') < APP.index('with gr.Column(elem_id="hj-module-content")')
-    assert APP.index('with gr.Sidebar(') < APP.index('with gr.Accordion("Permisos de esta sesión"')
+    # Consent choices are not displayed again above the page or in the sidebar:
+    # they are collected on /privacy before login and restored as States.
+    assert 'with gr.Accordion("Permisos de esta sesión"' not in APP
+    assert "session_ai_consent = gr.State(value=False)" in APP
+    assert "session_db_consent = gr.State(value=False)" in APP
+    assert "session_coach_consent = gr.State(value=False)" in APP
+    assert APP.index("with gr.Sidebar(") < APP.index('with gr.Column(elem_id="hj-module-content")')
     assert "position: sticky !important;" not in INBODY_FLOW_CSS
     assert "display: flex;" not in INBODY_FLOW_CSS.split("#hj-inbody-fixedbar {", 1)[1].split("}", 1)[0]
 
