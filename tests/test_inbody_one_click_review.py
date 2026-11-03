@@ -81,7 +81,7 @@ def _exam():
 
 def _save(callback, table, snapshot, *, approved=True):
     return callback(
-        table, snapshot, approved, False, "2025-01-26 14:20:00",
+        table, snapshot, approved, False, False, "2025-01-26 14:20:00",
         "synthetic.png", "00077", "33", "",
     )
 
