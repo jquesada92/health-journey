@@ -1,5 +1,30 @@
 # 03 — Modelo de datos, nomenclatura y contratos de intercambio
 
+## Reemplazo por archivo sin pérdida en errores (propuesta)
+
+La captura InBody sigue en formato largo y con auditoría; ahora,
+si se solicita explícitamente reingesta, la migración 010
+`migrations/010_private_inbody_filename_replace.sql`
+permite reemplazar **únicamente los registros activos** del
+mismo `filename` (normalización trim/lower) y de la **misma
+identidad canónica** del usuario autorizado. Los datos anteriores
+se conservan en `hj_replaced_audit_backups` con snapshot completo
+de la extracción y sus filas originales. La función PostgreSQL
+`hj_replace_reviewed_audit_filename(jsonb,boolean)` valida
+confirmación explícita, locks por archivo/hash/examen, colisiones
+con otros archivos y propiedad del historial. Realiza backup,
+DELETE de medidas/extracción antiguas y un INSERT mediante
+el procedimiento validado `hj_submit_reviewed_audit` en una
+única transacción. Cualquier excepción revierte todo el
+reemplazo y deja el examen antiguo intacto. El archivo
+corregido vuelve a tener un hash de origen único y no se
+mezcla con capturas de otros documentos. DEMO_DATABASE_URL
+no puede invocar este procedimiento.
+
+**Estado:** SQL sólo versionado, aún no aplicado contra
+`health_journey/main`. No se han modificado datos personales.
+
+
 ## Contrato vigente de persistencia, 2026-11-03
 
 - **InBody**: encabezado único de examen e identidad; mediciones en
