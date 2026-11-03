@@ -1,5 +1,26 @@
 # Reglas prioritarias de agente — GitHub main 2026-11-03
 
+## Ajuste vigente propuesto: tendencias del Coach alineadas (2026-11-03)
+
+En `inbody_mvp/coach_chat_ui.py`, el layout de tendencias y chat debe
+usar una cuadrícula CSS `#hj-coach-layout` con dos columnas en
+escritorio (gráficas izquierda, chat derecha), una columna en móvil
+hasta 900 px. Los `gr.Column` de `app.py` deben ser hijos directos
+del `gr.Row`, con `min_width=0` para impedir el wrapping automático
+de Gradio. Todo el header, controles, `Chatbot` y composer debe
+permanecer dentro de `hj-coach-conversation`.
+
+En `inbody_mvp/coach_trends.py` mostrar las 11 fechas seleccionadas
+(primera + diez últimas) como posiciones ordinales, etiquetar
+primera/última y destacar la primera con marcador. Las fechas
+intermedias no aparecen, los gaps entre fechas NO son temporales
+en el eje. Si falta una medida en una de las fechas, conservar
+el hueco `None`; nunca fabricar un valor. El estado del panel
+indica la primera fecha registrada y la última. No alterar el
+permiso privado ni invocar Gemini al cargar tendencias. Prueba
+`tests/test_coach_first_last_trends.py`.
+
+
 ## Coach: regla de 1.ª + 10 últimas pruebas para tendencias compactas
 
 `inbody_mvp/coach_trends.py` carga en lectura privada InBody
