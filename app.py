@@ -27,6 +27,7 @@ from inbody_mvp.progress_dashboard import METRICS, SECTIONS, render_progress
 from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
 from inbody_mvp.inbody_flow import INBODY_FLOW_CSS, render_inbody_flow
+from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
 from inbody_mvp.prelogin_consent import (
     PrivacyFirstMiddleware, privacy_page, submit_consent,
     current_choices, has_consent, set_consent,
@@ -120,7 +121,7 @@ OAUTH_URLS = standalone_oauth_urls(os.getenv("SPACE_HOST"))
 
 with gr.Blocks(
     title="Health Journey", analytics_enabled=False,
-    delete_cache=(60, 60), css=INBODY_FLOW_CSS,
+    delete_cache=(60, 60), css=INBODY_FLOW_CSS + SIDEBAR_CSS,
 ) as demo:
     gr.Markdown("# Health Journey · Asistente virtual de fitness y bienestar")
     # Infrastructure-only: this invisible registered handler is required by
@@ -189,899 +190,939 @@ with gr.Blocks(
         api_name=False, queue=False,
     )
 
-    with gr.Tab("InBody Upload"):
-        from inbody_mvp.gemini_review import (
-            COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
-            save_audit, get_free_inbody_models, render_document_preview,
-            check_processed_filename,
-            audit_write_enabled,
-        )
-        gr.Markdown(
-            "## InBody · Registrar un examen\n"
-            "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
-            "Puedes consultar el documento original en cualquier momento. "
-            "Las mediciones se guardan únicamente después de tu revisión."
-        )
-        # The Gradio HTML component root is sticky; its content is updated by
-        # completed backend actions, not by user-controlled scroll position.
-        inbody_flow = gr.HTML(
-            value=render_inbody_flow(1),
-            elem_id="hj-inbody-flow",
-        )
-        gr.Markdown(
-            "### 1. Carga tu examen\n"
-            "Selecciona un archivo **PDF, JPG o PNG** de InBody. "
-            "La aplicación mostrará una vista previa y, si tienes una sesión "
-            "autorizada, comprobará si el nombre del archivo ya se procesó. "
-            "**Todavía no se enviará a la IA ni se guardará en la base de datos.**"
-        )
-        gemini_upload = gr.File(
-            label="Seleccionar examen InBody (PDF o imagen)",
-            file_types=[".pdf", ".jpg", ".jpeg", ".png"],
-            type="filepath",
-        )
-        gemini_upload_state = gr.State(value=None)
-        gemini_file_status = gr.Markdown("Sin archivo seleccionado.")
-        gemini_snapshot = gr.State(value=None)
-        gr.Markdown(
-            "### 2. Selecciona la IA y extrae las mediciones\n"
-            "Comprueba que activaste el **permiso para enviar datos a la IA** "
-            "en la sección de privacidad, encima de las pestañas. "
-            "Elige un modelo y pulsa **Extraer mediciones**. "
-            "Google Gemini recibirá el documento solo cuando solicites la extracción."
-        )
-        with gr.Row():
-            gemini_model_selector = gr.Dropdown(
-                label="Modelo de IA para la extracción",
-                choices=[], value=None,
-                interactive=True, scale=4,
-                info="Solo modelos compatibles con el procesamiento de imágenes.",
-            )
-            gemini_models_button = gr.Button(
-                "Actualizar lista de modelos", scale=1,
-            )
-        gemini_models_status = gr.Markdown(
-            "Se consultan los modelos disponibles sin enviar el examen. "
-            "Free Tier tiene cuotas de uso; revisa si tu proyecto "
-            "tiene facturación activa."
-        )
+    # Sidebar is native Gradio (collapsible on smaller screens). Existing tabs
+    # remain mounted so InBody, Training Hub and dashboards retain their state.
+    with gr.Sidebar(label="Menú principal", open=True, width=260,
+                    elem_id="hj-module-sidebar"):
+        gr.Markdown("### Health Journey")
+        gr.Markdown("Elige el módulo que necesitas.", elem_classes="hj-sidebar-description")
+        nav_inbody = gr.Button("InBody · Exámenes", variant="primary",
+                              elem_classes="hj-nav-button")
+        nav_training = gr.Button("Entrenamientos", variant="secondary",
+                                elem_classes="hj-nav-button")
+        nav_dashboard = gr.Button("Dashboard", variant="secondary",
+                                 elem_classes="hj-nav-button")
+        nav_history = gr.Button("Historial", variant="secondary",
+                               elem_classes="hj-nav-button")
+        nav_project = gr.Button("Proyecto", variant="secondary",
+                               elem_classes="hj-nav-button")
 
-        def check_models_with_popup():
-            try:
-                options = get_free_inbody_models()
-                ids = [model for _, model in options]
-                configured = os.getenv("GEMINI_MODEL", "").strip()
-                preferred = configured if configured in ids else (
-                    "gemini-3.8-flash" if "gemini-3.8-flash" in ids else ids[0]
-                )
-                return (
-                    gr.update(choices=options, value=preferred),
-                    f"{len(options)} modelo(s) compatible(s) disponible(s). "
-                    "Se recomienda Flash para tablas complejas. "
-                    "Revisa las cuotas y el nivel de facturación del proyecto.",
-                )
-            except Exception as exc:
-                popup_error(exc, "No se pudieron consultar los modelos Gemini.")
-                return keep_components(2)
-
-        gemini_models_button.click(
-            fn=check_models_with_popup,
-            outputs=[gemini_model_selector, gemini_models_status],
-            concurrency_limit=1,
-        )
-        gemini_extract = gr.Button(
-            "Extraer mediciones con IA", variant="primary"
-        )
-        gemini_status = gr.Markdown(
-            "Esperando extracción. Carga un archivo y selecciona un modelo."
-        )
-        gr.Markdown(
-            "### 3. Revisa y corrige los resultados\n"
-            "Compara los valores extraídos con el examen original. "
-            "**No guardes datos sin comprobarlos.** "
-            "La tabla ocupa todo el ancho de la pantalla para facilitar "
-            "su lectura y edición, también desde el celular."
-        )
-        with gr.Accordion(
-            "Ver examen original y comparar las mediciones",
-            open=False,
-        ):
+    with gr.Tabs(selected="inbody", elem_id="hj-module-tabs") as module_tabs:
+        with gr.Tab("InBody Upload", id="inbody"):
+            from inbody_mvp.gemini_review import (
+                COLUMNS as GEMINI_COLUMNS, extract_gemini, review_status,
+                save_audit, get_free_inbody_models, render_document_preview,
+                check_processed_filename,
+                audit_write_enabled,
+            )
             gr.Markdown(
-                "Abre este panel cuando necesites ampliar una página del examen "
-                "y verificar un valor. No se envía nuevamente a la IA."
+                "## InBody · Registrar un examen\n"
+                "Sigue los pasos en orden: **cargar → extraer → revisar → validar → guardar**. "
+                "Puedes consultar el documento original en cualquier momento. "
+                "Las mediciones se guardan únicamente después de tu revisión."
             )
-            gemini_preview = gr.Gallery(
-                label="Visor PDF / imagen",
-                columns=1,
-                height=420,
-                selected_index=0,
-                preview=True,
-                allow_preview=True,
-                object_fit="contain",
-                buttons=["fullscreen"],
-                interactive=False,
-                format="png",
+            # The Gradio HTML component root is sticky; its content is updated by
+            # completed backend actions, not by user-controlled scroll position.
+            inbody_flow = gr.HTML(
+                value=render_inbody_flow(1),
+                elem_id="hj-inbody-flow",
             )
-            gemini_preview_status = gr.Markdown(
-                "Carga un PDF o imagen para visualizarlo."
+            gr.Markdown(
+                "### 1. Carga tu examen\n"
+                "Selecciona un archivo **PDF, JPG o PNG** de InBody. "
+                "La aplicación mostrará una vista previa y, si tienes una sesión "
+                "autorizada, comprobará si el nombre del archivo ya se procesó. "
+                "**Todavía no se enviará a la IA ni se guardará en la base de datos.**"
             )
-        gr.Markdown(
-            "**Cómo revisar la tabla:** compara **original_value** (lectura de "
-            "la IA, no editable) con **value** (valor corregible), **unit** "
-            "(unidad), **measurement** y **section**. Si corriges un campo, "
-            "escribe el motivo en **correction_comment**. "
-            "Marca **reviewed** en **cada fila**, incluso si está correcta. "
-            "**was_corrected** se calcula automáticamente."
-        )
-        gemini_table = gr.Dataframe(
-            headers=GEMINI_COLUMNS,
-            datatype=["str","str","str","number","str","str","str","str",
-                      "str","bool","str","bool"],
-            type="pandas", interactive=True,
-            static_columns=[0,1,2,3,8,9],
-            label="Mediciones extraídas: revisa y edita cada fila",
-        )
-        def extract_with_popup(
-            state, consent, model, request: gr.Request | None = None,
-        ):
-            try:
-                if consent is not True or not has_consent(request, "ai"):
-                    raise PermissionError(
-                        "Autoriza el envío a la IA antes de extraer el examen."
+            gemini_upload = gr.File(
+                label="Seleccionar examen InBody (PDF o imagen)",
+                file_types=[".pdf", ".jpg", ".jpeg", ".png"],
+                type="filepath",
+            )
+            gemini_upload_state = gr.State(value=None)
+            gemini_file_status = gr.Markdown("Sin archivo seleccionado.")
+            gemini_snapshot = gr.State(value=None)
+            with gr.Group(elem_id="hj-ai-extraction"):
+                gr.Markdown(
+                    "### 2. Selecciona la IA y extrae las mediciones\n"
+                    "Comprueba que activaste el **permiso para enviar datos a la IA** "
+                    "en el apartado de privacidad, antes de continuar. "
+                    "Elige un modelo y pulsa **Extraer mediciones**. "
+                    "Google Gemini recibirá el documento solo cuando solicites la extracción."
+                )
+                with gr.Row():
+                    gemini_model_selector = gr.Dropdown(
+                        label="Modelo de IA para la extracción",
+                        choices=[], value=None,
+                        interactive=True, scale=4,
+                        info="Solo modelos compatibles con el procesamiento de imágenes.",
                     )
-                if not model:
-                    raise ValueError(
-                        "Selecciona un modelo Gemini disponible antes de extraer."
+                    gemini_models_button = gr.Button(
+                        "Actualizar lista de modelos", scale=1,
                     )
-                return extract_gemini(state, consent, selected_model=model)
-            except Exception as exc:
-                popup_error(exc, "No se pudo extraer el reporte.")
-                return keep_components(3)
+                gemini_models_status = gr.Markdown(
+                    "Se consultan los modelos disponibles sin enviar el examen. "
+                    "Free Tier tiene cuotas de uso; revisa si tu proyecto "
+                    "tiene facturación activa."
+                )
 
-        def progress_after_extract(snapshot, upload):
-            if snapshot is not None:
-                return render_inbody_flow(3)
-            return render_inbody_flow(2 if upload else 1)
+                def check_models_with_popup():
+                    try:
+                        options = get_free_inbody_models()
+                        ids = [model for _, model in options]
+                        configured = os.getenv("GEMINI_MODEL", "").strip()
+                        preferred = configured if configured in ids else (
+                            "gemini-3.8-flash" if "gemini-3.8-flash" in ids else ids[0]
+                        )
+                        return (
+                            gr.update(choices=options, value=preferred),
+                            f"{len(options)} modelo(s) compatible(s) disponible(s). "
+                            "Se recomienda Flash para tablas complejas. "
+                            "Revisa las cuotas y el nivel de facturación del proyecto.",
+                        )
+                    except Exception as exc:
+                        popup_error(exc, "No se pudieron consultar los modelos Gemini.")
+                        return keep_components(2)
 
-        gemini_extract.click(
-            fn=extract_with_popup,
-            inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
-            outputs=[gemini_table, gemini_snapshot, gemini_status],
-            concurrency_limit=1,
-        ).then(
-            fn=progress_after_extract,
-            inputs=[gemini_snapshot, gemini_upload_state],
-            outputs=[inbody_flow],
-            show_progress="hidden",
-        )
-        gr.Markdown(
-            "### 4. Valida todas las mediciones\n"
-            "Cuando termines de corregir la tabla y marcar **reviewed** en "
-            "todas las filas, pulsa **Validar revisión**. "
-            "Si falta algo, aparecerá un único aviso con lo que debes corregir. "
-            "**Este paso no guarda ni envía datos a la base de datos.**"
-        )
-        gemini_check = gr.Button("Validar revisión", variant="secondary")
-        gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
-        def review_with_popup(table, snapshot):
-            try:
-                result = review_status(table, snapshot)
-                if result.startswith("Revisión pendiente:"):
-                    gr.Warning(result.removeprefix("Revisión pendiente:").strip())
+                gemini_models_button.click(
+                    fn=check_models_with_popup,
+                    outputs=[gemini_model_selector, gemini_models_status],
+                    concurrency_limit=1,
+                )
+                gemini_extract = gr.Button(
+                    "Extraer mediciones con IA", variant="primary"
+                )
+                gemini_status = gr.Markdown(
+                    "Esperando extracción. Carga un archivo y selecciona un modelo."
+                )
+            gr.Markdown(
+                "### 3. Revisa y corrige los resultados\n"
+                "Compara los valores extraídos con el examen original. "
+                "**No guardes datos sin comprobarlos.** "
+                "La tabla ocupa todo el ancho de la pantalla para facilitar "
+                "su lectura y edición, también desde el celular."
+            )
+            with gr.Accordion(
+                "Ver examen original y comparar las mediciones",
+                open=False,
+            ):
+                gr.Markdown(
+                    "Abre este panel cuando necesites ampliar una página del examen "
+                    "y verificar un valor. No se envía nuevamente a la IA."
+                )
+                gemini_preview = gr.Gallery(
+                    label="Visor PDF / imagen",
+                    columns=1,
+                    height=420,
+                    selected_index=0,
+                    preview=True,
+                    allow_preview=True,
+                    object_fit="contain",
+                    buttons=["fullscreen"],
+                    interactive=False,
+                    format="png",
+                )
+                gemini_preview_status = gr.Markdown(
+                    "Carga un PDF o imagen para visualizarlo."
+                )
+            gr.Markdown(
+                "**Cómo revisar la tabla:** compara **original_value** (lectura de "
+                "la IA, no editable) con **value** (valor corregible), **unit** "
+                "(unidad), **measurement** y **section**. Si corriges un campo, "
+                "escribe el motivo en **correction_comment**. "
+                "Marca **reviewed** en **cada fila**, incluso si está correcta. "
+                "**was_corrected** se calcula automáticamente."
+            )
+            gemini_table = gr.Dataframe(
+                headers=GEMINI_COLUMNS,
+                datatype=["str","str","str","number","str","str","str","str",
+                          "str","bool","str","bool"],
+                type="pandas", interactive=True,
+                static_columns=[0,1,2,3,8,9],
+                label="Mediciones extraídas: revisa y edita cada fila",
+            )
+            def extract_with_popup(
+                state, consent, model, request: gr.Request | None = None,
+            ):
+                try:
+                    if consent is not True or not has_consent(request, "ai"):
+                        raise PermissionError(
+                            "Autoriza el envío a la IA antes de extraer el examen."
+                        )
+                    if not model:
+                        raise ValueError(
+                            "Selecciona un modelo Gemini disponible antes de extraer."
+                        )
+                    return extract_gemini(state, consent, selected_model=model)
+                except Exception as exc:
+                    popup_error(exc, "No se pudo extraer el reporte.")
+                    return keep_components(3)
+
+            def progress_after_extract(snapshot, upload):
+                if snapshot is not None:
+                    return render_inbody_flow(3)
+                return render_inbody_flow(2 if upload else 1)
+
+            gemini_extract.click(
+                fn=extract_with_popup,
+                inputs=[gemini_upload_state, session_ai_consent, gemini_model_selector],
+                outputs=[gemini_table, gemini_snapshot, gemini_status],
+                concurrency_limit=1,
+            ).then(
+                fn=progress_after_extract,
+                inputs=[gemini_snapshot, gemini_upload_state],
+                outputs=[inbody_flow],
+                show_progress="hidden",
+            )
+            gr.Markdown(
+                "### 4. Valida todas las mediciones\n"
+                "Cuando termines de corregir la tabla y marcar **reviewed** en "
+                "todas las filas, pulsa **Validar revisión**. "
+                "Si falta algo, aparecerá un único aviso con lo que debes corregir. "
+                "**Este paso no guarda ni envía datos a la base de datos.**"
+            )
+            gemini_check = gr.Button("Validar revisión", variant="secondary")
+            gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
+            def review_with_popup(table, snapshot):
+                try:
+                    result = review_status(table, snapshot)
+                    if result.startswith("Revisión pendiente:"):
+                        gr.Warning(result.removeprefix("Revisión pendiente:").strip())
+                        return gr.update()
+                    return result
+                except Exception as exc:
+                    popup_error(exc, "No se pudo validar la revisión.")
                     return gr.update()
-                return result
-            except Exception as exc:
-                popup_error(exc, "No se pudo validar la revisión.")
-                return gr.update()
 
-        def progress_after_validation(message, snapshot):
-            if snapshot is None:
-                return gr.update()
-            if isinstance(message, str) and message.startswith("Revisión completa:"):
-                return render_inbody_flow(5)
-            return render_inbody_flow(4)
+            def progress_after_validation(message, snapshot):
+                if snapshot is None:
+                    return gr.update()
+                if isinstance(message, str) and message.startswith("Revisión completa:"):
+                    return render_inbody_flow(5)
+                return render_inbody_flow(4)
 
-        gemini_check.click(
-            fn=review_with_popup,
-            inputs=[gemini_table, gemini_snapshot],
-            outputs=[gemini_review_status],
-        ).then(
-            fn=progress_after_validation,
-            inputs=[gemini_review_status, gemini_snapshot],
-            outputs=[inbody_flow],
-            show_progress="hidden",
-        )
-
-        def progress_after_table_edit():
-            # A user correction invalidates the previous review result.
-            return (
-                render_inbody_flow(3),
-                "Revisión pendiente: valida las filas antes de guardar.",
+            gemini_check.click(
+                fn=review_with_popup,
+                inputs=[gemini_table, gemini_snapshot],
+                outputs=[gemini_review_status],
+            ).then(
+                fn=progress_after_validation,
+                inputs=[gemini_review_status, gemini_snapshot],
+                outputs=[inbody_flow],
+                show_progress="hidden",
             )
 
-        gemini_table.edit(
-            fn=progress_after_table_edit,
-            outputs=[inbody_flow, gemini_review_status],
-            show_progress="hidden", queue=False,
-        )
-        gr.Markdown(
-            "### 5. Guarda el examen en la base de datos\n"
-            "Activa el **permiso para guardar datos** en la sección de "
-            "privacidad y pulsa **Guardar mediciones**. "
-            "Se almacenarán las mediciones revisadas y el registro de auditoría. "
-            "Antes de guardarlas, se verifican duplicados por archivo, "
-            "identificador, fecha y medición. "
-            "El permiso no publica tu examen ni envía nuevos datos a la IA."
-        )
-        if not audit_write_enabled():
-            gr.Markdown(
-                "**El guardado no está disponible en este entorno.** "
-                "Contacta al administrador de la aplicación para habilitarlo."
-            )
-        with gr.Accordion("Opcional: actualizar un examen ya registrado", open=False):
-            gr.Markdown(
-                "Déjalo sin marcar para evitar reemplazar valores existentes. "
-                "Marca la opción solo cuando hayas comprobado que deseas "
-                "actualizar las mediciones de la misma persona y fecha."
-            )
-            gemini_overwrite = gr.Checkbox(
-                label="Confirmo sobrescribir mediciones anteriores cuando "
-                      "coincidan persona, fecha del examen y medición",
-                value=False,
-            )
-        gemini_save = gr.Button(
-            "Guardar mediciones revisadas",
-            interactive=audit_write_enabled(), variant="primary",
-        )
-        gemini_save_status = gr.Markdown(
-            "Sin datos guardados. Se mostrará una confirmación al completar el guardado."
-        )
-
-        def save_review_and_clear(
-            table, snapshot, consent, overwrite,
-            request: gr.Request | None = None,
-        ):
-            try:
-                if consent is not True or not has_consent(request, "db"):
-                    raise PermissionError(
-                        "Autoriza guardar datos en la base de datos antes de continuar."
-                    )
-                message = save_audit(table, snapshot, consent, overwrite)
-            except Exception as exc:
-                popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
-                return keep_components(11)
-            if message.startswith("Guardado en Neon:"):
-                # Show an accessible confirmation, clear the finished exam and
-                # preserve both user consents for the rest of this session.
-                visible_message = message.replace("Neon", "la base de datos")
-                gr.Info(visible_message)
+            def progress_after_table_edit():
+                # A user correction invalidates the previous review result.
                 return (
-                    visible_message, None, None, None, [],
-                    "Carga un PDF o imagen para visualizarlo.",
-                    pd.DataFrame(columns=GEMINI_COLUMNS),
-                    "Esperando extracción. Carga un archivo y selecciona un modelo.",
-                    False, "Sin archivo seleccionado.",
+                    render_inbody_flow(3),
                     "Revisión pendiente: valida las filas antes de guardar.",
                 )
-            gr.Warning(message.replace("Neon", "la base de datos"))
-            return keep_components(11)
 
-        def progress_after_save(message):
-            if (isinstance(message, str)
-                    and message.startswith("Guardado en la base de datos:")):
-                return render_inbody_flow(5, saved=True)
-            return gr.update()
-
-        gemini_save.click(
-            fn=save_review_and_clear,
-            inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite],
-            outputs=[
-                gemini_save_status, gemini_upload, gemini_upload_state,
-                gemini_snapshot, gemini_preview, gemini_preview_status,
-                gemini_table, gemini_status, gemini_overwrite, gemini_file_status,
-                gemini_review_status,
-            ],
-            concurrency_limit=1,
-        ).then(
-            fn=progress_after_save,
-            inputs=[gemini_save_status],
-            outputs=[inbody_flow],
-            show_progress="hidden",
-        )
-        # Reset all previous-review state when a different file is selected.
-        # Preview runs on the application server and requires no Gemini consent.
-        # User upload event only: clearing after a successful save must not
-        # trigger another reset that hides the saved confirmation.
-        def show_processed_filename(
-            state, profile: gr.OAuthProfile | None = None,
-            request: gr.Request | None = None,
-        ):
-            try:
-                message = check_processed_filename(
-                    state, profile=profile, request=request
-                )
-                if message.startswith(("Este nombre de archivo ya fue procesado",
-                                       "No se pudo leer", "La verificación anticipada no")):
-                    gr.Warning(message.replace("Neon", "la base de datos"))
-                    return gr.update()
-                return message.replace("Neon", "la base de datos")
-            except Exception as exc:
-                popup_error(exc, "No se pudo comprobar el nombre del archivo.")
-                return gr.update()
-
-        def upload_with_popup(file_path):
-            try:
-                return snapshot_upload(file_path)
-            except Exception as exc:
-                popup_error(exc, "No se pudo recibir el archivo.")
-                return gr.update()
-
-        def preview_with_popup(state):
-            try:
-                return render_document_preview(state)
-            except Exception as exc:
-                popup_error(exc, "No se pudo mostrar el documento.")
-                return keep_components(2)
-
-        gemini_upload.upload(
-            fn=upload_with_popup,
-            inputs=[gemini_upload],
-            outputs=[gemini_upload_state],
-        ).then(
-            fn=lambda: None,
-            outputs=[gemini_snapshot],
-        ).then(
-            fn=lambda: (
-                pd.DataFrame(columns=GEMINI_COLUMNS),
-                "Esperando extracción. Carga un archivo y selecciona un modelo.",
-                "", "Revisión pendiente: valida las filas antes de guardar.",
-            ),
-            outputs=[
-                gemini_table, gemini_status, gemini_save_status,
-                gemini_review_status,
-            ],
-        ).then(
-            fn=preview_with_popup,
-            inputs=[gemini_upload_state],
-            outputs=[gemini_preview, gemini_preview_status],
-        ).then(
-            fn=show_processed_filename,
-            inputs=[gemini_upload_state],
-            outputs=[gemini_file_status],
-        ).then(
-            fn=lambda state: render_inbody_flow(2 if state else 1),
-            inputs=[gemini_upload_state],
-            outputs=[inbody_flow],
-            show_progress="hidden",
-        )
-        inbody_clear = gr.ClearButton(
-            [gemini_upload, gemini_upload_state, gemini_snapshot,
-             gemini_preview, gemini_preview_status, gemini_table, gemini_status,
-             gemini_save_status, gemini_review_status,
-             gemini_overwrite, gemini_file_status],
-            value="Limpiar examen (conservar permisos)",
-        )
-        inbody_clear.click(
-            fn=lambda: render_inbody_flow(1),
-            outputs=[inbody_flow],
-            show_progress="hidden", queue=False,
-        )
-    with gr.Tab("Training Hub"):
-        from inbody_mvp.training_hub import (
-            PREVIEW_COLUMNS as TRAINING_COLUMNS,
-            inspect_fitnotes_upload, save_training_import, recent_training,
-        )
-        gr.Markdown(
-            "## Training Hub · importar FitNotes\n"
-            "Carga una exportación CSV de FitNotes con fecha, ejercicio, categoría, "
-            "peso, repeticiones, distancia, duración y comentario. "
-            "Cada fila es una serie y conserva el orden original. "
-            "La importación no utiliza IA ni publica los entrenamientos. "
-            "Solo se guarda en la base de datos al confirmarlo y si autorizaste "
-            "el guardado en la sección de privacidad de esta sesión."
-        )
-        if not database_enabled():
-            gr.Markdown(
-                "Para importar a la base de datos necesitas configurar la conexión privada "
-                "DATABASE_URL y un inicio de sesión autorizado."
+            gemini_table.edit(
+                fn=progress_after_table_edit,
+                outputs=[inbody_flow, gemini_review_status],
+                show_progress="hidden", queue=False,
             )
-        with gr.Row():
-            with gr.Column(min_width=280):
-                training_upload = gr.File(
-                    label="Exportación FitNotes (.csv)", file_types=[".csv"],
-                    type="filepath", interactive=database_enabled(),
+            gr.Markdown(
+                "### 5. Guarda el examen en la base de datos\n"
+                "Activa el **permiso para guardar datos** en la sección de "
+                "privacidad y pulsa **Guardar mediciones**. "
+                "Se almacenarán las mediciones revisadas y el registro de auditoría. "
+                "Antes de guardarlas, se verifican duplicados por archivo, "
+                "identificador, fecha y medición. "
+                "El permiso no publica tu examen ni envía nuevos datos a la IA."
+            )
+            if not audit_write_enabled():
+                gr.Markdown(
+                    "**El guardado no está disponible en este entorno.** "
+                    "Contacta al administrador de la aplicación para habilitarlo."
                 )
-                training_summary = gr.Markdown("Sin archivo validado.")
-                training_overwrite = gr.Checkbox(
-                    label="Confirmo actualizar series previamente guardadas "
-                          "si sus valores cambiaron",
+            with gr.Accordion("Opcional: actualizar un examen ya registrado", open=False):
+                gr.Markdown(
+                    "Déjalo sin marcar para evitar reemplazar valores existentes. "
+                    "Marca la opción solo cuando hayas comprobado que deseas "
+                    "actualizar las mediciones de la misma persona y fecha."
+                )
+                gemini_overwrite = gr.Checkbox(
+                    label="Confirmo sobrescribir mediciones anteriores cuando "
+                          "coincidan persona, fecha del examen y medición",
                     value=False,
                 )
-                training_save = gr.Button(
-                    "Guardar entrenamiento en la base de datos",
-                    variant="primary", interactive=database_enabled(),
-                )
-            with gr.Column(min_width=300):
-                gr.Markdown(
-                    "### Revisar antes de guardar\n"
-                    "Se muestran las primeras 60 series. El archivo completo "
-                    "se procesa únicamente cuando pulsas Guardar. "
-                    "Series idénticas del mismo día se conservan si tienen "
-                    "posiciones de serie diferentes."
-                )
-                training_preview = gr.Dataframe(
-                    headers=list(TRAINING_COLUMNS),
-                    label="Vista previa del CSV (solo lectura)",
-                    type="pandas", interactive=False,
-                )
-        training_state = gr.State(value=None)
+            gemini_save = gr.Button(
+                "Guardar mediciones revisadas",
+                interactive=audit_write_enabled(), variant="primary",
+            )
+            gemini_save_status = gr.Markdown(
+                "Sin datos guardados. Se mostrará una confirmación al completar el guardado."
+            )
 
-        def parse_training_with_popup(
-            file_path, profile: gr.OAuthProfile | None = None,
-            request: gr.Request | None = None,
-        ):
-            try:
-                require_database_access(profile, request=request)
-                return inspect_fitnotes_upload(file_path)
-            except Exception as exc:
-                popup_error(exc, "No se pudo validar el CSV de FitNotes.")
-                return keep_components(3)
-
-        def save_training_with_popup(
-            state, consent, overwrite,
-            profile: gr.OAuthProfile | None = None,
-            request: gr.Request | None = None,
-        ):
-            try:
-                if consent is not True or not has_consent(request, "db"):
-                    raise PermissionError(
-                        "Autoriza guardar datos en la base de datos antes de continuar."
+            def save_review_and_clear(
+                table, snapshot, consent, overwrite,
+                request: gr.Request | None = None,
+            ):
+                try:
+                    if consent is not True or not has_consent(request, "db"):
+                        raise PermissionError(
+                            "Autoriza guardar datos en la base de datos antes de continuar."
+                        )
+                    message = save_audit(table, snapshot, consent, overwrite)
+                except Exception as exc:
+                    popup_error(exc, "No se pudieron guardar las mediciones en la base de datos.")
+                    return keep_components(11)
+                if message.startswith("Guardado en Neon:"):
+                    # Show an accessible confirmation, clear the finished exam and
+                    # preserve both user consents for the rest of this session.
+                    visible_message = message.replace("Neon", "la base de datos")
+                    gr.Info(visible_message)
+                    return (
+                        visible_message, None, None, None, [],
+                        "Carga un PDF o imagen para visualizarlo.",
+                        pd.DataFrame(columns=GEMINI_COLUMNS),
+                        "Esperando extracción. Carga un archivo y selecciona un modelo.",
+                        False, "Sin archivo seleccionado.",
+                        "Revisión pendiente: valida las filas antes de guardar.",
                     )
-                result = save_training_import(
-                    state, consent, overwrite, profile=profile, request=request,
-                )
-            except Exception as exc:
-                popup_error(exc, "No se pudo guardar el entrenamiento en la base de datos.")
-                return keep_components(5)
-            visible_result = result.replace("Neon", "la base de datos")
-            gr.Info(visible_result)
-            return (
-                visible_result, None, None,
-                pd.DataFrame(columns=TRAINING_COLUMNS), False,
+                gr.Warning(message.replace("Neon", "la base de datos"))
+                return keep_components(11)
+
+            def progress_after_save(message):
+                if (isinstance(message, str)
+                        and message.startswith("Guardado en la base de datos:")):
+                    return render_inbody_flow(5, saved=True)
+                return gr.update()
+
+            gemini_save.click(
+                fn=save_review_and_clear,
+                inputs=[gemini_table, gemini_snapshot, session_db_consent, gemini_overwrite],
+                outputs=[
+                    gemini_save_status, gemini_upload, gemini_upload_state,
+                    gemini_snapshot, gemini_preview, gemini_preview_status,
+                    gemini_table, gemini_status, gemini_overwrite, gemini_file_status,
+                    gemini_review_status,
+                ],
+                concurrency_limit=1,
+            ).then(
+                fn=progress_after_save,
+                inputs=[gemini_save_status],
+                outputs=[inbody_flow],
+                show_progress="hidden",
             )
+            # Reset all previous-review state when a different file is selected.
+            # Preview runs on the application server and requires no Gemini consent.
+            # User upload event only: clearing after a successful save must not
+            # trigger another reset that hides the saved confirmation.
+            def show_processed_filename(
+                state, profile: gr.OAuthProfile | None = None,
+                request: gr.Request | None = None,
+            ):
+                try:
+                    message = check_processed_filename(
+                        state, profile=profile, request=request
+                    )
+                    if message.startswith(("Este nombre de archivo ya fue procesado",
+                                           "No se pudo leer", "La verificación anticipada no")):
+                        gr.Warning(message.replace("Neon", "la base de datos"))
+                        return gr.update()
+                    return message.replace("Neon", "la base de datos")
+                except Exception as exc:
+                    popup_error(exc, "No se pudo comprobar el nombre del archivo.")
+                    return gr.update()
 
-        training_upload.upload(
-            fn=parse_training_with_popup, inputs=[training_upload],
-            outputs=[training_state, training_summary, training_preview],
-            concurrency_limit=1,
-        ).then(
-            fn=lambda: False,
-            outputs=[training_overwrite],
-        )
-        training_save.click(
-            fn=save_training_with_popup,
-            inputs=[training_state, session_db_consent, training_overwrite],
-            outputs=[
-                training_summary, training_upload, training_state,
-                training_preview, training_overwrite,
-            ],
-            concurrency_limit=1,
-        )
-        gr.Markdown(
-            "### Últimas series guardadas\n"
-            "La consulta solo muestra tus registros autorizados. "
-            "La misma exportación no se importa dos veces."
-        )
-        training_refresh = gr.Button(
-            "Consultar últimos entrenamientos",
-            interactive=database_enabled(),
-        )
-        training_recent_status = gr.Markdown("Sin consulta.")
-        training_recent_table = gr.Dataframe(
-            headers=list(TRAINING_COLUMNS),
-            label="Últimas 60 series en la base de datos", type="pandas", interactive=False,
-        )
+            def upload_with_popup(file_path):
+                try:
+                    return snapshot_upload(file_path)
+                except Exception as exc:
+                    popup_error(exc, "No se pudo recibir el archivo.")
+                    return gr.update()
 
-        def recent_training_with_popup(
-            profile: gr.OAuthProfile | None = None,
-            request: gr.Request | None = None,
-        ):
-            try:
-                frame = recent_training(profile=profile, request=request)
-                return f"{len(frame)} series recuperadas.", frame
-            except Exception as exc:
-                popup_error(exc, "No se pudo leer el historial de entrenamiento.")
-                return keep_components(2)
+            def preview_with_popup(state):
+                try:
+                    return render_document_preview(state)
+                except Exception as exc:
+                    popup_error(exc, "No se pudo mostrar el documento.")
+                    return keep_components(2)
 
-        training_refresh.click(
-            fn=recent_training_with_popup,
-            outputs=[training_recent_status, training_recent_table],
-            concurrency_limit=1,
-        )
-
-    with gr.Tab("Dashboard"):
-        gr.Markdown(
-            "## Dashboard InBody\\n"
-            "Un único lugar para visualizar el progreso histórico personal "
-            "y, por separado, las mediciones autorizadas para publicación. "
-            "La búsqueda privada admite el alias `test` cuando está "
-            "configurado como Secret; nunca revela el ID original."
-        )
-        with gr.Accordion("Mi progreso histórico (acceso privado)", open=True):
+            gemini_upload.upload(
+                fn=upload_with_popup,
+                inputs=[gemini_upload],
+                outputs=[gemini_upload_state],
+            ).then(
+                fn=lambda: None,
+                outputs=[gemini_snapshot],
+            ).then(
+                fn=lambda: (
+                    pd.DataFrame(columns=GEMINI_COLUMNS),
+                    "Esperando extracción. Carga un archivo y selecciona un modelo.",
+                    "", "Revisión pendiente: valida las filas antes de guardar.",
+                ),
+                outputs=[
+                    gemini_table, gemini_status, gemini_save_status,
+                    gemini_review_status,
+                ],
+            ).then(
+                fn=preview_with_popup,
+                inputs=[gemini_upload_state],
+                outputs=[gemini_preview, gemini_preview_status],
+            ).then(
+                fn=show_processed_filename,
+                inputs=[gemini_upload_state],
+                outputs=[gemini_file_status],
+            ).then(
+                fn=lambda state: render_inbody_flow(2 if state else 1),
+                inputs=[gemini_upload_state],
+                outputs=[inbody_flow],
+                show_progress="hidden",
+            )
+            inbody_clear = gr.ClearButton(
+                [gemini_upload, gemini_upload_state, gemini_snapshot,
+                 gemini_preview, gemini_preview_status, gemini_table, gemini_status,
+                 gemini_save_status, gemini_review_status,
+                 gemini_overwrite, gemini_file_status],
+                value="Limpiar examen (conservar permisos)",
+            )
+            inbody_clear.click(
+                fn=lambda: render_inbody_flow(1),
+                outputs=[inbody_flow],
+                show_progress="hidden", queue=False,
+            )
+        with gr.Tab("Training Hub", id="training"):
+            from inbody_mvp.training_hub import (
+                PREVIEW_COLUMNS as TRAINING_COLUMNS,
+                inspect_fitnotes_upload, save_training_import, recent_training,
+            )
             gr.Markdown(
-                "## Progreso histórico InBody\\n"
-                "Consulta las mediciones **revisadas y guardadas en la base de datos** con "
-                "acceso privado autorizado. La persona se presenta mediante "
-                "un alias; la cédula del reporte no aparece en gráficas ni tablas. "
-                "Los valores históricos dibujados en el PDF **no** se importan."
-            )
-            with gr.Row():
-                progress_person = gr.Textbox(
-                    label="ID del reporte (solo búsqueda privada)",
-                    placeholder="ID del reporte o alias privado test",
-                    type="password", scale=3,
-                )
-                progress_start = gr.DateTime(
-                    include_time=False, type="string",
-                    label="Desde", scale=2,
-                )
-                progress_end = gr.DateTime(
-                    include_time=False, type="string",
-                    label="Hasta", scale=2,
-                )
-            progress_refresh = gr.Button(
-                "Consultar progreso", variant="primary",
-                interactive=database_enabled(),
+                "## Training Hub · importar FitNotes\n"
+                "Carga una exportación CSV de FitNotes con fecha, ejercicio, categoría, "
+                "peso, repeticiones, distancia, duración y comentario. "
+                "Cada fila es una serie y conserva el orden original. "
+                "La importación no utiliza IA ni publica los entrenamientos. "
+                "Solo se guarda en la base de datos al confirmarlo y si autorizaste "
+                "el guardado en la sección de privacidad de esta sesión."
             )
             if not database_enabled():
                 gr.Markdown(
-                    "Para consultar historiales de auditoría, configura "
-                    "`ENABLE_PERSISTENCE=1`, `DATABASE_URL` y `HF_ALLOWED_USERS`. "
-                    "Aunque el modo demo permita guardar sin login, el acceso "
-                    "al historial personal exige OAuth autorizado."
+                    "Para importar a la base de datos necesitas configurar la conexión privada "
+                    "DATABASE_URL y un inicio de sesión autorizado."
                 )
-            gr.Markdown(
-                "**Valores actuales** — cada flecha de Plotly muestra si la "
-                "medición subió o bajó y su diferencia porcentual contra la "
-                "fecha anterior **dentro del rango elegido**. "
-                "Las flechas son descriptivas, no indican si un cambio es saludable."
-            )
-            progress_status = gr.Markdown("Sin consulta.")
             with gr.Row():
-                progress_kpis = [
-                    gr.Plot(label=label, min_width=205)
-                    for _, label, _ in METRICS
-                ]
-            gr.Markdown("### Historical Progress")
-            gr.Markdown(
-                "### Body Composition History — formato del reporte InBody\\n"
-                "Filas alineadas por fecha con valores, líneas de evolución "
-                "y comparación frente al examen anterior. Incluye ángulo de fase "
-                "cuando esté disponible en las mediciones revisadas."
-            )
-            progress_trends = gr.Plot(label="Body Composition History")
-            gr.Markdown("### InBody Score — progreso entre exámenes")
-            progress_score = gr.Plot(label="Puntaje de cada examen · puntos")
-            progress_summary = gr.Dataframe(
-                label="Mediciones por fecha y cambio porcentual",
-                type="pandas", interactive=False,
-            )
-            gr.Markdown(
-                "### Detailed Exam Analysis\\n"
-                "Se toma automáticamente la medición más reciente de cada "
-                "variable en el rango seleccionado, y se compara con la anterior. "
-                "**No es necesario escoger un examen.**"
-            )
-            progress_section = gr.Dropdown(
-                label="Sección del reporte",
-                choices=list(SECTIONS), value=SECTIONS[0],
-            )
-            progress_detail = gr.Dataframe(
-                label="Valores actuales y comparación por sección",
-                type="pandas", interactive=False,
-            )
-            progress_detail_plot = gr.Plot(
-                label="Comparación de medidas de la sección"
-            )
-            progress_section_history = gr.Plot(
-                label="Historial de medidas de la sección seleccionada"
-            )
+                with gr.Column(min_width=280):
+                    training_upload = gr.File(
+                        label="Exportación FitNotes (.csv)", file_types=[".csv"],
+                        type="filepath", interactive=database_enabled(),
+                    )
+                    training_summary = gr.Markdown("Sin archivo validado.")
+                    training_overwrite = gr.Checkbox(
+                        label="Confirmo actualizar series previamente guardadas "
+                              "si sus valores cambiaron",
+                        value=False,
+                    )
+                    training_save = gr.Button(
+                        "Guardar entrenamiento en la base de datos",
+                        variant="primary", interactive=database_enabled(),
+                    )
+                with gr.Column(min_width=300):
+                    gr.Markdown(
+                        "### Revisar antes de guardar\n"
+                        "Se muestran las primeras 60 series. El archivo completo "
+                        "se procesa únicamente cuando pulsas Guardar. "
+                        "Series idénticas del mismo día se conservan si tienen "
+                        "posiciones de serie diferentes."
+                    )
+                    training_preview = gr.Dataframe(
+                        headers=list(TRAINING_COLUMNS),
+                        label="Vista previa del CSV (solo lectura)",
+                        type="pandas", interactive=False,
+                    )
+            training_state = gr.State(value=None)
 
-            def show_progress(
-                person_id, start_date, end_date, section,
-                profile: gr.OAuthProfile | None = None,
+            def parse_training_with_popup(
+                file_path, profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
             ):
                 try:
-                    records = load_reviewed_audit_history(
-                        person_id, oauth_profile=profile, limit=5000, request=request
-                    )
-                    result = render_progress(records, start_date, end_date, section)
+                    require_database_access(profile, request=request)
+                    return inspect_fitnotes_upload(file_path)
                 except Exception as exc:
-                    popup_error(
-                        exc, "No se pudo consultar el progreso privado en la base de datos."
-                    )
-                    return keep_components(13)
-                if records:
-                    alias = "Persona " + str(records[0]["anonymous_id"])[:8]
-                    return (f"**{alias}** · " + result[0], *result[1:])
-                return result
-
-            progress_refresh.click(
-                fn=show_progress,
-                inputs=[progress_person, progress_start, progress_end, progress_section],
-                outputs=[progress_status, *progress_kpis, progress_trends,
-                         progress_summary, progress_detail, progress_detail_plot,
-                         progress_score, progress_section_history],
-                concurrency_limit=1,
-            )
-        with gr.Accordion("Mediciones publicadas (solo datos aprobados)", open=False):
-            gr.Markdown(
-                "**Progreso personal con identificador aleatorio.** "
-                "Solo aparecen los exámenes que autorizaste al guardarlos. "
-                "No se publican nombre, cédula, ID InBody, edad, hora, archivos "
-                "ni texto OCR. Se muestran las fechas (sin hora) y valores "
-                "de las mediciones: aunque tu ID esté oculto, los patrones "
-                "pueden permitir reidentificación."
-            )
-            metric_public = gr.Dropdown(
-                choices=[(label, metric) for metric, label in PUBLIC_METRICS.items()],
-                value="weight", label="Medición que deseas visualizar",
-            )
-            public_button = gr.Button(
-                "Ver progreso público",
-                interactive=public_dashboard_enabled(),
-            )
-            if not public_dashboard_enabled():
-                gr.Markdown(
-                    "Dashboard público sin conexión. En este mismo Space configura "
-                    "PUBLIC_DATABASE_URL (Secret de solo lectura) y "
-                    "ENABLE_PUBLIC_DASHBOARD=1 (Variable). La carga de archivos "
-                    "continuará habilitada."
-                )
-            public_status = gr.Markdown("Sin consulta.")
-            public_plot = gr.Plot(label="Tendencias de mediciones publicadas")
-            public_table = gr.Dataframe(
-                label="Mediciones publicadas sin datos de identidad",
-                type="pandas", interactive=False,
-            )
-
-            def show_public_dashboard(variable):
-                try:
-                    records = load_public_person_series(variable)
-                except Exception as exc:
-                    popup_error(exc, "No se pudieron consultar las mediciones públicas.")
+                    popup_error(exc, "No se pudo validar el CSV de FitNotes.")
                     return keep_components(3)
-                frame = pd.DataFrame(records)
-                fig = go.Figure()
-                if frame.empty:
-                    return (
-                        "Todavía no hay mediciones de esta variable autorizadas "
-                        "para el dashboard. Guarda un examen marcando la casilla "
-                        "de publicación desde el Space privado.",
-                        fig, frame,
-                    )
-                # Never render the underlying UUID alias or raw personal identifier.
-                frame["serie"] = frame["anonymous_id"].map(
-                    lambda alias: "Serie " + str(alias)[:8]
-                )
-                frame["modelo_y_region"] = frame.apply(
-                    lambda item: (
-                        str(item["device_group"])
-                        + " · " + str(item["segmento"] or "Cuerpo completo")
-                        + " · " + str(item["variable_medida"])
-                    ),
-                    axis=1,
-                )
-                frame["linea"] = frame["serie"] + " · " + frame["modelo_y_region"]
-                # Separate incomparable units, models, segments and frequencies.
-                frame["linea"] = frame["linea"] + " · " + frame["unidad_medida"].fillna("?")
-                fig = px.line(
-                    frame.sort_values("exam_date"),
-                    x="exam_date", y="valor_medida",
-                    color="linea", markers=True,
-                    labels={
-                        "exam_date": "Fecha del examen (sin hora)",
-                        "valor_medida": "Valor medido",
-                        "linea": "Serie y tipo de medición",
-                    },
-                )
-                visible = frame[
-                    ["serie", "exam_date", "device_group", "variable_medida",
-                     "unidad_medida", "segmento", "valor_medida"]
-                ].copy()
-                visible.columns = [
-                    "Serie", "Fecha", "Modelo", "Medición", "Unidad",
-                    "Segmento", "Valor"
-                ]
-                return (
-                    f"{len(visible)} mediciones publicadas, "
-                    f"{frame['serie'].nunique()} serie(s) sin ID personal.",
-                    fig, visible,
-                )
 
-            public_button.click(
-                fn=show_public_dashboard,
-                inputs=[metric_public],
-                outputs=[public_status, public_plot, public_table],
-                concurrency_limit=1,
-            )
-    with gr.Tab("Historial en base de datos"):
-        if os.getenv("SPACE_ID") and OAUTH_URLS:
-            gr.HTML(
-                "El historial privado sí requiere una sesión autorizada. "
-                f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
-                'rel="noopener noreferrer">Iniciar sesión</a>.'
-            )
-        if anonymous_demo_requested() and not password_login_enabled():
-            gr.Markdown(
-                "**Historial privado deshabilitado en demostración.** "
-                "Para verificar las mediciones publicadas, utiliza "
-                "la pestaña «Dashboard público». Los datos de demostración "
-                "nunca se mezclan con pacientes privados."
-            )
-        else:
-            gr.Markdown(
-                "Consulta únicamente con una cuenta autorizada. "
-                "Selecciona el ID exacto que aparece en el reporte. "
-                "Las tendencias son exploratorias y no prueban mejoría clínica."
-            )
-        history_id = gr.Textbox(
-            label="ID del reporte (búsqueda privada; nunca se muestra en resultados)",
-            placeholder="Introduce el ID del reporte", type="password",
-        )
-        with gr.Accordion("Auditoría Gemini — identificador seudónimo", open=True):
-            gr.Markdown(
-                "El ID original se usa únicamente para buscar en la base de datos. "
-                "En la tabla y el gráfico se muestra un alias aleatorio "
-                "estable, sin archivo, edad ni hora exacta. "
-                "Solo usuarios autorizados pueden consultar estas auditorías."
-            )
-            audit_metric = gr.Textbox(
-                value="Weight", label="Measurement (English, para la gráfica)"
-            )
-            audit_button = gr.Button(
-                "Consultar mediciones Gemini revisadas",
-                interactive=(not anonymous_demo_requested() or password_login_enabled()),
-            )
-            audit_status = gr.Markdown("Sin consulta.")
-            audit_chart = gr.Plot(label="Evolución de mediciones revisadas")
-            audit_table = gr.Dataframe(
-                label="Auditorías (solo alias)", type="pandas",
-                interactive=False,
-            )
-
-            def display_audit_history(
-                person_id, metric,
+            def save_training_with_popup(
+                state, consent, overwrite,
                 profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
             ):
                 try:
-                    records = load_reviewed_audit_history(
+                    if consent is not True or not has_consent(request, "db"):
+                        raise PermissionError(
+                            "Autoriza guardar datos en la base de datos antes de continuar."
+                        )
+                    result = save_training_import(
+                        state, consent, overwrite, profile=profile, request=request,
+                    )
+                except Exception as exc:
+                    popup_error(exc, "No se pudo guardar el entrenamiento en la base de datos.")
+                    return keep_components(5)
+                visible_result = result.replace("Neon", "la base de datos")
+                gr.Info(visible_result)
+                return (
+                    visible_result, None, None,
+                    pd.DataFrame(columns=TRAINING_COLUMNS), False,
+                )
+
+            training_upload.upload(
+                fn=parse_training_with_popup, inputs=[training_upload],
+                outputs=[training_state, training_summary, training_preview],
+                concurrency_limit=1,
+            ).then(
+                fn=lambda: False,
+                outputs=[training_overwrite],
+            )
+            training_save.click(
+                fn=save_training_with_popup,
+                inputs=[training_state, session_db_consent, training_overwrite],
+                outputs=[
+                    training_summary, training_upload, training_state,
+                    training_preview, training_overwrite,
+                ],
+                concurrency_limit=1,
+            )
+            gr.Markdown(
+                "### Últimas series guardadas\n"
+                "La consulta solo muestra tus registros autorizados. "
+                "La misma exportación no se importa dos veces."
+            )
+            training_refresh = gr.Button(
+                "Consultar últimos entrenamientos",
+                interactive=database_enabled(),
+            )
+            training_recent_status = gr.Markdown("Sin consulta.")
+            training_recent_table = gr.Dataframe(
+                headers=list(TRAINING_COLUMNS),
+                label="Últimas 60 series en la base de datos", type="pandas", interactive=False,
+            )
+
+            def recent_training_with_popup(
+                profile: gr.OAuthProfile | None = None,
+                request: gr.Request | None = None,
+            ):
+                try:
+                    frame = recent_training(profile=profile, request=request)
+                    return f"{len(frame)} series recuperadas.", frame
+                except Exception as exc:
+                    popup_error(exc, "No se pudo leer el historial de entrenamiento.")
+                    return keep_components(2)
+
+            training_refresh.click(
+                fn=recent_training_with_popup,
+                outputs=[training_recent_status, training_recent_table],
+                concurrency_limit=1,
+            )
+
+        with gr.Tab("Dashboard", id="dashboard"):
+            gr.Markdown(
+                "## Dashboard InBody\\n"
+                "Un único lugar para visualizar el progreso histórico personal "
+                "y, por separado, las mediciones autorizadas para publicación. "
+                "La búsqueda privada admite el alias `test` cuando está "
+                "configurado como Secret; nunca revela el ID original."
+            )
+            with gr.Accordion("Mi progreso histórico (acceso privado)", open=True):
+                gr.Markdown(
+                    "## Progreso histórico InBody\\n"
+                    "Consulta las mediciones **revisadas y guardadas en la base de datos** con "
+                    "acceso privado autorizado. La persona se presenta mediante "
+                    "un alias; la cédula del reporte no aparece en gráficas ni tablas. "
+                    "Los valores históricos dibujados en el PDF **no** se importan."
+                )
+                with gr.Row():
+                    progress_person = gr.Textbox(
+                        label="ID del reporte (solo búsqueda privada)",
+                        placeholder="ID del reporte o alias privado test",
+                        type="password", scale=3,
+                    )
+                    progress_start = gr.DateTime(
+                        include_time=False, type="string",
+                        label="Desde", scale=2,
+                    )
+                    progress_end = gr.DateTime(
+                        include_time=False, type="string",
+                        label="Hasta", scale=2,
+                    )
+                progress_refresh = gr.Button(
+                    "Consultar progreso", variant="primary",
+                    interactive=database_enabled(),
+                )
+                if not database_enabled():
+                    gr.Markdown(
+                        "Para consultar historiales de auditoría, configura "
+                        "`ENABLE_PERSISTENCE=1`, `DATABASE_URL` y `HF_ALLOWED_USERS`. "
+                        "Aunque el modo demo permita guardar sin login, el acceso "
+                        "al historial personal exige OAuth autorizado."
+                    )
+                gr.Markdown(
+                    "**Valores actuales** — cada flecha de Plotly muestra si la "
+                    "medición subió o bajó y su diferencia porcentual contra la "
+                    "fecha anterior **dentro del rango elegido**. "
+                    "Las flechas son descriptivas, no indican si un cambio es saludable."
+                )
+                progress_status = gr.Markdown("Sin consulta.")
+                with gr.Row():
+                    progress_kpis = [
+                        gr.Plot(label=label, min_width=205)
+                        for _, label, _ in METRICS
+                    ]
+                gr.Markdown("### Historical Progress")
+                gr.Markdown(
+                    "### Body Composition History — formato del reporte InBody\\n"
+                    "Filas alineadas por fecha con valores, líneas de evolución "
+                    "y comparación frente al examen anterior. Incluye ángulo de fase "
+                    "cuando esté disponible en las mediciones revisadas."
+                )
+                progress_trends = gr.Plot(label="Body Composition History")
+                gr.Markdown("### InBody Score — progreso entre exámenes")
+                progress_score = gr.Plot(label="Puntaje de cada examen · puntos")
+                progress_summary = gr.Dataframe(
+                    label="Mediciones por fecha y cambio porcentual",
+                    type="pandas", interactive=False,
+                )
+                gr.Markdown(
+                    "### Detailed Exam Analysis\\n"
+                    "Se toma automáticamente la medición más reciente de cada "
+                    "variable en el rango seleccionado, y se compara con la anterior. "
+                    "**No es necesario escoger un examen.**"
+                )
+                progress_section = gr.Dropdown(
+                    label="Sección del reporte",
+                    choices=list(SECTIONS), value=SECTIONS[0],
+                )
+                progress_detail = gr.Dataframe(
+                    label="Valores actuales y comparación por sección",
+                    type="pandas", interactive=False,
+                )
+                progress_detail_plot = gr.Plot(
+                    label="Comparación de medidas de la sección"
+                )
+                progress_section_history = gr.Plot(
+                    label="Historial de medidas de la sección seleccionada"
+                )
+
+                def show_progress(
+                    person_id, start_date, end_date, section,
+                    profile: gr.OAuthProfile | None = None,
+                    request: gr.Request | None = None,
+                ):
+                    try:
+                        records = load_reviewed_audit_history(
+                            person_id, oauth_profile=profile, limit=5000, request=request
+                        )
+                        result = render_progress(records, start_date, end_date, section)
+                    except Exception as exc:
+                        popup_error(
+                            exc, "No se pudo consultar el progreso privado en la base de datos."
+                        )
+                        return keep_components(13)
+                    if records:
+                        alias = "Persona " + str(records[0]["anonymous_id"])[:8]
+                        return (f"**{alias}** · " + result[0], *result[1:])
+                    return result
+
+                progress_refresh.click(
+                    fn=show_progress,
+                    inputs=[progress_person, progress_start, progress_end, progress_section],
+                    outputs=[progress_status, *progress_kpis, progress_trends,
+                             progress_summary, progress_detail, progress_detail_plot,
+                             progress_score, progress_section_history],
+                    concurrency_limit=1,
+                )
+            with gr.Accordion("Mediciones publicadas (solo datos aprobados)", open=False):
+                gr.Markdown(
+                    "**Progreso personal con identificador aleatorio.** "
+                    "Solo aparecen los exámenes que autorizaste al guardarlos. "
+                    "No se publican nombre, cédula, ID InBody, edad, hora, archivos "
+                    "ni texto OCR. Se muestran las fechas (sin hora) y valores "
+                    "de las mediciones: aunque tu ID esté oculto, los patrones "
+                    "pueden permitir reidentificación."
+                )
+                metric_public = gr.Dropdown(
+                    choices=[(label, metric) for metric, label in PUBLIC_METRICS.items()],
+                    value="weight", label="Medición que deseas visualizar",
+                )
+                public_button = gr.Button(
+                    "Ver progreso público",
+                    interactive=public_dashboard_enabled(),
+                )
+                if not public_dashboard_enabled():
+                    gr.Markdown(
+                        "Dashboard público sin conexión. En este mismo Space configura "
+                        "PUBLIC_DATABASE_URL (Secret de solo lectura) y "
+                        "ENABLE_PUBLIC_DASHBOARD=1 (Variable). La carga de archivos "
+                        "continuará habilitada."
+                    )
+                public_status = gr.Markdown("Sin consulta.")
+                public_plot = gr.Plot(label="Tendencias de mediciones publicadas")
+                public_table = gr.Dataframe(
+                    label="Mediciones publicadas sin datos de identidad",
+                    type="pandas", interactive=False,
+                )
+
+                def show_public_dashboard(variable):
+                    try:
+                        records = load_public_person_series(variable)
+                    except Exception as exc:
+                        popup_error(exc, "No se pudieron consultar las mediciones públicas.")
+                        return keep_components(3)
+                    frame = pd.DataFrame(records)
+                    fig = go.Figure()
+                    if frame.empty:
+                        return (
+                            "Todavía no hay mediciones de esta variable autorizadas "
+                            "para el dashboard. Guarda un examen marcando la casilla "
+                            "de publicación desde el Space privado.",
+                            fig, frame,
+                        )
+                    # Never render the underlying UUID alias or raw personal identifier.
+                    frame["serie"] = frame["anonymous_id"].map(
+                        lambda alias: "Serie " + str(alias)[:8]
+                    )
+                    frame["modelo_y_region"] = frame.apply(
+                        lambda item: (
+                            str(item["device_group"])
+                            + " · " + str(item["segmento"] or "Cuerpo completo")
+                            + " · " + str(item["variable_medida"])
+                        ),
+                        axis=1,
+                    )
+                    frame["linea"] = frame["serie"] + " · " + frame["modelo_y_region"]
+                    # Separate incomparable units, models, segments and frequencies.
+                    frame["linea"] = frame["linea"] + " · " + frame["unidad_medida"].fillna("?")
+                    fig = px.line(
+                        frame.sort_values("exam_date"),
+                        x="exam_date", y="valor_medida",
+                        color="linea", markers=True,
+                        labels={
+                            "exam_date": "Fecha del examen (sin hora)",
+                            "valor_medida": "Valor medido",
+                            "linea": "Serie y tipo de medición",
+                        },
+                    )
+                    visible = frame[
+                        ["serie", "exam_date", "device_group", "variable_medida",
+                         "unidad_medida", "segmento", "valor_medida"]
+                    ].copy()
+                    visible.columns = [
+                        "Serie", "Fecha", "Modelo", "Medición", "Unidad",
+                        "Segmento", "Valor"
+                    ]
+                    return (
+                        f"{len(visible)} mediciones publicadas, "
+                        f"{frame['serie'].nunique()} serie(s) sin ID personal.",
+                        fig, visible,
+                    )
+
+                public_button.click(
+                    fn=show_public_dashboard,
+                    inputs=[metric_public],
+                    outputs=[public_status, public_plot, public_table],
+                    concurrency_limit=1,
+                )
+        with gr.Tab("Historial en base de datos", id="history"):
+            if os.getenv("SPACE_ID") and OAUTH_URLS:
+                gr.HTML(
+                    "El historial privado sí requiere una sesión autorizada. "
+                    f'<a href="{OAUTH_URLS["login"]}" target="_blank" '
+                    'rel="noopener noreferrer">Iniciar sesión</a>.'
+                )
+            if anonymous_demo_requested() and not password_login_enabled():
+                gr.Markdown(
+                    "**Historial privado deshabilitado en demostración.** "
+                    "Para verificar las mediciones publicadas, utiliza "
+                    "la pestaña «Dashboard público». Los datos de demostración "
+                    "nunca se mezclan con pacientes privados."
+                )
+            else:
+                gr.Markdown(
+                    "Consulta únicamente con una cuenta autorizada. "
+                    "Selecciona el ID exacto que aparece en el reporte. "
+                    "Las tendencias son exploratorias y no prueban mejoría clínica."
+                )
+            history_id = gr.Textbox(
+                label="ID del reporte (búsqueda privada; nunca se muestra en resultados)",
+                placeholder="Introduce el ID del reporte", type="password",
+            )
+            with gr.Accordion("Auditoría Gemini — identificador seudónimo", open=True):
+                gr.Markdown(
+                    "El ID original se usa únicamente para buscar en la base de datos. "
+                    "En la tabla y el gráfico se muestra un alias aleatorio "
+                    "estable, sin archivo, edad ni hora exacta. "
+                    "Solo usuarios autorizados pueden consultar estas auditorías."
+                )
+                audit_metric = gr.Textbox(
+                    value="Weight", label="Measurement (English, para la gráfica)"
+                )
+                audit_button = gr.Button(
+                    "Consultar mediciones Gemini revisadas",
+                    interactive=(not anonymous_demo_requested() or password_login_enabled()),
+                )
+                audit_status = gr.Markdown("Sin consulta.")
+                audit_chart = gr.Plot(label="Evolución de mediciones revisadas")
+                audit_table = gr.Dataframe(
+                    label="Auditorías (solo alias)", type="pandas",
+                    interactive=False,
+                )
+
+                def display_audit_history(
+                    person_id, metric,
+                    profile: gr.OAuthProfile | None = None,
+                    request: gr.Request | None = None,
+                ):
+                    try:
+                        records = load_reviewed_audit_history(
+                            person_id, oauth_profile=profile, limit=500, request=request
+                        )
+                    except Exception as exc:
+                        popup_error(exc, "No se pudo consultar la auditoría privada.")
+                        return keep_components(3)
+                    fig = go.Figure()
+                    frame = pd.DataFrame(records)
+                    if frame.empty:
+                        return "No se encontraron auditorías.", fig, frame
+                    alias = "Persona " + frame.iloc[0]["anonymous_id"][:8]
+                    frame["Persona"] = alias
+                    visible = frame[
+                        ["Persona", "exam_date", "section", "measurement",
+                         "value", "unit", "was_corrected"]
+                    ].copy()
+                    visible.columns = [
+                        "Persona", "Fecha", "Section", "Measurement",
+                        "Value", "Unit", "Corrected",
+                    ]
+                    values = frame[frame["measurement"] == str(metric).strip()].copy()
+                    if not values.empty:
+                        values["numeric_value"] = pd.to_numeric(
+                            values["value"].astype(str).str.replace(",", ".", regex=False),
+                            errors="coerce",
+                        )
+                        values = values.dropna(subset=["numeric_value"])
+                        if not values.empty:
+                            fig = px.line(
+                                values.sort_values("exam_date"),
+                                x="exam_date", y="numeric_value",
+                                color="unit", markers=True,
+                                title=f"{alias} — {metric}",
+                                labels={"exam_date": "Fecha", "numeric_value": "Valor"},
+                            )
+                    return f"{alias}: {len(visible)} mediciones revisadas.", fig, visible
+
+                audit_button.click(
+                    fn=display_audit_history,
+                    inputs=[history_id, audit_metric],
+                    outputs=[audit_status, audit_chart, audit_table],
+                    concurrency_limit=1,
+                )
+            with gr.Row():
+                metric_filter = gr.Dropdown(
+                    choices=[
+                        "weight", "skeletal_muscle_mass", "body_fat_mass",
+                        "body_fat_percentage", "segmental_lean_mass",
+                        "segmental_fat_mass", "phase_angle",
+                    ],
+                    value="weight", label="Medida para la tendencia",
+                )
+                unit_filter = gr.Textbox(value="kg", label="Unidad exacta")
+                segment_filter = gr.Dropdown(
+                    choices=[
+                        ("Cuerpo completo / sin segmento", ""),
+                        ("Brazo izquierdo", "left_arm"),
+                        ("Brazo derecho", "right_arm"),
+                        ("Pierna izquierda", "left_leg"),
+                        ("Pierna derecha", "right_leg"),
+                        ("Tronco", "trunk"),
+                    ],
+                    value="", label="Región corporal",
+                )
+            load_button = gr.Button(
+                "Consultar base de datos", interactive=(not anonymous_demo_requested() or password_login_enabled())
+            )
+            db_status = gr.Markdown("Sin consulta.")
+            db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
+            db_table = gr.Dataframe(
+                label="Detalle de mediciones confirmadas", interactive=False,
+                type="pandas",
+            )
+
+            def display_history(
+                person_id, metric, unit, segment,
+                profile: gr.OAuthProfile | None = None,
+                request: gr.Request | None = None,
+            ):
+                try:
+                    records = load_measurement_history(
                         person_id, oauth_profile=profile, limit=500, request=request
                     )
                 except Exception as exc:
-                    popup_error(exc, "No se pudo consultar la auditoría privada.")
+                    popup_error(exc, "No se pudo consultar la base de datos. Revisa la conexión y los permisos.")
                     return keep_components(3)
-                fig = go.Figure()
                 frame = pd.DataFrame(records)
+                fig = go.Figure()
                 if frame.empty:
-                    return "No se encontraron auditorías.", fig, frame
-                alias = "Persona " + frame.iloc[0]["anonymous_id"][:8]
-                frame["Persona"] = alias
-                visible = frame[
-                    ["Persona", "exam_date", "section", "measurement",
-                     "value", "unit", "was_corrected"]
+                    return "No se encontraron mediciones para ese ID.", fig, frame
+                selected = frame[
+                    (frame["variable_medida"] == metric)
+                    & (frame["unidad_medida"] == unit)
+                    & (frame["segmento"].fillna("") == (segment or ""))
                 ].copy()
-                visible.columns = [
-                    "Persona", "Fecha", "Section", "Measurement",
-                    "Value", "Unit", "Corrected",
-                ]
-                values = frame[frame["measurement"] == str(metric).strip()].copy()
-                if not values.empty:
-                    values["numeric_value"] = pd.to_numeric(
-                        values["value"].astype(str).str.replace(",", ".", regex=False),
-                        errors="coerce",
+                if not selected.empty:
+                    selected["series_name"] = selected.apply(
+                        lambda item: (
+                            str(item["modelo_inbody"] or "Modelo desconocido")
+                            + " | " + str(item["variable_medida"])
+                        ),
+                        axis=1,
                     )
-                    values = values.dropna(subset=["numeric_value"])
-                    if not values.empty:
-                        fig = px.line(
-                            values.sort_values("exam_date"),
-                            x="exam_date", y="numeric_value",
-                            color="unit", markers=True,
-                            title=f"{alias} — {metric}",
-                            labels={"exam_date": "Fecha", "numeric_value": "Valor"},
-                        )
-                return f"{alias}: {len(visible)} mediciones revisadas.", fig, visible
+                    selected = selected.sort_values("exam_timestamp")
+                    fig = px.line(
+                        selected, x="exam_timestamp", y="valor_medida",
+                        color="series_name", markers=True,
+                        labels={"exam_timestamp": "Fecha del examen",
+                                "valor_medida": unit, "series_name": "Modelo y medición"},
+                        title=f"{metric} — {unit}",
+                    )
+                return (
+                    f"{len(frame)} mediciones encontradas (máximo 500 por consulta). "
+                    "Separadas por modelo y variable para evitar series incompatibles.",
+                    fig, frame
+                )
 
-            audit_button.click(
-                fn=display_audit_history,
-                inputs=[history_id, audit_metric],
-                outputs=[audit_status, audit_chart, audit_table],
+            load_button.click(
+                fn=display_history,
+                inputs=[history_id, metric_filter, unit_filter, segment_filter],
+                outputs=[db_status, db_chart, db_table],
                 concurrency_limit=1,
             )
-        with gr.Row():
-            metric_filter = gr.Dropdown(
-                choices=[
-                    "weight", "skeletal_muscle_mass", "body_fat_mass",
-                    "body_fat_percentage", "segmental_lean_mass",
-                    "segmental_fat_mass", "phase_angle",
-                ],
-                value="weight", label="Medida para la tendencia",
-            )
-            unit_filter = gr.Textbox(value="kg", label="Unidad exacta")
-            segment_filter = gr.Dropdown(
-                choices=[
-                    ("Cuerpo completo / sin segmento", ""),
-                    ("Brazo izquierdo", "left_arm"),
-                    ("Brazo derecho", "right_arm"),
-                    ("Pierna izquierda", "left_leg"),
-                    ("Pierna derecha", "right_leg"),
-                    ("Tronco", "trunk"),
-                ],
-                value="", label="Región corporal",
-            )
-        load_button = gr.Button(
-            "Consultar base de datos", interactive=(not anonymous_demo_requested() or password_login_enabled())
+        with gr.Tab("Proyecto", id="project"):
+            gr.Markdown(value=read_readme)
+    nav_buttons = [nav_inbody, nav_training, nav_dashboard, nav_history, nav_project]
+    def switch_module(section):
+        if section not in dict(NAV_SECTIONS):
+            raise ValueError("Módulo no válido.")
+        return (
+            gr.Tabs(selected=section),
+            *(
+                gr.update(variant="primary" if key == section else "secondary")
+                for key, _ in NAV_SECTIONS
+            ),
         )
-        db_status = gr.Markdown("Sin consulta.")
-        db_chart = gr.Plot(label="Tendencia de medidas confirmadas")
-        db_table = gr.Dataframe(
-            label="Detalle de mediciones confirmadas", interactive=False,
-            type="pandas",
+    # Navigate without reloading the page or clearing consent / extracted data.
+    for key, button in zip((item[0] for item in NAV_SECTIONS), nav_buttons):
+        button.click(
+            fn=lambda key=key: switch_module(key),
+            outputs=[module_tabs, *nav_buttons],
+            show_progress="hidden",
+            queue=False,
+            api_name=False,
         )
 
-        def display_history(
-            person_id, metric, unit, segment,
-            profile: gr.OAuthProfile | None = None,
-            request: gr.Request | None = None,
-        ):
-            try:
-                records = load_measurement_history(
-                    person_id, oauth_profile=profile, limit=500, request=request
-                )
-            except Exception as exc:
-                popup_error(exc, "No se pudo consultar la base de datos. Revisa la conexión y los permisos.")
-                return keep_components(3)
-            frame = pd.DataFrame(records)
-            fig = go.Figure()
-            if frame.empty:
-                return "No se encontraron mediciones para ese ID.", fig, frame
-            selected = frame[
-                (frame["variable_medida"] == metric)
-                & (frame["unidad_medida"] == unit)
-                & (frame["segmento"].fillna("") == (segment or ""))
-            ].copy()
-            if not selected.empty:
-                selected["series_name"] = selected.apply(
-                    lambda item: (
-                        str(item["modelo_inbody"] or "Modelo desconocido")
-                        + " | " + str(item["variable_medida"])
-                    ),
-                    axis=1,
-                )
-                selected = selected.sort_values("exam_timestamp")
-                fig = px.line(
-                    selected, x="exam_timestamp", y="valor_medida",
-                    color="series_name", markers=True,
-                    labels={"exam_timestamp": "Fecha del examen",
-                            "valor_medida": unit, "series_name": "Modelo y medición"},
-                    title=f"{metric} — {unit}",
-                )
-            return (
-                f"{len(frame)} mediciones encontradas (máximo 500 por consulta). "
-                "Separadas por modelo y variable para evitar series incompatibles.",
-                fig, frame
-            )
-
-        load_button.click(
-            fn=display_history,
-            inputs=[history_id, metric_filter, unit_filter, segment_filter],
-            outputs=[db_status, db_chart, db_table],
-            concurrency_limit=1,
-        )
-    with gr.Tab("Proyecto"):
-        gr.Markdown(value=read_readme)
     # Populate the selector once per page load and let users refresh manually.
     # Never send the uploaded report during model discovery.
     demo.load(
