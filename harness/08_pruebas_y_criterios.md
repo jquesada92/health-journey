@@ -1,5 +1,23 @@
 # 08 — Harness de pruebas, criterios de aceptación y puertas de calidad
 
+## Evidencia real de reparación histórica de fechas
+
+Comprobaciones Neon después de la operación (2026-11-03):
+`hj_extraction_audits`: 17 exámenes, 17 coincidencias
+exactas entre timestamp y nombre, 0 desajustes,
+17 fechas/hora únicas y 17 días distintos.
+`hj_measurement_audits`: 1.087 filas; vista
+`hj_audit_reviewed_private`: 1.087 filas;
+`hj_exam_datetime_repair_history`: 17 entradas
+con timestamp anterior y corregido, 17/17 iguales a
+la tabla activa. Roles demo writer/runtime no tienen
+SELECT sobre backup. Pruebas GitHub PR #89:
+**424 passed, 1 warning** y harness aprobado;
+las pruebas de CI NO sustituyen validación en HF.
+El procedimiento de reemplazo por filename (010)
+sigue pendiente, igual que su E2E.
+
+
 ## CA — fechas del reporte versus fecha del nombre
 
 - Reporte de InBody `DD.MM.AAAA HH:MM` / con
