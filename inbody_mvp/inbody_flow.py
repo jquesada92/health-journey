@@ -2,32 +2,50 @@
 
 Rendered only from trusted, fixed labels. Progress is controlled by the actual
 upload, extraction, review, validation and save events (not scroll position).
-The Gradio HTML component uses `elem_id="hj-inbody-flow"` and lives
-inside `hj-inbody-sticky`. Sticky positioning belongs to that persistent
-Gradio Column (not a nested HTML node), immediately after the InBody title.
+The Gradio HTML component uses `elem_id="hj-inbody-flow"` inside
+a top-level Gradio Column `hj-inbody-fixedbar`. Its visibility is driven by
+the selected module, not scroll state. Fixed placement is viewport-relative,
+not sticky within the scrolling InBody form.
 """
 from __future__ import annotations
 
 STEPS = ("Cargar", "Extraer", "Revisar", "Validar", "Guardar")
 
 INBODY_FLOW_CSS = """
-/* A sticky *Gradio column* remains mounted throughout the InBody flow.
-   Parent Gradio containers must not clip the sticky positioning context.
-   The sticky area is scoped to InBody: it disappears with the module. */
-#hj-module-content,
+/* The navbar belongs to the top-level Blocks tree (NOT the InBody scrolling
+   panel). position:fixed anchors it to the viewport at all scroll positions.
+   Gradio visibility toggles it off in Project/Training/Coach. */
 #hj-panel-inbody {
-    overflow: visible !important;
+    /* Reserve space so the title, upload and buttons never sit under the bar. */
+    padding-top: 180px !important;
 }
-#hj-inbody-sticky {
-    position: sticky !important;
-    top: 0;
-    z-index: 50;
-    align-self: stretch;
-    width: 100%;
+#hj-inbody-fixedbar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 308px;
+    right: 16px;
+    width: auto !important;
+    min-width: 0;
+    height: auto;
+    max-width: none !important;
+    z-index: 200;
+    align-items: stretch;
+    padding: 8px 0 10px !important;
+    margin: 0 !important;
     gap: 0 !important;
-    margin: 0 0 8px;
-    overflow: visible !important;
     background: var(--body-background-fill, #fff);
+    box-sizing: border-box;
+}
+/* On browsers with CSS anchor positioning, match the content area's actual
+   left/right bounds as the sidebar expands, collapses or changes width. */
+@supports (left: anchor(--hj-main-content left)) {
+    #hj-module-content {
+        anchor-name: --hj-main-content;
+    }
+    #hj-inbody-fixedbar {
+        left: anchor(--hj-main-content left);
+        right: calc(100vw - anchor(--hj-main-content right));
+    }
 }
 #hj-inbody-flow {
     position: relative;
@@ -121,11 +139,18 @@ INBODY_FLOW_CSS = """
     display: block;
     white-space: nowrap;
 }
-@media (max-width: 600px) {
-    #hj-inbody-sticky {
-        top: 0;
-        margin-bottom: 6px;
+@media (max-width: 700px) {
+    #hj-panel-inbody {
+        padding-top: 146px !important;
     }
+    #hj-inbody-fixedbar {
+        top: 0 !important;
+        left: 8px !important;
+        right: 8px !important;
+        padding: 5px 0 7px !important;
+    }
+}
+@media (max-width: 600px) {
     #hj-inbody-flow {
         padding: 6px 4px 8px;
         border-radius: 0 0 10px 10px;

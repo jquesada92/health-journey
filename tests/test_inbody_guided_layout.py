@@ -27,8 +27,10 @@ def test_inbody_steps_follow_users_real_actions_in_order():
     )
     positions = [INBODY.index(title) for title in titles]
     assert positions == sorted(positions)
-    assert 'elem_id="hj-inbody-flow"' in INBODY
-    assert "value=render_inbody_flow(1)" in INBODY
+    # The navbar is outside the scrolling InBody panel so it stays viewport-fixed.
+    assert 'elem_id="hj-inbody-flow"' in SOURCE
+    assert "value=render_inbody_flow(1)" in SOURCE
+    assert 'elem_id="hj-inbody-fixedbar"' not in INBODY
     assert INBODY.count('### 1. Carga tu examen') == 1
 
 

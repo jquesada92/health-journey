@@ -1,4 +1,4 @@
-"""Regression checks for the sticky InBody progress flow.
+"""Regression checks for the viewport-fixed InBody progress navbar.
 
 All tests are synthetic: no Gradio runtime, credentials, AI or SQL needed.
 """
@@ -60,36 +60,33 @@ def test_invalid_stage_fails_closed(invalid):
         render_inbody_flow(invalid)
 
 
-def test_sticky_container_is_first_inbody_element_and_has_mobile_grid():
-    assert "#hj-inbody-sticky {" in INBODY_FLOW_CSS
-    assert "#hj-panel-inbody {" in INBODY_FLOW_CSS
-    assert "overflow: visible !important;" in INBODY_FLOW_CSS
-    assert "position: sticky !important;" in INBODY_FLOW_CSS
-    assert "z-index: 50;" in INBODY_FLOW_CSS
-    assert "top: 0;" in INBODY_FLOW_CSS
+def test_fixed_navbar_is_viewport_attached_and_hides_outside_inbody():
+    assert "#hj-inbody-fixedbar {" in INBODY_FLOW_CSS
+    assert "position: fixed !important;" in INBODY_FLOW_CSS
+    assert "top: 0 !important;" in INBODY_FLOW_CSS
+    assert "z-index: 200;" in INBODY_FLOW_CSS
+    assert "padding-top: 180px !important;" in INBODY_FLOW_CSS
+    assert "padding-top: 146px !important;" in INBODY_FLOW_CSS
+    assert "anchor-name: --hj-main-content;" in INBODY_FLOW_CSS
     assert "grid-template-columns: repeat(5, minmax(0, 1fr))" in INBODY_FLOW_CSS
     assert "@media (max-width: 600px)" in INBODY_FLOW_CSS
     assert '<nav aria-label="Progreso del registro InBody"' in render_inbody_flow()
-    assert 'elem_id="hj-inbody-flow"' in INBODY
-    assert 'elem_id="hj-inbody-sticky"' in INBODY
+    assert 'with gr.Column(visible=False, elem_id="hj-inbody-fixedbar") as inbody_navbar:' in APP
+    assert 'elem_id="hj-inbody-flow"' in APP
+    assert 'elem_id="hj-inbody-fixedbar"' not in INBODY
+    assert "gr.update(visible=(section == \"inbody\"))" in APP
+    assert "outputs=[inbody_navbar, *module_panels, *nav_buttons]" in APP
     assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS" in APP
-
-    sticky = INBODY.index('with gr.Column(elem_id="hj-inbody-sticky"):')
-    stepper = INBODY.index('inbody_flow = gr.HTML(', sticky)
-    title = INBODY.index('gr.Markdown("## InBody · Registrar un examen"')
-    description = INBODY.index('"Sigue los pasos en orden:', title)
-    upload = INBODY.index('"### 1. Carga tu examen', description)
-    assert sticky < stepper < title < description < upload
+    assert 'gr.Markdown("## InBody · Registrar un examen"' in INBODY
     assert '# Health Journey · Asistente virtual de fitness y bienestar' not in APP
     assert APP.index('with gr.Accordion("Permisos de esta sesión"') < APP.index('with gr.Column(elem_id="hj-module-content")')
     assert APP.index('with gr.Sidebar(') < APP.index('with gr.Accordion("Permisos de esta sesión"')
-    # The progress is sticky within InBody, not a fixed overlay on other modules.
-    assert "position: fixed" not in INBODY_FLOW_CSS
-    assert "position: relative;" in INBODY_FLOW_CSS
+    assert "position: sticky !important;" not in INBODY_FLOW_CSS
+    assert "display: flex;" not in INBODY_FLOW_CSS.split("#hj-inbody-fixedbar {", 1)[1].split("}", 1)[0]
 
 
 def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
-    assert "inbody_flow = gr.HTML(" in INBODY
+    assert "inbody_flow = gr.HTML(" in APP
     assert "fn=progress_after_extract" in INBODY
     assert "fn=progress_after_validation" in INBODY
     assert "fn=progress_after_save" in INBODY
@@ -119,7 +116,7 @@ def test_real_actions_drive_progress_and_edit_invalidates_prior_validation():
 
 
 def test_flow_updates_do_not_reset_privacy_permissions_or_upload_snapshot():
-    flow = INBODY.split("inbody_flow = gr.HTML(", 1)[1]
+    flow = INBODY
     clear = flow.split("inbody_clear.click(", 1)[1].split(
         'with gr.Column(visible=False, elem_id="hj-panel-training") as training_panel:', 1
     )[0] if 'with gr.Column(visible=False, elem_id="hj-panel-training") as training_panel:' in flow else flow.split("inbody_clear.click(", 1)[1]

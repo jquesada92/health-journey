@@ -38,7 +38,8 @@ def test_four_vertical_sidebar_entries_without_tab_overflow():
 
 
 def test_sidebar_selection_updates_all_columns_without_remounting():
-    assert "outputs=[*module_panels, *nav_buttons]" in SOURCE
+    assert "outputs=[inbody_navbar, *module_panels, *nav_buttons]" in SOURCE
+    assert 'gr.update(visible=(section == "inbody"))' in SOURCE
     assert "fn=lambda key=key: switch_module(key)" in SOURCE
     assert 'gr.update(visible=(key == section))' in SOURCE
     assert 'gr.update(variant="primary" if key == section else "secondary")' in SOURCE

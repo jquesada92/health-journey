@@ -1,3 +1,26 @@
+## InBody: barra de progreso viewport-fixed (2026-11-03, corrige sticky)
+
+La petición final exige que los cinco pasos **no se muevan al hacer scroll**;
+`position: sticky` no cumplió el comportamiento esperado. La implementación
+actual está en la rama `fix/inbody-viewport-fixed-navbar-20261103`.
+`inbody_flow` es un HTML dentro de
+`gr.Column(visible=False, elem_id="hj-inbody-fixedbar")`, creado en el
+nivel superior del `gr.Blocks` para que ningún padre con scroll o
+`transform` lo arrastre. Su CSS usa `position: fixed !important;
+top: 0 !important`, con offset horizontal que respeta el contenido del
+menú lateral (CSS anchors con fallback), y espacio superior reservado en
+`#hj-panel-inbody`. El menú InBody pone visible el navbar; Proyecto,
+Entrenamientos y Chat lo ocultan mediante `switch_module`, sin remontar
+el `gr.HTML` ni alterar sus callbacks de estado. No introducir estilos
+`display` que sobrescriban la visibilidad de Gradio.
+
+Esto sustituye la instrucción anterior de no usar `position: fixed`.
+No reconstruir la barra como hijo del panel desplazable. Mantener el
+indicador compacto en móvil, verificar que no tape campos y confirmar
+en navegador real el scroll, el sidebar colapsado y cambio de módulo.
+Tests: `tests/test_inbody_flow.py`, `tests/test_inbody_guided_layout.py`
+y `tests/test_sidebar_navigation.py`. Sin migración de Neon.
+
 ## UI InBody: diagrama al inicio absoluto del módulo y sin título global duplicado (2026-11-03)
 
 Rama: `fix/inbody-top-sticky-progress-no-global-header-20261103`.
