@@ -60,7 +60,7 @@ def test_invalid_stage_fails_closed(invalid):
         render_inbody_flow(invalid)
 
 
-def test_sticky_container_follows_inbody_title_and_has_mobile_grid():
+def test_sticky_container_is_first_inbody_element_and_has_mobile_grid():
     assert "#hj-inbody-sticky {" in INBODY_FLOW_CSS
     assert "#hj-panel-inbody {" in INBODY_FLOW_CSS
     assert "overflow: visible !important;" in INBODY_FLOW_CSS
@@ -74,12 +74,15 @@ def test_sticky_container_follows_inbody_title_and_has_mobile_grid():
     assert 'elem_id="hj-inbody-sticky"' in INBODY
     assert "css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS" in APP
 
-    title = INBODY.index('gr.Markdown("## InBody · Registrar un examen"')
     sticky = INBODY.index('with gr.Column(elem_id="hj-inbody-sticky"):')
     stepper = INBODY.index('inbody_flow = gr.HTML(', sticky)
-    description = INBODY.index('"Sigue los pasos en orden:', stepper)
+    title = INBODY.index('gr.Markdown("## InBody · Registrar un examen"')
+    description = INBODY.index('"Sigue los pasos en orden:', title)
     upload = INBODY.index('"### 1. Carga tu examen', description)
-    assert title < sticky < stepper < description < upload
+    assert sticky < stepper < title < description < upload
+    assert '# Health Journey · Asistente virtual de fitness y bienestar' not in APP
+    assert APP.index('with gr.Accordion("Permisos de esta sesión"') < APP.index('with gr.Column(elem_id="hj-module-content")')
+    assert APP.index('with gr.Sidebar(') < APP.index('with gr.Accordion("Permisos de esta sesión"')
     # The progress is sticky within InBody, not a fixed overlay on other modules.
     assert "position: fixed" not in INBODY_FLOW_CSS
     assert "position: relative;" in INBODY_FLOW_CSS
