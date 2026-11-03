@@ -28,6 +28,7 @@ from inbody_mvp.app_auth import authenticate_master_demo, password_login_enabled
 from inbody_mvp.login_view import LOGIN_AUTH_MESSAGE
 from inbody_mvp.inbody_flow import INBODY_FLOW_CSS, render_inbody_flow
 from inbody_mvp.navigation import SIDEBAR_CSS, NAV_SECTIONS
+from inbody_mvp.coach_chat_ui import COACH_CHAT_CSS, COACH_CHAT_HEADER_HTML
 from inbody_mvp.project_overview import PROJECT_OVERVIEW
 from inbody_mvp.ai_coach import (
     answer_coach_question, coach_model_choices, default_coach_model,
@@ -1036,14 +1037,30 @@ with gr.Blocks(
             )
 
         with gr.Column(visible=False, elem_id="hj-panel-coach") as coach_panel:
-            gr.Markdown(
-                "## Chat con el asistente fitness\n"
-                "Tu analista de composición corporal y entrenador virtual. "
-                "Analiza las mediciones InBody revisadas y las series FitNotes "
-                "**guardadas** para darte recomendaciones según tus metas. "
-                "La IA no diagnostica ni sustituye la atención profesional."
-            )
-            with gr.Accordion("Mis objetivos y contexto", open=True):
+            # Messaging layout: independent Gemini selector, chat header,
+            # collapsible private context, chat bubbles and bottom composer.
+            gr.HTML(COACH_CHAT_HEADER_HTML, elem_id="hj-chat-header-host")
+            with gr.Row(elem_id="hj-chat-settings"):
+                coach_model = gr.Dropdown(
+                    label="Modelo Gemini Flash para el chat",
+                    choices=coach_model_choices(),
+                    value=default_coach_model(), scale=3,
+                )
+                coach_refresh_models = gr.Button(
+                    "Actualizar modelos", scale=1,
+                )
+
+            with gr.Accordion("Mis objetivos, contexto y privacidad", open=False):
+                gr.Markdown(
+                    "El asistente analiza mediciones InBody revisadas y "
+                    "entrenamientos FitNotes **guardados** para orientar "
+                    "tus metas. No reemplaza una valoración médica.\n\n"
+                    "**Privacidad:** los resúmenes solo se envían a Gemini "
+                    "al pulsar Enviar y con el permiso específico del chat. "
+                    "No se envían documentos, identificadores de InBody, "
+                    "comentarios FitNotes ni OCR bruto. La conversación "
+                    "permanece únicamente en esta sesión."
+                )
                 with gr.Row():
                     coach_report_id = gr.Textbox(
                         label="ID del reporte InBody (consulta privada)",
@@ -1064,34 +1081,41 @@ with gr.Blocks(
                     placeholder="Describe solo aquello que deseas compartir con la IA",
                     lines=2, max_lines=4,
                 )
-            with gr.Row():
-                coach_model = gr.Dropdown(
-                    label="Modelo Gemini Flash para el chat",
-                    choices=coach_model_choices(),
-                    value=default_coach_model(), scale=3,
-                )
-                coach_refresh_models = gr.Button("Actualizar modelos", scale=1)
-            gr.Markdown(
-                "El resumen de los entrenamientos y mediciones solo se envía a "
-                "Google Gemini al pulsar **Enviar**, y únicamente si activaste "
-                "el permiso específico para el chat. Los documentos, el ID, "
-                "los comentarios del gym y las respuestas OCR no se envían. "
-                "El historial del chat vive solo en esta sesión."
-            )
+
             coach_chat = gr.Chatbot(
-                label="Asistente fitness", height=430,
+                label=None,
+                show_label=False,
+                container=False,
+                layout="bubble",
+                height="min(64dvh, 660px)",
+                elem_id="hj-coach-chatbot",
+                autoscroll=True,
+                placeholder="**Tu asistente fitness está listo.**\n\n"
+                            "Escribe un mensaje para analizar tu progreso.",
+                buttons=[],
+                feedback_options=None,
             )
-            coach_context_status = gr.Markdown(
-                "Sin análisis aún. Puedes empezar con una pregunta sobre tus metas."
-            )
-            coach_question = gr.Textbox(
-                label="Pregunta al asistente",
-                placeholder="¿Qué ha cambiado en mis mediciones y mi fuerza en los últimos 90 días?",
-                lines=2, max_lines=4,
-            )
-            with gr.Row():
-                coach_send = gr.Button("Enviar", variant="primary")
-                coach_clear = gr.Button("Limpiar conversación")
+            with gr.Row(elem_id="hj-chat-utilities"):
+                coach_context_status = gr.Markdown(
+                    "Todavía no hay análisis. Empieza con una pregunta sobre tus metas.",
+                    elem_id="hj-coach-data-status",
+                )
+                coach_clear = gr.Button(
+                    "Limpiar conversación", variant="secondary", size="sm",
+                    elem_id="hj-chat-clear",
+                )
+            with gr.Row(elem_id="hj-chat-composer"):
+                coach_question = gr.Textbox(
+                    label="Mensaje para el asistente",
+                    show_label=False,
+                    placeholder="Escribe tu mensaje...",
+                    lines=1, max_lines=4, scale=8, min_width=170,
+                    elem_id="hj-chat-input",
+                )
+                coach_send = gr.Button(
+                    "Enviar", variant="primary", scale=1,
+                    min_width=90, elem_id="hj-chat-send",
+                )
 
             def coach_refresh_model_options():
                 try:
@@ -1206,7 +1230,7 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", "7860")),
         share=False,
         ssr_mode=False,
-        css=INBODY_FLOW_CSS + SIDEBAR_CSS,
+        css=INBODY_FLOW_CSS + SIDEBAR_CSS + COACH_CHAT_CSS,
         auth=authenticate_master_demo if password_login_enabled() else None,
         auth_message=LOGIN_AUTH_MESSAGE if password_login_enabled() else None,
         app_kwargs={
