@@ -1,5 +1,8 @@
 # 03 — Modelo de datos, nomenclatura y contratos de intercambio
 
+> **Contratos reales (2026-11-03):** [inventario y criterios](00_estado_vigente_y_trazabilidad.md). El flujo Gemini devuelve `header(person_id,exam_datetime,age)` y `measurements(section,measurement,value,unit)`; `filename` viene del archivo. En la UI el encabezado aparece **una sola vez** y la tabla editable muestra mediciones con `original_value`, `was_corrected`, `correction_comment`, `reviewed`, sin `frecuencia_khz`. Los decimales se preservan como texto. La auditoría privada se modela con `migrations/004–007`; FitNotes usa `migrations/008_fitnotes_training_hub.sql` y 1 fila por serie. El contrato CSV de **7 columnas** y `db/schema.sql` siguen en el repositorio para compatibilidad, pero **no representan el formulario activo** ni una exportación CSV actual en la interfaz. Nuevos campos medidos deben agregarse como filas, nunca columnas especiales. La existencia de DDL no confirma su despliegue en Neon; no exponer auditorías por defecto. La normalización de persona no equivale a aislamiento multiusuario: permanece P0.
+
+
 
 ## Identidad InBody: vinculación privada y seudónimo en consultas
 
