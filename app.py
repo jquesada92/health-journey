@@ -224,7 +224,7 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             )
         gemini_models_status = gr.Markdown(
             "Se consultan los modelos disponibles sin enviar el examen. "
-            "Los modelos gratuitos tienen cuotas; revisa si tu proyecto "
+            "Free Tier tiene cuotas de uso; revisa si tu proyecto "
             "tiene facturación activa."
         )
 
@@ -320,7 +320,15 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
             outputs=[gemini_table, gemini_snapshot, gemini_status],
             concurrency_limit=1,
         )
-        gemini_check = gr.Button("Validar revisión y correcciones", variant="secondary")
+        gr.Markdown(
+            "### 4. Valida todas las mediciones\n"
+            "Cuando termines de corregir la tabla y marcar **reviewed** en "
+            "todas las filas, pulsa **Validar revisión**. "
+            "Si falta algo, aparecerá un único aviso con lo que debes corregir. "
+            "**Este paso no guarda ni envía datos a la base de datos.**"
+        )
+        gemini_check = gr.Button("Validar revisión", variant="secondary")
+        gemini_review_status = gr.Markdown("Revisión pendiente: valida las filas antes de guardar.")
         def review_with_popup(table, snapshot):
             try:
                 result = review_status(table, snapshot)
@@ -335,29 +343,40 @@ with gr.Blocks(title="Health Journey", analytics_enabled=False, delete_cache=(60
         gemini_check.click(
             fn=review_with_popup,
             inputs=[gemini_table, gemini_snapshot],
-            outputs=[gemini_status],
+            outputs=[gemini_review_status],
         )
         gr.Markdown(
-            "### Guardar mediciones en la base de datos\n"
-            "Se utiliza tu autorización de guardado para esta sesión y una "
-            "conexión restringida de solo escritura. Se almacenan las mediciones "
-            "revisadas y su auditoría; el historial privado continúa protegido."
+            "### 5. Guarda el examen en la base de datos\n"
+            "Activa el **permiso para guardar datos** en la sección de "
+            "privacidad y pulsa **Guardar mediciones**. "
+            "Se almacenarán las mediciones revisadas y el registro de auditoría. "
+            "Antes de guardarlas, se verifican duplicados por archivo, "
+            "identificador, fecha y medición. "
+            "El permiso no publica tu examen ni envía nuevos datos a la IA."
         )
         if not audit_write_enabled():
             gr.Markdown(
-                "El guardado requiere configurar el Secret `DEMO_DATABASE_URL` "
-                "y `ENABLE_ANONYMOUS_DEMO=1`. No uses DATABASE_URL de administrador."
+                "**El guardado no está disponible en este entorno.** "
+                "Contacta al administrador de la aplicación para habilitarlo."
             )
-        gemini_overwrite = gr.Checkbox(
-            label="Confirmo sobrescribir mediciones anteriores cuando "
-                  "coincidan persona, fecha del examen y medición",
-            value=False,
-        )
+        with gr.Accordion("Opcional: actualizar un examen ya registrado", open=False):
+            gr.Markdown(
+                "Déjalo sin marcar para evitar reemplazar valores existentes. "
+                "Marca la opción solo cuando hayas comprobado que deseas "
+                "actualizar las mediciones de la misma persona y fecha."
+            )
+            gemini_overwrite = gr.Checkbox(
+                label="Confirmo sobrescribir mediciones anteriores cuando "
+                      "coincidan persona, fecha del examen y medición",
+                value=False,
+            )
         gemini_save = gr.Button(
-            "Guardar mediciones revisadas y auditoría",
+            "Guardar mediciones revisadas",
             interactive=audit_write_enabled(), variant="primary",
         )
-        gemini_save_status = gr.Markdown()
+        gemini_save_status = gr.Markdown(
+            "Sin datos guardados. Se mostrará una confirmación al completar el guardado."
+        )
 
         def save_review_and_clear(table, snapshot, consent, overwrite):
             try:
