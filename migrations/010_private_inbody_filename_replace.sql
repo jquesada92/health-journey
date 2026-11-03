@@ -44,6 +44,8 @@ DECLARE
     v_exam timestamp;
     v_old_id uuid;
     v_new_id uuid;
+    v_stamp text;
+    v_stamp_time timestamp;
     v_replaced_count integer := 0;
     v_archived_rows integer := 0;
     v_old_ids uuid[] := ARRAY[]::uuid[];
@@ -67,6 +69,18 @@ BEGIN
        RAISE EXCEPTION 'Invalid replacement metadata';
     END IF;
     v_exam := (p_payload->>'exam_datetime')::timestamp;
+    -- The first underscore is followed by YYYYMMDDHHMMSS.
+    -- Refuse a replacement with an OCR date, a mistyped timestamp,
+    -- or an impossible filename date; do not repair it silently.
+    v_stamp := substring(v_filename
+       FROM '^[^_]+_([0-9]{14})(?:[._-]|$)');
+    IF v_stamp IS NOT NULL THEN
+        v_stamp_time := to_timestamp(v_stamp, 'YYYYMMDDHH24MISS')::timestamp;
+        IF to_char(v_stamp_time, 'YYYYMMDDHH24MISS') <> v_stamp
+           OR v_exam IS DISTINCT FROM v_stamp_time THEN
+            RAISE EXCEPTION 'Filename and exam timestamp differ';
+        END IF;
+    END IF;
     IF btrim(p_payload->>'person_id') ~ '^[0-9[:space:]-]+$' THEN
         v_person_key := regexp_replace(p_payload->>'person_id', '[^0-9]', '', 'g');
     ELSE
