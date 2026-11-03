@@ -711,24 +711,32 @@ with gr.Blocks(
                 state, profile: gr.OAuthProfile | None = None,
                 request: gr.Request | None = None,
             ):
-                result = preflight_processed_upload(
-                    state, profile=profile, request=request
-                )
-                status = result["status"]
-                if status == "duplicate":
-                    gr.Warning(
-                        "Este archivo ya fue procesado. La extracción con Gemini "
-                        "está bloqueada para evitar consumir tokens."
+                try:
+                    result = preflight_processed_upload(
+                        state, profile=profile, request=request
                     )
-                elif status == "unverified":
-                    gr.Warning(
-                        "No se pudo comprobar si el archivo ya existe. "
-                        "La extracción podría consumir tokens de un duplicado."
+                    status = result["status"]
+                    if status == "duplicate":
+                        gr.Warning(
+                            "Este archivo ya fue procesado. La extracción con Gemini "
+                            "está bloqueada para evitar consumir tokens."
+                        )
+                    elif status == "unverified":
+                        gr.Warning(
+                            "No se pudo comprobar si el archivo ya existe. "
+                            "La extracción podría consumir tokens de un duplicado."
+                        )
+                    return (
+                        result["message"], result,
+                        gr.update(interactive=status in {"new", "unverified"}),
                     )
-                return (
-                    result["message"], result,
-                    gr.update(interactive=status in {"new", "unverified"}),
-                )
+                except Exception as exc:
+                    popup_error(exc, "No se pudo verificar el archivo seleccionado.")
+                    return (
+                        "No se verificó el archivo; vuelve a seleccionarlo.",
+                        None,
+                        gr.update(interactive=False),
+                    )
 
             def advance_after_duplicate_check(state, preflight):
                 if (not state or not isinstance(preflight, dict)
