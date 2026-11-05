@@ -63,10 +63,9 @@ GitHub Actions → pruebas y validación documental → despliegue a Hugging Fac
 | [`especificacion.md`](especificacion.md) | Especificación funcional de referencia; contrastar con el estado actual del harness. |
 | [`requirements.txt`](requirements.txt) | Dependencias principales de ejecución. |
 | [`requirements-ai.txt`](requirements-ai.txt) | Dependencias adicionales/experimentales de IA, no necesariamente incluidas en producción. |
-| [`.env.example`](.env.example) | Plantilla de variables de entorno sin credenciales. |
 | [`run_local.sh`](run_local.sh), [`run_local_ai.sh`](run_local_ai.sh) | Scripts auxiliares de arranque local. |
 
-La carpeta `.venv/` aparece en el árbol de GitHub, pero es un entorno local de Python, **no** un componente del producto ni un paquete para desplegar. Las dependencias de referencia son las declaradas en los archivos `requirements*.txt`.
+Los entornos virtuales (`.venv/`, `venv/`, `env/`) y los archivos `.env` no se versionan; se recrean localmente. Las dependencias se declaran en `requirements*.txt`. Configura las credenciales mediante variables de entorno privadas o secretos del servicio, conforme a [la guía de configuración](docs/hugging-face-variables-y-secrets.md).
 
 ### Ficheros clave de `inbody_mvp/`
 
@@ -91,7 +90,7 @@ La carpeta `.venv/` aparece en el árbol de GitHub, pero es un entorno local de 
 | [`navigation.py`](inbody_mvp/navigation.py), [`project_overview.py`](inbody_mvp/project_overview.py) | Navegación responsive e información de proyecto. |
 | [`module1_deliverable.py`](inbody_mvp/module1_deliverable.py) | Generación del documento académico desde la interfaz Proyecto. |
 
-Los ficheros `layouts*.py`, `spatial_rules.py`, `section_*.py`, `visual_editor*.py` y `visual_debug.py` incluyen implementaciones auxiliares, heredadas o experimentales de OCR y análisis espacial. **No** sustituyen el flujo principal de extracción mediante Gemini.
+Los ficheros `layouts*.py` y `section_ai.py` aún son dependencias indirectas del extractor; **no** sustituyen el flujo principal basado en Gemini. Se retiraron los editores visuales y otros módulos de OCR/análisis espacial sin uso en producción, junto con sus pruebas específicas.
 
 ### Prompts separados por funcionalidad
 

@@ -22,6 +22,7 @@ ARCHIVOS_OBLIGATORIOS = (
     "AGENTS.md",
     "especificacion.md",
     "requirements.txt",
+    "tests/test_repository_hygiene.py",
     "app.py",
     "inbody_mvp/__init__.py",
     "inbody_mvp/extractor.py",
@@ -280,7 +281,7 @@ def comprobar_cobertura_documental() -> list[str]:
         if root.is_dir():
             product_files.extend(root.glob(glob))
     for path in (
-        ".env.example", ".gitattributes", ".gitignore", "AGENTS.md",
+        ".gitattributes", ".gitignore", "AGENTS.md",
         "README.md", "especificacion.md", "requirements.txt",
         "requirements-ai.txt", "run_local.sh", "run_local_ai.sh",
     ):

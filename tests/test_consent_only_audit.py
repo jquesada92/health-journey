@@ -71,11 +71,11 @@ def test_removed_audit_flag_cannot_enable_anonymous_writes(monkeypatch):
 
 
 def test_single_documented_feature_flag():
-    example = (ROOT / ".env.example").read_text()
+    guide = (ROOT / "docs/hugging-face-variables-y-secrets.md").read_text()
     module = (ROOT / "inbody_mvp/gemini_review.py").read_text()
     app = (ROOT / "app.py").read_text()
-    assert "ENABLE_ANONYMOUS_AUDIT" not in example + module + app
-    assert example.count("ENABLE_ANONYMOUS_DEMO=0") == 1
+    assert "ENABLE_ANONYMOUS_AUDIT" not in module + app
+    assert "ENABLE_ANONYMOUS_DEMO" in guide
     assert "ENABLE_ANONYMOUS_DEMO" in module
     # Runtime still uses the feature flag, while UI shows a human-friendly
     # message and disables saving when that configuration is absent.

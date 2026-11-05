@@ -1,20 +1,55 @@
-# Local secrets and environments
-.env
-.env.*
-!.env.example
+# Entornos virtuales de Python (solo locales)
 .venv/
 venv/
+env/
+ENV/
+virtualenv/
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
+**/virtualenv/
+
+# Credenciales, secretos y configuraciones de entorno en cualquier carpeta
+.env
+.env.*
+*.env
+*.env.*
+.envrc
+
+# Cachés, empaquetado y reportes de pruebas
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-# InBody files / health data
+.pytype/
+.pyright/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+
+# IDE/SO, archivos temporales y logs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.log
+
+# Datos privados y archivos generados por la aplicación
 uploads/
 private_data/
 *.pdf
 *.jpg
 *.jpeg
 *.png
-# Generated reports / exports
 inbody_borrador_*.csv
