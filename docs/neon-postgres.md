@@ -51,7 +51,7 @@ En este MVP el `timestamp` es local y puede no tener zona horaria; no se inventa
 
 1. Abre [Neon Console](https://console.neon.tech), selecciona **health-journey** y pulsa **Connect**.
 2. Selecciona `main`, base `health_journey` y el rol correspondiente. Copia el connection string, con TLS `sslmode=require`. La URL contiene una contraseña: **no la compartas en chats ni la subas a GitHub**.
-3. En tu directorio local `health-journey`, crea `.env` a partir de `.env.example`. Actualiza `DATABASE_URL` con la URL privada de Neon y cambia `ENABLE_PERSISTENCE=1`.
+3. En tu terminal local, configura `DATABASE_URL` con la URL privada de Neon y `ENABLE_PERSISTENCE=1` como variables de entorno. No guardes credenciales en el repositorio ni crees archivos `.env` versionados. En Hugging Face utiliza **Settings → Variables and secrets → Secrets**.
 4. Instala dependencias e inicia Gradio localmente:
 
 ```bash

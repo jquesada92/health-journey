@@ -1,5 +1,10 @@
 # 11 — Inventario completo de `main` y cobertura documental
 
+> **Actualización de mantenimiento (2026-11-05).** Este PR propone retirar de `main` el entorno virtual `.venv/` previamente versionado (14.396 archivos), el archivo de ejemplo `.env.example`, seis módulos de código no utilizados en producción y cinco pruebas asociadas. Los inventarios y recuentos fechados antes de esta actualización permanecen a continuación como **fotografía histórica**, no como lista de archivos existentes después de la limpieza. Quedan **30 módulos Python** dentro de `inbody_mvp/`, **2 prompts**, `app.py` y **57 pruebas** (`test_*.py`, incluida `tests/test_repository_hygiene.py`). La configuración sensible debe residir únicamente en variables de entorno o secretos del servicio. Los archivos y directorios `.env`, `.env.*`, `env/`, `venv/` y `.venv/` están excluidos por `.gitignore`.
+
+**Rutas retiradas:** `.env.example`, `inbody_mvp/fitness_evidence.py`, `inbody_mvp/section_review.py`, `inbody_mvp/spatial_rules.py`, `inbody_mvp/visual_debug.py`, `inbody_mvp/visual_editor.py`, `inbody_mvp/visual_editor_ui.py`, `tests/test_header_roi_dotted_date.py`, `tests/test_section_review.py`, `tests/test_spatial_rules.py`, `tests/test_visual_debug.py`, `tests/test_visual_editor.py`.
+
+
 ## Reorganización documental — README vigente e historial (2026-11-03)
 
 `README.md` se simplifica a guía técnica: arquitectura, organización de directorios, responsabilidad de los módulos y archivos, flujos InBody/FitNotes/Chat y enlaces operativos. Se conserva el frontmatter de Hugging Face (`sdk: gradio`, `app_file: app.py`). El contenido previo se archiva **íntegro** en `docs/history/README-historico-2026-11-03.md` como fuente histórica, sin eliminar decisiones. `docs/indice_actual.md` señala qué documento es vigente y cuál es histórico. Este cambio es documental: no modifica código de la aplicación, SQL, datos personales ni secretos; requerirá comprobar links, CI y no inferir E2E. 

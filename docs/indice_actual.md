@@ -1,5 +1,7 @@
 # Índice de documentación y estado de funcionalidades · Health Journey
 
+**Mantenimiento (2026-11-05):** limpieza del entorno virtual versionado y archivos de configuración `.env*`; eliminación de seis módulos experimentales sin uso en producción y cinco pruebas asociadas. Consultar [el inventario actualizado](../harness/11_cobertura_codigo_main.md) y [la política `.gitignore`](../.gitignore). Los recuentos anteriores en este índice son históricos.
+
 
 **Fuente normativa principal:**
 [00 — estado vigente](../harness/00_estado_vigente_y_trazabilidad.md)
